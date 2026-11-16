@@ -18,7 +18,13 @@
   body { margin:0; font-family:-apple-system, "Roboto", "Segoe UI", sans-serif; background:var(--bez); color:var(--tekst); }
   header { background:var(--granat); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 18px 14px; display:flex; justify-content:space-between; align-items:center; }
   header .logo { height:34px; width:auto; display:block; }
-  header button { background:none; border:0; color:#fff; font-size:22px; }
+  header button { background:none; border:0; color:#fff; font-size:22px; padding:0 6px; }
+  header #btnPomoc { font-weight:700; border:2px solid #fff; border-radius:50%; width:28px; height:28px; font-size:16px; line-height:22px; margin-right:6px; }
+  .krok { background:#fff; border-radius:12px; padding:14px 16px; margin:12px 0; }
+  .krok h3 { margin:0 0 6px; color:var(--granat); font-size:16px; }
+  .krok ol { margin:6px 0 0; padding-left:20px; line-height:1.5; font-size:15px; }
+  .krok p { margin:4px 0; font-size:15px; line-height:1.5; }
+  .krok .tag { display:inline-block; font-size:12px; background:var(--bez); color:var(--granat); border-radius:6px; padding:2px 8px; margin-bottom:6px; }
   main { padding:18px; max-width:520px; margin:0 auto; }
   .start { width:100%; aspect-ratio:1/1; max-width:260px; margin:24px auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
            border-radius:50%; border:0; background:var(--granat); color:#fff; font-size:20px; box-shadow:0 10px 30px rgba(46,49,146,.35); }
@@ -41,7 +47,7 @@
 </style>
 </head>
 <body>
-<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span>Notatka po rozmowie</span><button id="btnUst" aria-label="Ustawienia">⚙</button></header>
+<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span>Notatka po rozmowie</span><span class="ikony"><button id="btnPomoc" aria-label="Instrukcja">?</button><button id="btnUst" aria-label="Ustawienia">⚙</button></span></header>
 <main>
   <section id="ekranGlos">
     <button class="start" id="btnStart"><span>🎙</span>Zacznij</button>
@@ -60,10 +66,27 @@
       <button data-a="alert">Alert</button>
       <button data-a="zadanie">Zadanie</button>
     </div>
-    <div id="boxTermin" class="ukryty"><label>Termin</label><input id="termin" type="datetime-local"></div>
+    <div id="boxTermin" class="ukryty"><label>Tytuł zadania</label><input id="tytul" placeholder="np. Wysłać ofertę najmu"><label>Termin</label><input id="termin" type="datetime-local"></div>
     <button class="glowny" id="btnZapisz">Zapisz do arkusza</button>
     <button class="drugi" id="btnNowa">Nowa notatka</button>
     <div id="komunikat"></div>
+  </section>
+
+  <section id="ekranInstr" class="ukryty">
+    <h2 style="color:var(--granat);margin:4px 0 2px">Jak zacząć</h2>
+    <p class="info">Zajmie to 3 minuty, robisz to tylko raz.</p>
+    <div class="krok"><h3>1. Zaloguj się</h3><p>Dotknij ⚙ i zaloguj się kontem <b>@kramm.pl</b>. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię”. Alerty i zadania trafią do Twojego Kalendarza Google.</p></div>
+    <div class="krok" id="krokIos"><span class="tag">iPhone</span><h3>2. Dodaj ikonę na ekran</h3>
+      <ol><li>Otwórz ten link w <b>Safari</b>.</li><li>Dotknij <b>Udostępnij</b> (kwadrat ze strzałką) na dole.</li><li>Wybierz <b>Do ekranu początkowego</b> -> <b>Dodaj</b>.</li><li>Przesuń ikonę KRAMM na dolny pasek, obok Telefonu.</li></ol>
+      <h3 style="margin-top:12px">Szybkie otwieranie: 2x stuknięcie w tył telefonu</h3>
+      <ol><li>Otwórz aplikację <b>Skróty</b> -> <b>+</b> -> <b>Dodaj czynność</b> -> <b>Otwórz adresy URL</b>.</li><li>Wpisz adres: <b>magdalenap-kramm.github.io/kramm-notatka</b> i nazwij skrót „Notatka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b> -> <b>Stuknięcie w tył</b> -> <b>Stuknij dwukrotnie</b> -> wybierz „Notatka KRAMM”.</li></ol></div>
+    <div class="krok" id="krokAndroid"><span class="tag">Android</span><h3>2. Zainstaluj aplikację</h3>
+      <button class="glowny ukryty" id="btnInstaluj" style="margin:6px 0 10px">Zainstaluj na telefonie</button>
+      <ol><li>Otwórz ten link w <b>Chrome</b>.</li><li>Dotknij <b>⋮</b> w prawym górnym rogu.</li><li>Wybierz <b>Zainstaluj aplikację</b> albo <b>Dodaj do ekranu głównego</b>.</li><li>Przesuń ikonę KRAMM obok ikony Telefonu.</li></ol></div>
+    <div class="krok"><h3>3. Po każdej rozmowie</h3>
+      <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: numer, kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”).</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
+      <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
+    <button class="glowny" id="btnInstrOk">Rozumiem</button>
   </section>
 
   <section id="ekranUst" class="ukryty">
@@ -81,7 +104,7 @@ const ust = () => { try { return JSON.parse(localStorage.getItem('kramm_ust') ||
 let akcja = 'brak';
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function pokaz(id) { ['#ekranGlos','#ekranForm','#ekranUst'].forEach(x => $(x).classList.toggle('ukryty', x !== id)); }
+function pokaz(id) { ['#ekranGlos','#ekranForm','#ekranUst','#ekranInstr'].forEach(x => $(x).classList.toggle('ukryty', x !== id)); }
 function ustawAkcje(a) {
   akcja = a;
   document.querySelectorAll('.akcje button').forEach(b => b.classList.toggle('on', b.dataset.a === a));
@@ -169,6 +192,7 @@ async function rozmowa() {
   const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
   ustawAkcje(a);
   if (a !== 'brak') {
+    $('#tytul').value = await zapytaj(a === 'alert' ? 'Jak nazwać przypomnienie?' : 'Jaki jest tytuł zadania?');
     const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
     $('#termin').value = lokalnyISO(rozpoznajTermin(t));
   }
@@ -212,7 +236,7 @@ async function api(url, opcje = {}) {
 }
 function zapiszUst(zm) { localStorage.setItem('kramm_ust', JSON.stringify({ ...ust(), ...zm })); }
 
-const NAGLOWKI = ['Data', 'Godzina', 'Numer telefonu', 'Kto dzwonił', 'Sprawa', 'Akcja', 'Termin', 'Status'];
+const NAGLOWKI = ['Data', 'Godzina', 'Numer telefonu', 'Kto dzwonił', 'Sprawa', 'Akcja', 'Tytuł zadania', 'Termin', 'Status'];
 async function przygotujArkusz() {
   const ja = await api('https://www.googleapis.com/oauth2/v3/userinfo');
   const imie = ja.given_name || (ja.name || '').split(' ')[0] || ja.email;
@@ -222,7 +246,10 @@ async function przygotujArkusz() {
   // szukamy arkusza założonego wcześniej przez aplikację
   const q = encodeURIComponent("name contains 'Rozmowy - ' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
   const lista = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id,name)`);
-  if (lista.files && lista.files.length) id = lista.files[0].id;
+  if (lista.files && lista.files.length) {
+    id = lista.files[0].id;
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/Rozmowy!A1:I1?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [NAGLOWKI] }) });
+  }
   else {
     const nowy = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({
       properties: { title: 'Rozmowy - ' + imie, locale: 'pl_PL', timeZone: 'Europe/Warsaw' },
@@ -233,7 +260,7 @@ async function przygotujArkusz() {
     await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [
       { updateCells: { start: { sheetId: sid, rowIndex: 0, columnIndex: 0 }, fields: 'userEnteredValue,userEnteredFormat',
         rows: [{ values: NAGLOWKI.map(n => ({ userEnteredValue: { stringValue: n }, userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, backgroundColor: { red: 0.18, green: 0.19, blue: 0.57 } } })) }] } },
-      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 0, endIndex: 8 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
+      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 0, endIndex: 9 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
       { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 320 }, fields: 'pixelSize' } }
     ] }) });
   }
@@ -265,7 +292,7 @@ async function wyslij(d) {
   if (d.akcja !== 'brak' && d.termin) {
     const start = new Date(d.termin), koniec = new Date(start.getTime() + 15 * 60000);
     await api('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({
-      summary: (d.akcja === 'alert' ? 'Oddzwonić: ' : 'Zadanie: ') + (d.kto || d.numer || '') + ' - ' + (d.sprawa || ''),
+      summary: d.tytul || ((d.akcja === 'alert' ? 'Oddzwonić: ' : 'Zadanie: ') + (d.kto || d.numer || '') + ' - ' + (d.sprawa || '')),
       description: `Numer: ${d.numer || '-'}\nKto: ${d.kto || '-'}\nSprawa: ${d.sprawa || '-'}`,
       start: { dateTime: start.toISOString() }, end: { dateTime: koniec.toISOString() },
       reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }, { method: 'popup', minutes: 0 }] }
@@ -273,8 +300,8 @@ async function wyslij(d) {
     status = 'W kalendarzu';
   }
   const t = new Date(d.czas), ter = d.termin ? new Date(d.termin) : null;
-  const wiersz = [fmtData(t), fmtGodz(t), "'" + (d.numer || ''), d.kto || '', d.sprawa || '', d.akcja, ter ? fmtData(ter) + ' ' + fmtGodz(ter) : '', status];
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:H:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+  const wiersz = [fmtData(t), fmtGodz(t), "'" + (d.numer || ''), d.kto || '', d.sprawa || '', d.akcja, d.tytul || '', ter ? fmtData(ter) + ' ' + fmtGodz(ter) : '', status];
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:I:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: [wiersz] }) });
 }
 function doKolejki(d) {
@@ -286,7 +313,7 @@ function zapisz() {
   const dane = {
     czas: new Date().toISOString(),
     numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
-    akcja, termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
+    akcja, tytul: akcja !== 'brak' ? $('#tytul').value.trim() : '', termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
   };
   if (!navigator.onLine) { doKolejki(dane); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; return; }
   zTokenem(async () => {
@@ -307,7 +334,7 @@ async function wyslijKolejke() {
   localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
 }
 function nowa() {
-  ['#numer','#kto','#sprawa','#termin'].forEach(x => $(x).value = '');
+  ['#numer','#kto','#sprawa','#tytul','#termin'].forEach(x => $(x).value = '');
   ustawAkcje('brak'); $('#komunikat').textContent = ''; pokaz('#ekranGlos');
 }
 
@@ -322,7 +349,18 @@ $('#btnWyloguj').onclick = () => { localStorage.removeItem('kramm_ust'); token =
 // numer z linku, np. ...?numer=570195243 (pod automatyczne uruchamianie z Androida)
 const q = new URLSearchParams(location.search);
 if (q.get('numer')) $('#numer').value = q.get('numer');
-if (!ust().arkusz) $('#btnUst').click();
+// instrukcja: przy pierwszym uruchomieniu i pod "?"
+const jestIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const jestAndroid = /android/i.test(navigator.userAgent);
+if (jestIos) $('#krokAndroid').classList.add('ukryty');
+if (jestAndroid) $('#krokIos').classList.add('ukryty');
+let instalacja = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instalacja = e; $('#btnInstaluj').classList.remove('ukryty'); });
+$('#btnInstaluj').onclick = async () => { if (instalacja) { instalacja.prompt(); instalacja = null; $('#btnInstaluj').classList.add('ukryty'); } };
+$('#btnPomoc').onclick = () => pokaz('#ekranInstr');
+$('#btnInstrOk').onclick = () => { localStorage.setItem('kramm_instr', '1'); ust().arkusz ? pokaz('#ekranGlos') : $('#btnUst').click(); };
+if (!localStorage.getItem('kramm_instr')) pokaz('#ekranInstr');
+else if (!ust().arkusz) $('#btnUst').click();
 window.addEventListener('online', wyslijKolejke); wyslijKolejke();
 </script>
 </body>
