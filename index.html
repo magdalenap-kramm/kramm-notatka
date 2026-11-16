@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2e3192">
+<title>KRAMM - Notatka po rozmowie</title>
+<style>
+  :root { --granat:#2e3192; --roz:#d8a7a0; --bez:#f4efe9; --tekst:#1d1d2b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system, "Roboto", "Segoe UI", sans-serif; background:var(--bez); color:var(--tekst); }
+  header { background:var(--granat); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 18px 14px; display:flex; justify-content:space-between; align-items:center; }
+  header b { letter-spacing:3px; font-size:18px; }
+  header button { background:none; border:0; color:#fff; font-size:22px; }
+  main { padding:18px; max-width:520px; margin:0 auto; }
+  .start { width:100%; aspect-ratio:1/1; max-width:260px; margin:24px auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
+           border-radius:50%; border:0; background:var(--granat); color:#fff; font-size:20px; box-shadow:0 10px 30px rgba(46,49,146,.35); }
+  .start span { font-size:56px; line-height:1; margin-bottom:8px; }
+  .start.slucha { background:var(--roz); color:var(--granat); animation:puls 1.2s infinite; }
+  @keyframes puls { 50% { transform:scale(1.04); } }
+  #pytanie { text-align:center; font-size:20px; min-height:56px; margin:6px 0; }
+  #slyszy { text-align:center; color:#666; min-height:24px; font-style:italic; }
+  label { display:block; font-size:13px; color:#555; margin:14px 0 4px; }
+  input, textarea, select { width:100%; padding:12px; font-size:17px; border:1px solid #cfc7bd; border-radius:10px; background:#fff; font-family:inherit; }
+  textarea { min-height:80px; }
+  .akcje { display:flex; gap:8px; }
+  .akcje button { flex:1; padding:12px 6px; border-radius:10px; border:1px solid var(--granat); background:#fff; color:var(--granat); font-size:15px; }
+  .akcje button.on { background:var(--granat); color:#fff; }
+  .glowny { width:100%; margin-top:20px; padding:16px; border:0; border-radius:12px; background:var(--granat); color:#fff; font-size:18px; }
+  .drugi { width:100%; margin-top:10px; padding:12px; border:0; background:none; color:var(--granat); font-size:15px; }
+  .ukryty { display:none; }
+  #komunikat { text-align:center; margin-top:14px; font-weight:600; min-height:22px; }
+  .info { font-size:14px; color:#555; line-height:1.5; }
+</style>
+</head>
+<body>
+<header><b>KRAMM</b><span>Notatka po rozmowie</span><button id="btnUst" aria-label="Ustawienia">⚙</button></header>
+<main>
+  <section id="ekranGlos">
+    <button class="start" id="btnStart"><span>🎙</span>Zacznij</button>
+    <div id="pytanie">Dotknij i odpowiedz na pytania po rozmowie.</div>
+    <div id="slyszy"></div>
+    <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
+  </section>
+
+  <section id="ekranForm" class="ukryty">
+    <label>Numer telefonu</label><input id="numer" type="tel" inputmode="tel">
+    <label>Kto dzwonił</label><input id="kto">
+    <label>Sprawa</label><textarea id="sprawa"></textarea>
+    <label>Co dalej</label>
+    <div class="akcje">
+      <button data-a="brak" class="on">Nic</button>
+      <button data-a="alert">Alert</button>
+      <button data-a="zadanie">Zadanie</button>
+    </div>
+    <div id="boxTermin" class="ukryty"><label>Termin</label><input id="termin" type="datetime-local"></div>
+    <button class="glowny" id="btnZapisz">Zapisz do arkusza</button>
+    <button class="drugi" id="btnNowa">Nowa notatka</button>
+    <div id="komunikat"></div>
+  </section>
+
+  <section id="ekranUst" class="ukryty">
+    <label>Imię agentki</label><input id="ustImie" placeholder="np. Sonia">
+    <label>Adres skryptu arkusza (URL wdrożenia Apps Script)</label><input id="ustUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <label>Hasło (opcjonalnie, jeśli ustawione w skrypcie)</label><input id="ustSekret">
+    <button class="glowny" id="btnUstZapisz">Zapisz ustawienia</button>
+    <p class="info">Wskazówka: dodaj tę stronę do ekranu głównego. Na iPhonie: Ustawienia -> Dostępność -> Dotyk -> Stuknięcie w tył -> Stuknij 2x -> wybierz skrót otwierający tę stronę. Na Androidzie: ikonę połóż obok aplikacji Telefon.</p>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const ust = () => { try { return JSON.parse(localStorage.getItem('kramm_ust') || '{}'); } catch(e) { return {}; } };
+let akcja = 'brak';
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function pokaz(id) { ['#ekranGlos','#ekranForm','#ekranUst'].forEach(x => $(x).classList.toggle('ukryty', x !== id)); }
+function ustawAkcje(a) {
+  akcja = a;
+  document.querySelectorAll('.akcje button').forEach(b => b.classList.toggle('on', b.dataset.a === a));
+  $('#boxTermin').classList.toggle('ukryty', a === 'brak');
+  if (a !== 'brak' && !$('#termin').value) $('#termin').value = lokalnyISO(domyslnyTermin());
+}
+document.querySelectorAll('.akcje button').forEach(b => b.onclick = () => ustawAkcje(b.dataset.a));
+
+function powiedz(t) {
+  return new Promise(res => {
+    if (!('speechSynthesis' in window)) return res();
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'pl-PL'; u.rate = 1.05;
+    const g = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('pl'));
+    if (g) u.voice = g;
+    u.onend = res; u.onerror = res;
+    speechSynthesis.speak(u);
+    setTimeout(res, 6000);
+  });
+}
+function sluchaj() {
+  return new Promise(res => {
+    const r = new SR();
+    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1;
+    let wynik = '';
+    r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
+    r.onerror = () => res(wynik);
+    r.onend = () => res(wynik.trim());
+    r.start();
+  });
+}
+async function zapytaj(tekst) {
+  $('#pytanie').textContent = tekst; $('#slyszy').textContent = '';
+  await powiedz(tekst);
+  $('#btnStart').classList.add('slucha');
+  const odp = await sluchaj();
+  $('#btnStart').classList.remove('slucha');
+  return odp;
+}
+
+// numer: "pięćset siedemdziesiąt..." rozpoznawanie zwykle zwraca cyfry; zostawiamy cyfry i +
+function wyczyscNumer(t) {
+  const slowa = {zero:0,jeden:1,jedynka:1,dwa:2,trzy:3,cztery:4,'pięć':5,'sześć':6,siedem:7,osiem:8,'dziewięć':9};
+  let s = t.toLowerCase().replace(/[a-ząćęłńóśźż]+/g, w => (w in slowa) ? String(slowa[w]) : ' ');
+  s = s.replace(/[^\d+]/g, '');
+  if (s.length === 11 && s.startsWith('48')) s = '+' + s;
+  return s;
+}
+function rozpoznajAkcje(t) {
+  t = t.toLowerCase();
+  if (/alert|przypom|oddzwo/.test(t)) return 'alert';
+  if (/zadani|zrobi|task/.test(t)) return 'zadanie';
+  return 'brak';
+}
+const DNI = ['niedziel','poniedział','wtor','środ','czwart','piąt','sobot'];
+function domyslnyTermin() { const d = new Date(); d.setHours(d.getHours() + 1, 0, 0, 0); return d; }
+function rozpoznajTermin(t) {
+  t = t.toLowerCase();
+  const d = new Date(); d.setSeconds(0, 0);
+  let dzienUstalony = false;
+  if (/pojutrze/.test(t)) { d.setDate(d.getDate() + 2); dzienUstalony = true; }
+  else if (/jutro/.test(t)) { d.setDate(d.getDate() + 1); dzienUstalony = true; }
+  else {
+    const i = DNI.findIndex(x => t.includes(x));
+    if (i >= 0) { let r = (i - d.getDay() + 7) % 7 || 7; d.setDate(d.getDate() + r); dzienUstalony = true; }
+  }
+  const zaGodz = t.match(/za (\d+|godzin)/);
+  if (zaGodz && !dzienUstalony) { const n = parseInt(zaGodz[1]) || 1; const x = new Date(); x.setMinutes(0,0,0); x.setHours(x.getHours() + n); return x; }
+  const g = t.match(/(\d{1,2})(?:[:. ](\d{2}))?/);
+  if (g) { d.setHours(+g[1], g[2] ? +g[2] : 0); }
+  else d.setHours(dzienUstalony ? 9 : d.getHours() + 1, 0);
+  if (!dzienUstalony && d < new Date()) d.setDate(d.getDate() + 1);
+  return d;
+}
+function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+async function rozmowa() {
+  if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
+  $('#btnStart').disabled = true;
+  const numer = await zapytaj('Z jakiego numeru dzwoniono?');
+  $('#numer').value = wyczyscNumer(numer) || numer;
+  $('#kto').value = await zapytaj('Kto dzwonił?');
+  $('#sprawa').value = await zapytaj('W jakiej sprawie?');
+  const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
+  ustawAkcje(a);
+  if (a !== 'brak') {
+    const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
+    $('#termin').value = lokalnyISO(rozpoznajTermin(t));
+  }
+  $('#btnStart').disabled = false;
+  $('#pytanie').textContent = '';
+  await powiedz('Sprawdź i zapisz.');
+  pokaz('#ekranForm');
+}
+
+async function zapisz() {
+  const u = ust();
+  if (!u.url) { $('#komunikat').textContent = 'Najpierw uzupełnij ustawienia (⚙).'; return; }
+  const dane = {
+    agentka: u.imie || '', sekret: u.sekret || '', czas: new Date().toISOString(),
+    numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
+    akcja, termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
+  };
+  $('#komunikat').textContent = 'Zapisuję...';
+  try {
+    await fetch(u.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dane) });
+    $('#komunikat').textContent = 'Zapisane ✓';
+    powiedz('Zapisane.');
+  } catch (e) {
+    const kolejka = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); kolejka.push(dane);
+    localStorage.setItem('kramm_kolejka', JSON.stringify(kolejka));
+    $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.';
+  }
+}
+async function wyslijKolejke() {
+  const u = ust(); let k = [];
+  try { k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); } catch(e) {}
+  if (!u.url || !k.length) return;
+  const zostaje = [];
+  for (const d of k) { try { await fetch(u.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(d) }); } catch(e) { zostaje.push(d); } }
+  localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
+}
+function nowa() {
+  ['#numer','#kto','#sprawa','#termin'].forEach(x => $(x).value = '');
+  ustawAkcje('brak'); $('#komunikat').textContent = ''; pokaz('#ekranGlos');
+}
+
+$('#btnStart').onclick = rozmowa;
+$('#btnRecznie').onclick = () => pokaz('#ekranForm');
+$('#btnZapisz').onclick = zapisz;
+$('#btnNowa').onclick = nowa;
+$('#btnUst').onclick = () => { const u = ust(); $('#ustImie').value = u.imie || ''; $('#ustUrl').value = u.url || ''; $('#ustSekret').value = u.sekret || ''; pokaz('#ekranUst'); };
+$('#btnUstZapisz').onclick = () => {
+  localStorage.setItem('kramm_ust', JSON.stringify({ imie: $('#ustImie').value.trim(), url: $('#ustUrl').value.trim(), sekret: $('#ustSekret').value.trim() }));
+  pokaz('#ekranGlos');
+};
+// numer z linku, np. ...?numer=570195243 (pod automatyczne uruchamianie z Androida)
+const q = new URLSearchParams(location.search);
+if (q.get('numer')) $('#numer').value = q.get('numer');
+if (!ust().url) $('#btnUst').click();
+window.addEventListener('online', wyslijKolejke); wyslijKolejke();
+</script>
+</body>
+</html>
