@@ -12,51 +12,106 @@
 <link rel="icon" href="ikona-192.png">
 <meta name="apple-mobile-web-app-title" content="KRAMM Notatka">
 <script src="https://accounts.google.com/gsi/client" async></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --granat:#2e3192; --roz:#d8a7a0; --bez:#f4efe9; --tekst:#1d1d2b; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:-apple-system, "Roboto", "Segoe UI", sans-serif; background:var(--bez); color:var(--tekst); }
-  header { background:var(--granat); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 18px 14px; display:flex; justify-content:space-between; align-items:center; }
-  header .logo { height:34px; width:auto; display:block; }
-  header button { background:none; border:0; color:#fff; font-size:22px; padding:0 6px; }
-  header #btnPomoc { font-weight:700; border:2px solid #fff; border-radius:50%; width:28px; height:28px; font-size:16px; line-height:22px; margin-right:6px; }
-  .krok { background:#fff; border-radius:12px; padding:14px 16px; margin:12px 0; }
-  .krok h3 { margin:0 0 6px; color:var(--granat); font-size:16px; }
-  .krok ol { margin:6px 0 0; padding-left:20px; line-height:1.5; font-size:15px; }
-  .krok p { margin:4px 0; font-size:15px; line-height:1.5; }
-  .krok .tag { display:inline-block; font-size:12px; background:var(--bez); color:var(--granat); border-radius:6px; padding:2px 8px; margin-bottom:6px; }
-  main { padding:18px; max-width:520px; margin:0 auto; }
-  .start { width:100%; aspect-ratio:1/1; max-width:260px; margin:24px auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
-           border-radius:50%; border:0; background:var(--granat); color:#fff; font-size:20px; box-shadow:0 10px 30px rgba(46,49,146,.35); }
-  .start span { font-size:56px; line-height:1; margin-bottom:8px; }
-  .start.slucha { background:var(--roz); color:var(--granat); animation:puls 1.2s infinite; }
-  @keyframes puls { 50% { transform:scale(1.04); } }
-  #pytanie { text-align:center; font-size:20px; min-height:56px; margin:6px 0; }
-  #slyszy { text-align:center; color:#666; min-height:24px; font-style:italic; }
-  label { display:block; font-size:13px; color:#555; margin:14px 0 4px; }
-  input, textarea, select { width:100%; padding:12px; font-size:17px; border:1px solid #cfc7bd; border-radius:10px; background:#fff; font-family:inherit; }
-  textarea { min-height:80px; }
+  @font-face { font-family:"Arlanda"; src:url("fonts/Arlanda-Script.otf") format("opentype"); font-display:swap; }
+  :root { --granat:#2e3192; --granat2:#4a4db0; --roz:#d8a7a0; --roz-j:#f3e2de; --bez:#f7f2ec; --tekst:#2a2a3a; --szary:#8a8494; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { min-height:100%; }
+  body { margin:0; font-family:"Roboto", -apple-system, "Segoe UI", sans-serif; font-weight:300; color:var(--tekst);
+         background:linear-gradient(180deg, #fbf8f5 0%, var(--bez) 55%, var(--roz-j) 100%); background-attachment:fixed; display:flex; flex-direction:column; min-height:100vh; }
+  header { background:var(--granat); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 18px 16px; display:flex; justify-content:space-between; align-items:center;
+           border-radius:0 0 22px 22px; box-shadow:0 6px 24px rgba(46,49,146,.18); }
+  header .logo { height:32px; width:auto; display:block; }
+  .ikony { display:flex; gap:8px; }
+  header button { background:rgba(255,255,255,.12); border:0; color:#fff; width:36px; height:36px; border-radius:50%; display:grid; place-items:center; padding:0; }
+  header button svg { width:19px; height:19px; }
+  main { padding:22px 20px 10px; max-width:520px; width:100%; margin:0 auto; flex:1; }
+  h2, .serif { font-family:"Cormorant Garamond", Georgia, serif; font-weight:600; }
+
+  /* karta agentki */
+  .agentka { display:flex; align-items:center; gap:14px; margin:4px 0 6px; }
+  .foto { width:64px; height:64px; border-radius:50%; object-fit:cover; object-position:center 20%; background:var(--roz-j);
+          border:2px solid #fff; box-shadow:0 0 0 2px var(--roz), 0 6px 16px rgba(46,49,146,.15); flex:none; }
+  .foto.brak { display:grid; place-items:center; color:var(--granat); font-family:"Cormorant Garamond", serif; font-size:28px; font-weight:600; }
+  .powitanie { font-family:"Cormorant Garamond", Georgia, serif; font-style:italic; font-size:27px; color:var(--granat); line-height:1.1; }
+  .podpowitanie { font-size:14px; color:var(--szary); margin-top:3px; }
+
+  /* mikrofon */
+  .mic-wrap { position:relative; width:190px; height:190px; margin:26px auto 14px; display:grid; place-items:center; }
+  .mic-wrap::before, .mic-wrap::after { content:""; position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--roz); opacity:.55; }
+  .mic-wrap::after { inset:14px; opacity:.35; }
+  .start { position:relative; z-index:1; width:136px; height:136px; border-radius:50%; border:0; cursor:pointer;
+           background:radial-gradient(circle at 35% 30%, var(--granat2), var(--granat) 70%); color:#fff;
+           display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+           box-shadow:0 14px 34px rgba(46,49,146,.32), inset 0 1px 0 rgba(255,255,255,.25); transition:transform .2s; }
+  .start:active { transform:scale(.96); }
+  .start svg { width:40px; height:40px; }
+  .start .napis { font-size:13px; letter-spacing:2.5px; text-transform:uppercase; font-weight:400; }
+  .fale { position:absolute; inset:0; border-radius:50%; pointer-events:none; }
+  .fale i { position:absolute; inset:24px; border-radius:50%; background:var(--roz); opacity:0; }
+  .slucha .fale i { animation:fala 2s ease-out infinite; }
+  .slucha .fale i:nth-child(2) { animation-delay:.65s; } .slucha .fale i:nth-child(3) { animation-delay:1.3s; }
+  @keyframes fala { 0% { transform:scale(.75); opacity:.45; } 100% { transform:scale(1.35); opacity:0; } }
+  .slucha .start { background:radial-gradient(circle at 35% 30%, #e7bdb6, var(--roz) 75%); color:var(--granat); }
+  .slupki { display:none; height:22px; align-items:center; gap:3px; }
+  .slupki b { width:3px; height:6px; border-radius:2px; background:currentColor; animation:slupek 1s ease-in-out infinite; }
+  .slupki b:nth-child(2){animation-delay:.15s} .slupki b:nth-child(3){animation-delay:.3s} .slupki b:nth-child(4){animation-delay:.45s} .slupki b:nth-child(5){animation-delay:.6s}
+  @keyframes slupek { 50% { height:20px; } }
+  .slucha .slupki { display:flex; } .slucha .start svg { display:none; }
+  .mowi .start { animation:oddech 1.6s ease-in-out infinite; }
+  @keyframes oddech { 50% { box-shadow:0 14px 44px rgba(46,49,146,.45), 0 0 0 10px rgba(216,167,160,.25); } }
+  .kropki { display:flex; justify-content:center; gap:7px; height:8px; margin-bottom:12px; }
+  .kropki i { width:7px; height:7px; border-radius:50%; background:#e3d7d0; transition:all .3s; }
+  .kropki i.on { background:var(--roz); } .kropki i.teraz { background:var(--granat); width:20px; border-radius:4px; }
+  #pytanie { text-align:center; font-family:"Cormorant Garamond", Georgia, serif; font-size:25px; font-weight:500; color:var(--granat); min-height:62px; margin:4px 8px; line-height:1.2; }
+  #slyszy { text-align:center; color:#b27e76; min-height:24px; font-style:italic; font-size:16px; margin:0 10px; }
+
+  /* formularz */
+  .karta { background:rgba(255,255,255,.85); border-radius:20px; padding:6px 18px 18px; box-shadow:0 8px 28px rgba(46,49,146,.08); }
+  label { display:block; font-size:12px; letter-spacing:1.4px; text-transform:uppercase; color:var(--szary); margin:16px 0 6px; font-weight:400; }
+  input, textarea, select { width:100%; padding:13px 14px; font-size:17px; border:1px solid #eadfd8; border-radius:14px; background:#fffdfb; font-family:inherit; font-weight:400; color:var(--tekst); outline:none; transition:border .2s, box-shadow .2s; }
+  input:focus, textarea:focus { border-color:var(--roz); box-shadow:0 0 0 3px rgba(216,167,160,.25); }
+  textarea { min-height:86px; resize:vertical; }
   .akcje { display:flex; gap:8px; }
-  .akcje button { flex:1; padding:12px 6px; border-radius:10px; border:1px solid var(--granat); background:#fff; color:var(--granat); font-size:15px; }
-  .akcje button.on { background:var(--granat); color:#fff; }
-  .glowny { width:100%; margin-top:20px; padding:16px; border:0; border-radius:12px; background:var(--granat); color:#fff; font-size:18px; }
-  .drugi { width:100%; margin-top:10px; padding:12px; border:0; background:none; color:var(--granat); font-size:15px; }
-  .ukryty { display:none; }
-  #komunikat { text-align:center; margin-top:14px; font-weight:600; min-height:22px; }
-  .info { font-size:14px; color:#555; line-height:1.5; }
+  .akcje button { flex:1; padding:11px 6px; border-radius:999px; border:1px solid #e3d3cc; background:#fff; color:var(--granat); font-size:15px; font-family:inherit; }
+  .akcje button.on { background:var(--granat); border-color:var(--granat); color:#fff; box-shadow:0 6px 16px rgba(46,49,146,.25); }
+  .glowny { width:100%; margin-top:22px; padding:16px; border:0; border-radius:999px; background:var(--granat); color:#fff; font-size:16px; letter-spacing:1.5px; text-transform:uppercase; font-family:inherit; font-weight:400; box-shadow:0 10px 24px rgba(46,49,146,.28); }
+  .drugi { width:100%; margin-top:10px; padding:12px; border:0; background:none; color:var(--granat); font-size:15px; font-family:inherit; text-decoration:underline; text-decoration-color:var(--roz); text-underline-offset:5px; }
+  .ukryty { display:none !important; }
+  #komunikat { text-align:center; margin-top:14px; font-weight:500; min-height:22px; color:var(--granat); }
+  .info { font-size:14px; color:#6f6878; line-height:1.55; }
+
+  /* instrukcja */
+  .krok { background:rgba(255,255,255,.85); border-radius:18px; padding:16px 18px; margin:12px 0; box-shadow:0 6px 20px rgba(46,49,146,.06); }
+  .krok h3 { margin:0 0 6px; color:var(--granat); font-size:20px; font-family:"Cormorant Garamond", Georgia, serif; font-weight:600; }
+  .krok ol { margin:6px 0 0; padding-left:20px; line-height:1.55; font-size:15px; }
+  .krok p { margin:4px 0; font-size:15px; line-height:1.55; }
+  .krok a { color:var(--granat); font-weight:500; }
+  .krok .tag { display:inline-block; font-size:11px; letter-spacing:1.2px; text-transform:uppercase; background:var(--roz-j); color:var(--granat); border-radius:999px; padding:3px 10px; margin-bottom:6px; }
+
+  footer { text-align:center; padding:14px 0 calc(16px + env(safe-area-inset-bottom)); color:var(--granat); }
+  footer .podpis { font-family:"Arlanda", "Cormorant Garamond", serif; font-size:30px; line-height:1; opacity:.85; }
+  footer .podpis small { font-family:"Cormorant Garamond", serif; font-style:italic; font-size:16px; margin-right:6px; opacity:.8; }
 </style>
 </head>
 <body>
-<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span>Notatka po rozmowie</span><span class="ikony"><button id="btnPomoc" aria-label="Instrukcja">?</button><button id="btnUst" aria-label="Ustawienia">⚙</button></span></header>
+<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span class="ikony"><button id="btnPomoc" aria-label="Instrukcja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button id="btnUst" aria-label="Konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg></button></span></header>
 <main>
   <section id="ekranGlos">
-    <button class="start" id="btnStart"><span>🎙</span>Zacznij</button>
-    <div id="pytanie">Dotknij i odpowiedz na pytania po rozmowie.</div>
+    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Zanotujmy, póki rozmowa jest świeża.</div></div></div>
+    <div class="mic-wrap" id="mic"><div class="fale"><i></i><i></i><i></i></div>
+      <button class="start" id="btnStart" aria-label="Zacznij"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span class="slupki"><b></b><b></b><b></b><b></b><b></b></span><span class="napis" id="napisMic">Zacznij</span></button></div>
+    <div class="kropki" id="kropki"></div>
+    <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
   </section>
 
   <section id="ekranForm" class="ukryty">
+    <h2 style="color:var(--granat);margin:2px 0 10px;font-size:28px">Sprawdź notatkę</h2>
+    <div class="karta">
     <label>Numer telefonu</label><input id="numer" type="tel" inputmode="tel">
     <label>Kto dzwonił</label><input id="kto">
     <label>Sprawa</label><textarea id="sprawa"></textarea>
@@ -67,13 +122,14 @@
       <button data-a="zadanie">Zadanie</button>
     </div>
     <div id="boxTermin" class="ukryty"><label>Tytuł zadania</label><input id="tytul" placeholder="np. Wysłać ofertę najmu"><label>Termin</label><input id="termin" type="datetime-local"></div>
+    </div>
     <button class="glowny" id="btnZapisz">Zapisz do arkusza</button>
     <button class="drugi" id="btnNowa">Nowa notatka</button>
     <div id="komunikat"></div>
   </section>
 
   <section id="ekranInstr" class="ukryty">
-    <h2 style="color:var(--granat);margin:4px 0 2px">Jak zacząć</h2>
+    <h2 style="color:var(--granat);margin:4px 0 2px;font-size:30px">Jak zacząć</h2>
     <p class="info">Zajmie to 3 minuty, robisz to tylko raz.</p>
     <div class="krok"><h3>1. Zaloguj się</h3><p>Dotknij ⚙ i zaloguj się kontem <b>@kramm.pl</b>. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię”. Alerty i zadania trafią do Twojego Kalendarza Google.</p></div>
     <div class="krok" id="krokIos"><span class="tag">iPhone</span><h3>2. Dodaj ikonę na ekran</h3>
@@ -100,6 +156,7 @@
     <p class="info">Wskazówka: dodaj tę stronę do ekranu głównego. Na iPhonie: Ustawienia -> Dostępność -> Dotyk -> Stuknięcie w tył -> Stuknij 2x -> wybierz skrót otwierający tę stronę. Na Androidzie: ikonę połóż obok aplikacji Telefon.</p>
   </section>
 </main>
+<footer><div class="podpis"><small>by</small>Magdalena Pyrc</div></footer>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -140,12 +197,18 @@ function sluchaj() {
     r.start();
   });
 }
+let krok = 0, krokow = 5;
+function rysujKropki() {
+  $('#kropki').innerHTML = krok ? Array.from({ length: krokow }, (_, i) => `<i class="${i + 1 < krok ? 'on' : i + 1 === krok ? 'teraz' : ''}"></i>`).join('') : '';
+}
 async function zapytaj(tekst) {
+  krok++; rysujKropki();
   $('#pytanie').textContent = tekst; $('#slyszy').textContent = '';
+  $('#mic').classList.add('mowi'); $('#napisMic').textContent = 'Pytam';
   await powiedz(tekst);
-  $('#btnStart').classList.add('slucha');
+  $('#mic').classList.remove('mowi'); $('#mic').classList.add('slucha'); $('#napisMic').textContent = 'Słucham';
   const odp = await sluchaj();
-  $('#btnStart').classList.remove('slucha');
+  $('#mic').classList.remove('slucha'); $('#napisMic').textContent = 'Zacznij';
   return odp;
 }
 
@@ -188,17 +251,20 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
   $('#btnStart').disabled = true;
+  krok = 0; krokow = 3 + ($('#numer').value ? 0 : 1) + ($('#kto').value ? 0 : 1);
   if (!$('#numer').value) { const numer = await zapytaj('Z jakiego numeru dzwoniono?'); $('#numer').value = wyczyscNumer(numer) || numer; }
   if (!$('#kto').value) $('#kto').value = await zapytaj('Kto dzwonił?');
   $('#sprawa').value = await zapytaj('W jakiej sprawie?');
   const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
   ustawAkcje(a);
   if (a !== 'brak') {
+    krokow += 2;
     $('#tytul').value = await zapytaj(a === 'alert' ? 'Jak nazwać przypomnienie?' : 'Jaki jest tytuł zadania?');
     const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
     $('#termin').value = lokalnyISO(rozpoznajTermin(t));
   }
   $('#btnStart').disabled = false;
+  krok = 0; rysujKropki();
   $('#pytanie').textContent = '';
   await powiedz('Sprawdź i zapisz.');
   pokaz('#ekranForm');
@@ -238,11 +304,35 @@ async function api(url, opcje = {}) {
 }
 function zapiszUst(zm) { localStorage.setItem('kramm_ust', JSON.stringify({ ...ust(), ...zm })); }
 
+const ZDJECIA = {
+  'dominika@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/21-210x210.png',
+  'zanna@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/19-210x210.png',
+  'wiktoria@kramm.pl': 'https://kramm.pl/wp-content/uploads/2018/02/WiktoriaB-1-210x210.png',
+  'barbara@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/20-210x210.png',
+  'magdalena@kramm.pl': 'https://kramm.pl/wp-content/uploads/2025/07/22-210x210.png',
+  'sonia@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/17-210x210.png',
+  'magdalena.k@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/18-210x210.png',
+  'magdalena.p@kramm.pl': 'https://kramm.pl/wp-content/uploads/2025/11/Magdalena-Pyrc-210x210.png',
+  'zarzadzanie@kramm.pl': 'https://kramm.pl/wp-content/uploads/2018/12/MagdaH-210x210.png'
+};
+function pokazAgentke() {
+  const u = ust();
+  const h = new Date().getHours();
+  const pora = h < 5 || h >= 18 ? 'Dobry wieczór' : 'Dzień dobry';
+  $('#powitanie').textContent = u.imie ? `${pora}, ${u.imie}` : pora;
+  const src = ZDJECIA[(u.email || '').toLowerCase()] || u.foto;
+  const box = $('#foto');
+  if (src) {
+    const img = new Image(); img.className = 'foto'; img.alt = u.imie || ''; img.referrerPolicy = 'no-referrer';
+    img.onload = () => box.replaceWith(img); img.onerror = () => { if (u.foto && img.src !== u.foto) img.src = u.foto; };
+    img.src = src;
+  } else box.textContent = (u.imie || 'K')[0];
+}
 const NAGLOWKI = ['Data', 'Godzina', 'Numer telefonu', 'Kto dzwonił', 'Sprawa', 'Akcja', 'Tytuł zadania', 'Termin', 'Status'];
 async function przygotujArkusz() {
   const ja = await api('https://www.googleapis.com/oauth2/v3/userinfo');
   const imie = ja.given_name || (ja.name || '').split(' ')[0] || ja.email;
-  zapiszUst({ email: ja.email, imie });
+  zapiszUst({ email: ja.email, imie, foto: ja.picture || '' });
   let id = ust().arkusz;
   if (id) { try { await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=spreadsheetId`); return id; } catch (e) { id = null; } }
   // szukamy arkusza założonego wcześniej przez aplikację
@@ -280,7 +370,7 @@ function pokazStanKonta() {
 function zaloguj() {
   zTokenem(async () => {
     $('#ustStan').textContent = 'Przygotowuję arkusz...';
-    try { await przygotujArkusz(); pokazStanKonta(); pokaz('#ekranGlos'); wyslijKolejke(); }
+    try { await przygotujArkusz(); pokazStanKonta(); pokazAgentke(); pokaz('#ekranGlos'); wyslijKolejke(); }
     catch (e) { $('#ustStan').textContent = 'Nie udało się: ' + e.message; }
   }, true);
 }
@@ -353,6 +443,7 @@ const q = new URLSearchParams(location.search);
 if (q.get('numer')) $('#numer').value = q.get('numer');
 if (q.get('kto')) $('#kto').value = q.get('kto');
 if (q.get('numer') || q.get('kto')) $('#pytanie').textContent = 'Rozmowa z: ' + (q.get('kto') || q.get('numer')) + '. Dotknij Zacznij.';
+pokazAgentke();
 // instrukcja: przy pierwszym uruchomieniu i pod "?"
 const jestIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const jestAndroid = /android/i.test(navigator.userAgent);
