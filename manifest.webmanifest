@@ -1,0 +1,12 @@
+{
+  "name": "KRAMM - Notatka po rozmowie",
+  "short_name": "KRAMM Notatka",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4efe9",
+  "theme_color": "#2e3192",
+  "icons": [
+    { "src": "ikona-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "ikona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

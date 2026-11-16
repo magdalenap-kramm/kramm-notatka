@@ -7,12 +7,17 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2e3192">
 <title>KRAMM - Notatka po rozmowie</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="ikona-192.png">
+<meta name="apple-mobile-web-app-title" content="KRAMM Notatka">
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
   :root { --granat:#2e3192; --roz:#d8a7a0; --bez:#f4efe9; --tekst:#1d1d2b; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system, "Roboto", "Segoe UI", sans-serif; background:var(--bez); color:var(--tekst); }
   header { background:var(--granat); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 18px 14px; display:flex; justify-content:space-between; align-items:center; }
-  header b { letter-spacing:3px; font-size:18px; }
+  header .logo { height:34px; width:auto; display:block; }
   header button { background:none; border:0; color:#fff; font-size:22px; }
   main { padding:18px; max-width:520px; margin:0 auto; }
   .start { width:100%; aspect-ratio:1/1; max-width:260px; margin:24px auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -36,7 +41,7 @@
 </style>
 </head>
 <body>
-<header><b>KRAMM</b><span>Notatka po rozmowie</span><button id="btnUst" aria-label="Ustawienia">⚙</button></header>
+<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span>Notatka po rozmowie</span><button id="btnUst" aria-label="Ustawienia">⚙</button></header>
 <main>
   <section id="ekranGlos">
     <button class="start" id="btnStart"><span>🎙</span>Zacznij</button>
@@ -62,10 +67,10 @@
   </section>
 
   <section id="ekranUst" class="ukryty">
-    <label>Imię agentki</label><input id="ustImie" placeholder="np. Sonia">
-    <label>Adres skryptu arkusza (URL wdrożenia Apps Script)</label><input id="ustUrl" placeholder="https://script.google.com/macros/s/.../exec">
-    <label>Hasło (opcjonalnie, jeśli ustawione w skrypcie)</label><input id="ustSekret">
-    <button class="glowny" id="btnUstZapisz">Zapisz ustawienia</button>
+    <p class="info" id="ustStan">Zaloguj się kontem KRAMM. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię” i będzie do niego dopisywać notatki. Alerty i zadania trafią do Twojego Kalendarza Google.</p>
+    <button class="glowny" id="btnZaloguj">Zaloguj przez Google</button>
+    <button class="drugi ukryty" id="btnOtworzArkusz">Otwórz mój arkusz</button>
+    <button class="drugi ukryty" id="btnWyloguj">Wyloguj</button>
     <p class="info">Wskazówka: dodaj tę stronę do ekranu głównego. Na iPhonie: Ustawienia -> Dostępność -> Dotyk -> Stuknięcie w tył -> Stuknij 2x -> wybierz skrót otwierający tę stronę. Na Androidzie: ikonę połóż obok aplikacji Telefon.</p>
   </section>
 </main>
@@ -173,36 +178,132 @@ async function rozmowa() {
   pokaz('#ekranForm');
 }
 
-async function zapisz() {
+// ---------- Google: logowanie, arkusz, kalendarz ----------
+const CLIENT_ID = '696449098485-ejg71rbdnanoqbm7rql7033stlmg7tfu.apps.googleusercontent.com';
+const SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+let token = null, tokenDo = 0, tokenClient = null, poTokenie = null;
+
+function initGoogle() {
+  if (tokenClient || !window.google || !google.accounts) return !!tokenClient;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, scope: SCOPES, hd: 'kramm.pl',
+    callback: r => {
+      if (r.error) { $('#komunikat').textContent = 'Logowanie przerwane.'; poTokenie = null; return; }
+      token = r.access_token; tokenDo = Date.now() + (r.expires_in - 60) * 1000;
+      const f = poTokenie; poTokenie = null; if (f) f();
+    }
+  });
+  return true;
+}
+function maToken() { return token && Date.now() < tokenDo; }
+// wywoływać bezpośrednio z kliknięcia (wymóg przeglądarek dla okienka Google)
+function zTokenem(f, wymus) {
+  if (maToken() && !wymus) return f();
+  if (!initGoogle()) { $('#komunikat').textContent = 'Ładuję logowanie Google, spróbuj za chwilę.'; return; }
+  poTokenie = f;
   const u = ust();
-  if (!u.url) { $('#komunikat').textContent = 'Najpierw uzupełnij ustawienia (⚙).'; return; }
+  tokenClient.requestAccessToken({ prompt: u.email && !wymus ? '' : 'consent', login_hint: u.email || undefined });
+}
+async function api(url, opcje = {}) {
+  const r = await fetch(url, { ...opcje, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opcje.headers || {}) } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || ('Błąd ' + r.status));
+  return j;
+}
+function zapiszUst(zm) { localStorage.setItem('kramm_ust', JSON.stringify({ ...ust(), ...zm })); }
+
+const NAGLOWKI = ['Data', 'Godzina', 'Numer telefonu', 'Kto dzwonił', 'Sprawa', 'Akcja', 'Termin', 'Status'];
+async function przygotujArkusz() {
+  const ja = await api('https://www.googleapis.com/oauth2/v3/userinfo');
+  const imie = ja.given_name || (ja.name || '').split(' ')[0] || ja.email;
+  zapiszUst({ email: ja.email, imie });
+  let id = ust().arkusz;
+  if (id) { try { await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=spreadsheetId`); return id; } catch (e) { id = null; } }
+  // szukamy arkusza założonego wcześniej przez aplikację
+  const q = encodeURIComponent("name contains 'Rozmowy - ' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+  const lista = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime desc&fields=files(id,name)`);
+  if (lista.files && lista.files.length) id = lista.files[0].id;
+  else {
+    const nowy = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({
+      properties: { title: 'Rozmowy - ' + imie, locale: 'pl_PL', timeZone: 'Europe/Warsaw' },
+      sheets: [{ properties: { title: 'Rozmowy', gridProperties: { frozenRowCount: 1 } } }]
+    }) });
+    id = nowy.spreadsheetId;
+    const sid = nowy.sheets[0].properties.sheetId;
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [
+      { updateCells: { start: { sheetId: sid, rowIndex: 0, columnIndex: 0 }, fields: 'userEnteredValue,userEnteredFormat',
+        rows: [{ values: NAGLOWKI.map(n => ({ userEnteredValue: { stringValue: n }, userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, backgroundColor: { red: 0.18, green: 0.19, blue: 0.57 } } })) }] } },
+      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 0, endIndex: 8 }, properties: { pixelSize: 140 }, fields: 'pixelSize' } },
+      { updateDimensionProperties: { range: { sheetId: sid, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 320 }, fields: 'pixelSize' } }
+    ] }) });
+  }
+  zapiszUst({ arkusz: id });
+  return id;
+}
+function pokazStanKonta() {
+  const u = ust();
+  const zalogowana = !!u.arkusz;
+  $('#ustStan').textContent = zalogowana ? `Zalogowana: ${u.email}. Notatki trafiają do arkusza „Rozmowy - ${u.imie}”.` : $('#ustStan').textContent;
+  $('#btnZaloguj').textContent = zalogowana ? 'Zaloguj ponownie' : 'Zaloguj przez Google';
+  $('#btnOtworzArkusz').classList.toggle('ukryty', !zalogowana);
+  $('#btnWyloguj').classList.toggle('ukryty', !zalogowana);
+}
+function zaloguj() {
+  zTokenem(async () => {
+    $('#ustStan').textContent = 'Przygotowuję arkusz...';
+    try { await przygotujArkusz(); pokazStanKonta(); pokaz('#ekranGlos'); wyslijKolejke(); }
+    catch (e) { $('#ustStan').textContent = 'Nie udało się: ' + e.message; }
+  }, true);
+}
+
+const pad = n => String(n).padStart(2, '0');
+const fmtData = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmtGodz = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+async function wyslij(d) {
+  const u = ust();
+  let status = '';
+  if (d.akcja !== 'brak' && d.termin) {
+    const start = new Date(d.termin), koniec = new Date(start.getTime() + 15 * 60000);
+    await api('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({
+      summary: (d.akcja === 'alert' ? 'Oddzwonić: ' : 'Zadanie: ') + (d.kto || d.numer || '') + ' - ' + (d.sprawa || ''),
+      description: `Numer: ${d.numer || '-'}\nKto: ${d.kto || '-'}\nSprawa: ${d.sprawa || '-'}`,
+      start: { dateTime: start.toISOString() }, end: { dateTime: koniec.toISOString() },
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }, { method: 'popup', minutes: 0 }] }
+    }) });
+    status = 'W kalendarzu';
+  }
+  const t = new Date(d.czas), ter = d.termin ? new Date(d.termin) : null;
+  const wiersz = [fmtData(t), fmtGodz(t), "'" + (d.numer || ''), d.kto || '', d.sprawa || '', d.akcja, ter ? fmtData(ter) + ' ' + fmtGodz(ter) : '', status];
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:H:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    { method: 'POST', body: JSON.stringify({ values: [wiersz] }) });
+}
+function doKolejki(d) {
+  const k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); k.push(d);
+  localStorage.setItem('kramm_kolejka', JSON.stringify(k));
+}
+function zapisz() {
+  if (!ust().arkusz) { $('#komunikat').textContent = 'Najpierw zaloguj się (⚙).'; return; }
   const dane = {
-    agentka: u.imie || '', sekret: u.sekret || '', czas: new Date().toISOString(),
+    czas: new Date().toISOString(),
     numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
     akcja, termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
   };
-  $('#komunikat').textContent = 'Zapisuję...';
-  let wynik;
-  try { wynik = await wyslij(u.url, dane); }
-  catch (e) {
-    const kolejka = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); kolejka.push(dane);
-    localStorage.setItem('kramm_kolejka', JSON.stringify(kolejka));
-    $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.';
-    return;
-  }
-  if (wynik && wynik.ok) { $('#komunikat').textContent = 'Zapisane ✓'; powiedz('Zapisane.'); }
-  else { $('#komunikat').textContent = 'Nie zapisano: ' + ((wynik && wynik.blad) || 'nieznany błąd arkusza'); }
-}
-async function wyslij(url, dane) {
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dane) });
-  try { return await r.json(); } catch (e) { return { ok: false, blad: 'Arkusz zwrócił nieczytelną odpowiedź' }; }
+  if (!navigator.onLine) { doKolejki(dane); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; return; }
+  zTokenem(async () => {
+    $('#komunikat').textContent = 'Zapisuję...';
+    try { await wyslij(dane); $('#komunikat').textContent = 'Zapisane ✓'; powiedz('Zapisane.'); }
+    catch (e) {
+      if (e instanceof TypeError) { doKolejki(dane); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; }
+      else $('#komunikat').textContent = 'Nie zapisano: ' + e.message;
+    }
+  });
 }
 async function wyslijKolejke() {
-  const u = ust(); let k = [];
-  try { k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); } catch(e) {}
-  if (!u.url || !k.length) return;
+  let k = [];
+  try { k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); } catch (e) {}
+  if (!k.length || !maToken()) return;
   const zostaje = [];
-  for (const d of k) { try { await wyslij(u.url, d); } catch(e) { zostaje.push(d); } }
+  for (const d of k) { try { await wyslij(d); } catch (e) { zostaje.push(d); } }
   localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
 }
 function nowa() {
@@ -214,15 +315,14 @@ $('#btnStart').onclick = rozmowa;
 $('#btnRecznie').onclick = () => pokaz('#ekranForm');
 $('#btnZapisz').onclick = zapisz;
 $('#btnNowa').onclick = nowa;
-$('#btnUst').onclick = () => { const u = ust(); $('#ustImie').value = u.imie || ''; $('#ustUrl').value = u.url || ''; $('#ustSekret').value = u.sekret || ''; pokaz('#ekranUst'); };
-$('#btnUstZapisz').onclick = () => {
-  localStorage.setItem('kramm_ust', JSON.stringify({ imie: $('#ustImie').value.trim(), url: $('#ustUrl').value.trim(), sekret: $('#ustSekret').value.trim() }));
-  pokaz('#ekranGlos');
-};
+$('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
+$('#btnZaloguj').onclick = zaloguj;
+$('#btnOtworzArkusz').onclick = () => window.open('https://docs.google.com/spreadsheets/d/' + ust().arkusz, '_blank');
+$('#btnWyloguj').onclick = () => { localStorage.removeItem('kramm_ust'); token = null; pokazStanKonta(); location.reload(); };
 // numer z linku, np. ...?numer=570195243 (pod automatyczne uruchamianie z Androida)
 const q = new URLSearchParams(location.search);
 if (q.get('numer')) $('#numer').value = q.get('numer');
-if (!ust().url) $('#btnUst').click();
+if (!ust().arkusz) $('#btnUst').click();
 window.addEventListener('online', wyslijKolejke); wyslijKolejke();
 </script>
 </body>
