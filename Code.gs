@@ -7,7 +7,8 @@
  * 1. Arkusz Google -> Rozszerzenia -> Apps Script -> wklej ten plik.
  * 2. Wdróż -> Nowe wdrożenie -> typ: Aplikacja internetowa
  *    Wykonaj jako: Ja | Kto ma dostęp: Każdy -> Wdróż -> zezwól na dostęp.
- * 3. Skopiuj adres URL wdrożenia i wklej go w aplikacji (Ustawienia).
+ * 3. Wybierz funkcję "autoryzuj" -> Uruchom -> zaznacz WSZYSTKIE zgody (arkusze i kalendarz).
+ * 4. Skopiuj adres URL wdrożenia i wklej go w aplikacji (Ustawienia).
  */
 
 const ARKUSZ = 'Rozmowy';
@@ -50,6 +51,12 @@ function doPost(e) {
   } catch (err) {
     return odp({ ok: false, blad: String(err) });
   }
+}
+
+/** Uruchom raz w edytorze (Uruchom -> autoryzuj), zaznacz wszystkie zgody. Tworzy też zakładkę Rozmowy. */
+function autoryzuj() {
+  arkusz_();
+  CalendarApp.getDefaultCalendar().getName();
 }
 
 function doGet() {

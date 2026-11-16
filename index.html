@@ -182,22 +182,27 @@ async function zapisz() {
     akcja, termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
   };
   $('#komunikat').textContent = 'Zapisuję...';
-  try {
-    await fetch(u.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dane) });
-    $('#komunikat').textContent = 'Zapisane ✓';
-    powiedz('Zapisane.');
-  } catch (e) {
+  let wynik;
+  try { wynik = await wyslij(u.url, dane); }
+  catch (e) {
     const kolejka = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); kolejka.push(dane);
     localStorage.setItem('kramm_kolejka', JSON.stringify(kolejka));
     $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.';
+    return;
   }
+  if (wynik && wynik.ok) { $('#komunikat').textContent = 'Zapisane ✓'; powiedz('Zapisane.'); }
+  else { $('#komunikat').textContent = 'Nie zapisano: ' + ((wynik && wynik.blad) || 'nieznany błąd arkusza'); }
+}
+async function wyslij(url, dane) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dane) });
+  try { return await r.json(); } catch (e) { return { ok: false, blad: 'Arkusz zwrócił nieczytelną odpowiedź' }; }
 }
 async function wyslijKolejke() {
   const u = ust(); let k = [];
   try { k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); } catch(e) {}
   if (!u.url || !k.length) return;
   const zostaje = [];
-  for (const d of k) { try { await fetch(u.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(d) }); } catch(e) { zostaje.push(d); } }
+  for (const d of k) { try { await wyslij(u.url, d); } catch(e) { zostaje.push(d); } }
   localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
 }
 function nowa() {
