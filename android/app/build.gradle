@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'pl.kramm.notatka'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'pl.kramm.notatka'
+        minSdk 26
+        targetSdk 34
+        versionCode((project.findProperty('versionCode') ?: '1').toInteger())
+        versionName "1.${project.findProperty('versionCode') ?: '0'}"
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('../kramm.keystore')
+            storePassword 'krammnotatka'
+            keyAlias 'kramm'
+            keyPassword 'krammnotatka'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

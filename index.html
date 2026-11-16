@@ -82,7 +82,10 @@
       <ol><li>Otwórz aplikację <b>Skróty</b> -> <b>+</b> -> <b>Dodaj czynność</b> -> <b>Otwórz adresy URL</b>.</li><li>Wpisz adres: <b>magdalenap-kramm.github.io/kramm-notatka</b> i nazwij skrót „Notatka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b> -> <b>Stuknięcie w tył</b> -> <b>Stuknij dwukrotnie</b> -> wybierz „Notatka KRAMM”.</li></ol></div>
     <div class="krok" id="krokAndroid"><span class="tag">Android</span><h3>2. Zainstaluj aplikację</h3>
       <button class="glowny ukryty" id="btnInstaluj" style="margin:6px 0 10px">Zainstaluj na telefonie</button>
-      <ol><li>Otwórz ten link w <b>Chrome</b>.</li><li>Dotknij <b>⋮</b> w prawym górnym rogu.</li><li>Wybierz <b>Zainstaluj aplikację</b> albo <b>Dodaj do ekranu głównego</b>.</li><li>Przesuń ikonę KRAMM obok ikony Telefonu.</li></ol></div>
+      <ol><li>Otwórz ten link w <b>Chrome</b>.</li><li>Dotknij <b>⋮</b> w prawym górnym rogu.</li><li>Wybierz <b>Zainstaluj aplikację</b> albo <b>Dodaj do ekranu głównego</b>.</li><li>Przesuń ikonę KRAMM obok ikony Telefonu.</li></ol>
+      <h3 style="margin-top:12px">3. Powiadomienie po każdej rozmowie</h3>
+      <p>Zainstaluj małą aplikację „KRAMM Notatka”. Po odebranej rozmowie przychodzącej pokaże powiadomienie „Dodaj notatkę” z numerem i nazwą kontaktu.</p>
+      <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
     <div class="krok"><h3>3. Po każdej rozmowie</h3>
       <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: numer, kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”).</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
@@ -185,9 +188,8 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
   $('#btnStart').disabled = true;
-  const numer = await zapytaj('Z jakiego numeru dzwoniono?');
-  $('#numer').value = wyczyscNumer(numer) || numer;
-  $('#kto').value = await zapytaj('Kto dzwonił?');
+  if (!$('#numer').value) { const numer = await zapytaj('Z jakiego numeru dzwoniono?'); $('#numer').value = wyczyscNumer(numer) || numer; }
+  if (!$('#kto').value) $('#kto').value = await zapytaj('Kto dzwonił?');
   $('#sprawa').value = await zapytaj('W jakiej sprawie?');
   const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
   ustawAkcje(a);
@@ -349,6 +351,8 @@ $('#btnWyloguj').onclick = () => { localStorage.removeItem('kramm_ust'); token =
 // numer z linku, np. ...?numer=570195243 (pod automatyczne uruchamianie z Androida)
 const q = new URLSearchParams(location.search);
 if (q.get('numer')) $('#numer').value = q.get('numer');
+if (q.get('kto')) $('#kto').value = q.get('kto');
+if (q.get('numer') || q.get('kto')) $('#pytanie').textContent = 'Rozmowa z: ' + (q.get('kto') || q.get('numer')) + '. Dotknij Zacznij.';
 // instrukcja: przy pierwszym uruchomieniu i pod "?"
 const jestIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const jestAndroid = /android/i.test(navigator.userAgent);

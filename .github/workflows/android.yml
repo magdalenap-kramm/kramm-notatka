@@ -1,0 +1,35 @@
+name: Aplikacja Android
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Zbuduj APK
+        run: gradle -p android assembleRelease -PversionCode=${{ github.run_number }}
+      - name: Przygotuj plik
+        run: cp android/app/build/outputs/apk/release/app-release.apk kramm-notatka.apk
+      - name: Opublikuj wydanie
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-${{ github.run_number }}
+          name: KRAMM Notatka Android 1.${{ github.run_number }}
+          files: kramm-notatka.apk
+          make_latest: true
