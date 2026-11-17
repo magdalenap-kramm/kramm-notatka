@@ -76,6 +76,9 @@ if not lektorki:
         lektorki.append({"id": slug, "nazwa": v["name"].split(" - ")[0], "opis": ", ".join(x for x in [lab.get("age", "").replace("_", " "), lab.get("descriptive") or lab.get("description")] if x)})
         print("OK", v["name"])
 
+TLUM = {'young': 'młodsza', 'middle aged': 'dojrzała', 'old': 'starsza', 'professional': 'profesjonalna', 'sassy': 'zadziorna', 'upbeat': 'pogodna', 'cute': 'słodka', 'calm': 'spokojna', 'warm': 'ciepła', 'confident': 'pewna siebie', 'casual': 'swobodna'}
+for l in lektorki:
+    l["opis"] = ", ".join(TLUM.get(x.strip(), x.strip()) for x in l["opis"].split(",") if x.strip())
 json.dump(lektorki, open("glos/lektorki.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print("Zapisano", len(lektorki), "lektorek")
 if not lektorki:
