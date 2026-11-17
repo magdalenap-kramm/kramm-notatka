@@ -150,7 +150,6 @@
     <div id="boxTermin" class="ukryty"><label>Tytuł zadania</label><input id="tytul" placeholder="np. Wysłać ofertę najmu"><label>Termin</label><input id="termin" type="datetime-local"></div>
     </div>
     <button class="glowny" id="btnZapisz">Zapisz do arkusza</button>
-    <button class="drugi" id="btnNowa">Nowa notatka</button>
     <button class="drugi" id="btnUsun" style="color:#b0544a;text-decoration-color:#e3b8b1">Usuń notatkę</button>
     <button class="drugi" id="btnFormWroc">← Wróć</button>
     <div id="komunikat"></div>
@@ -825,11 +824,14 @@ async function wyslijKolejke() {
   localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
   pokazKolejke();
 }
-let usunKlik = 0;
+// usuń od razu; przez 6 s można przywrócić
+let kopiaUsunietej = null, zegarPrzywroc = null;
 function usunNotatke() {
-  if (Date.now() - usunKlik > 4000) { usunKlik = Date.now(); $('#btnUsun').textContent = 'Na pewno? Dotknij jeszcze raz, żeby usunąć'; setTimeout(() => { $('#btnUsun').textContent = 'Usuń notatkę'; }, 4000); return; }
-  usunKlik = 0; $('#btnUsun').textContent = 'Usuń notatkę'; poczatek = ''; nowa();
-  $('#pytanie').textContent = 'Notatka usunięta.';
+  zapiszSzkic(); kopiaUsunietej = localStorage.getItem('kramm_szkic');
+  poczatek = ''; nowa();
+  $('#pytanie').innerHTML = 'Notatka usunięta. <button class="drugi" id="btnPrzywroc" style="width:auto;margin:0;padding:4px 8px">Przywróć</button>';
+  $('#btnPrzywroc').onclick = e => { e.stopPropagation(); if (kopiaUsunietej) { localStorage.setItem('kramm_szkic', kopiaUsunietej); wczytajSzkic(); pokaz('#ekranForm'); } $('#pytanie').textContent = ''; };
+  clearTimeout(zegarPrzywroc); zegarPrzywroc = setTimeout(() => { kopiaUsunietej = null; if ($('#btnPrzywroc')) $('#pytanie').textContent = ''; }, 6000);
 }
 function nowa() {
   ['#numer','#kto','#sprawa','#tytul','#termin'].forEach(x => $(x).value = '');
@@ -852,7 +854,6 @@ $('#btnInstrWroc').onclick = () => { localStorage.setItem('kramm_instr', '1'); p
 pokazBraki();
 $('#btnRecznie').onclick = () => { if (!poczatek) poczatek = new Date().toISOString(); pokaz('#ekranForm'); };
 $('#btnZapisz').onclick = zapisz;
-$('#btnNowa').onclick = nowa;
 $('#btnUsun').onclick = usunNotatke;
 $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
@@ -956,7 +957,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171528';
+const WERSJA = '202611171533';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
