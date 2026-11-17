@@ -25,6 +25,8 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/skroty" />
         </activity>
 
+        <receiver android:name=".NieTerazReceiver" android:exported="false" />
+
         <receiver
             android:name=".CallReceiver"
             android:exported="true"

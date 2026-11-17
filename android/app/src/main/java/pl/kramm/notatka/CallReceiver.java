@@ -110,9 +110,12 @@ public class CallReceiver extends BroadcastReceiver {
         String kto = nazwa != null && !nazwa.isEmpty() ? nazwa : (numer != null && !numer.isEmpty() ? numer : "nieznany numer");
         Notification n = new Notification.Builder(ctx, KANAL)
                 .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setContentTitle("Dodaj notatkę po rozmowie")
+                .setContentTitle("Zrobić notatkę z rozmowy?")
                 .setContentText("Rozmowa z: " + kto + ". Dotknij, aby zapisać.")
                 .setContentIntent(pi)
+                .addAction(new Notification.Action.Builder(null, "Zrób notatkę", pi).build())
+                .addAction(new Notification.Action.Builder(null, "Nie teraz",
+                        PendingIntent.getBroadcast(ctx, 2, new Intent(ctx, NieTerazReceiver.class), PendingIntent.FLAG_IMMUTABLE)).build())
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .build();
