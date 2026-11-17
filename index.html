@@ -272,14 +272,18 @@ const NAGRANIA = {
 const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
 const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : 'gosia_niska';
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
-function odblokujDzwiek() { try { odtwarzacz.src = 'glos/' + lektorka() + '/zapisane.mp3'; odtwarzacz.volume = 0; const p = odtwarzacz.play(); if (p) p.then(() => { odtwarzacz.pause(); odtwarzacz.volume = 1; }).catch(() => { odtwarzacz.volume = 1; }); } catch (e) {} }
+function odblokujDzwiek() { /* odtwarzanie startuje bezpośrednio z dotknięcia, osobne odblokowanie niepotrzebne */ }
+let zatrzymajDzwiek = () => {};
+function sesjaDzwieku(typ) { try { if (navigator.audioSession) navigator.audioSession.type = typ; } catch (e) {} }
 function zagraj(plik) {
   return new Promise(res => {
-    let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; res(ok); } };
-    odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false); odtwarzacz.onpause = () => koniec(true);
-    odtwarzacz.volume = 1; odtwarzacz.src = 'glos/' + lektorka() + '/' + plik + '.mp3';
+    let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; zatrzymajDzwiek = () => {}; res(ok); } };
+    zatrzymajDzwiek = () => { try { odtwarzacz.pause(); } catch (e) {} koniec(true); };
+    sesjaDzwieku('playback');   // iPhone: głośnik, nie słuchawka rozmów
+    odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false); odtwarzacz.onpause = null;
+    odtwarzacz.src = 'glos/' + lektorka() + '/' + plik + '.mp3';
     const p = odtwarzacz.play(); if (p) p.catch(() => koniec(false));
-    setTimeout(() => koniec(true), 9000);
+    setTimeout(() => koniec(!odtwarzacz.paused || odtwarzacz.currentTime > 0), 9000);
   });
 }
 function mowTelefonem(t) {
@@ -302,6 +306,7 @@ async function powiedz(t) {
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
 function sluchaj() {
+  sesjaDzwieku('play-and-record');
   return new Promise(res => {
     const r = new SR(); aktywne = r;
     r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1;
@@ -730,7 +735,7 @@ function nowa() {
 
 $('#btnStart').onclick = rozmowa;
 $('#btnCofnij').onclick = e => { e.stopPropagation(); if (!trwa) return; cofnijTeraz = true;
-  try { aktywne && aktywne.abort(); } catch (x) {} try { speechSynthesis.cancel(); } catch (x) {} try { odtwarzacz.pause(); } catch (x) {} };
+  try { aktywne && aktywne.abort(); } catch (x) {} try { speechSynthesis.cancel(); } catch (x) {} zatrzymajDzwiek(); };
 // w aucie: dotknięcie w dowolnym miejscu ekranu nagrywania startuje pytania
 $('#ekranGlos').addEventListener('click', e => { if (!trwa && !e.target.closest('button, a, input')) rozmowa(); });
 $('#btnKolejka').onclick = () => zTokenem(wyslijKolejke);
