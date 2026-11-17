@@ -77,6 +77,11 @@
   .wiersz { display:flex; gap:8px; }
   .wklej { flex:none; padding:0 16px; border-radius:14px; border:1px solid #e3d3cc; background:var(--roz-j); color:var(--granat); font-family:inherit; font-size:15px; }
   .powrot { background:var(--roz-j); color:var(--granat); border-radius:14px; padding:10px 14px; font-size:14px; margin:0 0 10px; }
+  .brak-karta { background:rgba(255,255,255,.88); border-radius:18px; padding:14px 16px; margin:12px 0; box-shadow:0 6px 20px rgba(46,49,146,.07); }
+  .brak-karta .kiedy { font-family:"Cormorant Garamond", Georgia, serif; font-size:24px; color:var(--granat); font-weight:600; }
+  .brak-karta .kto { font-weight:500; margin:2px 0; }
+  .brak-karta .co { font-size:14px; color:#6f6878; margin-bottom:10px; }
+  .brak-karta .gotowe { color:var(--granat); font-weight:500; }
   .akcje { display:flex; gap:8px; }
   .akcje button { flex:1; padding:11px 6px; border-radius:999px; border:1px solid #e3d3cc; background:#fff; color:var(--granat); font-size:15px; font-family:inherit; }
   .akcje button.on { background:var(--granat); border-color:var(--granat); color:#fff; box-shadow:0 6px 16px rgba(46,49,146,.25); }
@@ -111,6 +116,7 @@
     <div id="slyszy"></div>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="glowny ukryty" id="btnKolejka"></button>
+    <button class="glowny ukryty" id="btnBraki"></button>
   </section>
 
   <section id="ekranForm" class="ukryty">
@@ -133,6 +139,13 @@
     <div id="komunikat"></div>
   </section>
 
+  <section id="ekranUzup" class="ukryty">
+    <h2 style="color:var(--granat);margin:2px 0 4px;font-size:28px">Uzupełnij numery</h2>
+    <p class="info">Znajdź rozmowę na liście połączeń po godzinie, przytrzymaj numer, skopiuj i wklej tutaj.</p>
+    <div id="listaBrakow"></div>
+    <button class="drugi" id="btnUzupWroc">Wróć</button>
+  </section>
+
   <section id="ekranInstr" class="ukryty">
     <h2 style="color:var(--granat);margin:4px 0 2px;font-size:30px">Jak zacząć</h2>
     <p class="info">Zajmie to 3 minuty, robisz to tylko raz.</p>
@@ -151,7 +164,7 @@
       <p>Zainstaluj małą aplikację „KRAMM Notatka”. Po odebranej rozmowie przychodzącej pokaże powiadomienie „Dodaj notatkę” z numerem i nazwą kontaktu.</p>
       <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
     <div class="krok"><h3>3. Po każdej rozmowie</h3>
-      <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: numer, kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”).</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
+      <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Numeru nie dyktujesz. Aplikacja zapisuje godzinę rozmowy, a na postoju dotykasz „Uzupełnij numery” i wklejasz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
   </section>
@@ -172,7 +185,7 @@ const ust = () => { try { return JSON.parse(localStorage.getItem('kramm_ust') ||
 let akcja = 'brak';
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-function pokaz(id) { ['#ekranGlos','#ekranForm','#ekranUst','#ekranInstr'].forEach(x => $(x).classList.toggle('ukryty', x !== id)); }
+function pokaz(id) { ['#ekranGlos','#ekranForm','#ekranUst','#ekranInstr','#ekranUzup'].forEach(x => $(x).classList.toggle('ukryty', x !== id)); }
 function ustawAkcje(a) {
   akcja = a;
   document.querySelectorAll('.akcje button').forEach(b => b.classList.toggle('on', b.dataset.a === a));
@@ -194,7 +207,7 @@ function powiedz(t) {
     setTimeout(res, 6000);
   });
 }
-let aktywne = null, trwa = false, przerwano = false;
+let aktywne = null, trwa = false, przerwano = false, poczatek = '';
 function sluchaj() {
   return new Promise(res => {
     const r = new SR(); aktywne = r;
@@ -295,18 +308,7 @@ async function rozmowa() {
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
   krok = 0; krokow = 4 + ($('#kto').value ? 0 : 1);
-  if (!$('#numer').value) {
-    krokow += 2;
-    for (let proba = 0; proba < 3; proba++) {
-      const odp = await zapytaj(proba ? 'Powtórz numer, powoli, cyframi.' : 'Podaj numer telefonu.');
-      if (/pomi|później|potem|nie wiem|nie znam/i.test(odp)) break;
-      const n = wyczyscNumer(odp);
-      if (n.replace(/\D/g, '').length < 9) continue;
-      const ok = await zapytaj('Numer ' + czytajNumer(n) + '. Zgadza się?');
-      if (czyTak(ok)) { $('#numer').value = n; break; }
-      krok--;
-    }
-  }
+  if (!poczatek) poczatek = new Date().toISOString();
   if (!$('#kto').value) $('#kto').value = await zapytaj('Kto dzwonił?');
   $('#sprawa').value = await zapytaj('W jakiej sprawie?');
   const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
@@ -317,7 +319,7 @@ async function rozmowa() {
     const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
     $('#termin').value = lokalnyISO(rozpoznajTermin(t));
   }
-  const podsum = [$('#kto').value && 'Rozmowa z ' + $('#kto').value, $('#sprawa').value,
+  const podsum = [$('#kto').value && 'Rozmowa z ' + $('#kto').value, $('#sprawa').value, !$('#numer').value && 'Numer uzupełnisz później',
     akcja !== 'brak' && $('#termin').value && (akcja === 'alert' ? 'Przypomnienie ' : 'Zadanie ') + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
     .filter(Boolean).join('. ');
   krok = krokow - 1;
@@ -342,15 +344,15 @@ async function rozmowa() {
 // ---------- szkic: nic nie ginie po zminimalizowaniu ----------
 const POLA = ['#numer', '#kto', '#sprawa', '#tytul', '#termin'];
 function zapiszSzkic() {
-  const d = { akcja }; POLA.forEach(x => d[x] = $(x).value);
+  const d = { akcja, poczatek }; POLA.forEach(x => d[x] = $(x).value);
   if (POLA.some(x => d[x]) || akcja !== 'brak') localStorage.setItem('kramm_szkic', JSON.stringify(d));
 }
-function usunSzkic() { localStorage.removeItem('kramm_szkic'); $('#powrot').classList.add('ukryty'); }
+function usunSzkic() { poczatek = ''; localStorage.removeItem('kramm_szkic'); $('#powrot').classList.add('ukryty'); }
 function wczytajSzkic() {
   let d; try { d = JSON.parse(localStorage.getItem('kramm_szkic') || 'null'); } catch (e) {}
   if (!d) return false;
   POLA.forEach(x => { if (!$(x).value && d[x]) $(x).value = d[x]; });
-  ustawAkcje(d.akcja || 'brak');
+  ustawAkcje(d.akcja || 'brak'); poczatek = d.poczatek || '';
   return true;
 }
 document.addEventListener('visibilitychange', () => {
@@ -490,6 +492,7 @@ async function wyslij(d) {
     }) });
     status = 'W kalendarzu';
   }
+  if (!d.numer) { status = status ? status + ', brak numeru' : 'Brak numeru'; dodajBrak(1); }
   const t = new Date(d.czas), ter = d.termin ? new Date(d.termin) : null;
   const wiersz = [fmtData(t), fmtGodz(t), "'" + (d.numer || ''), d.kto || '', d.sprawa || '', d.akcja, d.tytul || '', ter ? fmtData(ter) + ' ' + fmtGodz(ter) : '', status];
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:I:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
@@ -501,7 +504,7 @@ function doKolejki(d) {
 }
 function daneZFormularza() {
   return {
-    czas: new Date().toISOString(),
+    czas: poczatek || new Date().toISOString(),
     numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
     akcja, tytul: akcja !== 'brak' ? $('#tytul').value.trim() : '', termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
   };
@@ -515,6 +518,50 @@ async function zapiszGlosowo() {
   doKolejki(dane); usunSzkic(); nowa(); pokazKolejke();
   await powiedz('Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.');
 }
+function dodajBrak(n) {
+  const v = Math.max(0, (+localStorage.getItem('kramm_braki') || 0) + n);
+  localStorage.setItem('kramm_braki', v); pokazBraki();
+}
+function pokazBraki() {
+  const n = +localStorage.getItem('kramm_braki') || 0;
+  $('#btnBraki').classList.toggle('ukryty', !n || !ust().arkusz);
+  $('#btnBraki').textContent = n === 1 ? 'Uzupełnij 1 numer' : `Uzupełnij numery (${n})`;
+}
+const esc = t => String(t || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function pokazUzupelnianie() {
+  pokaz('#ekranUzup');
+  $('#listaBrakow').innerHTML = '<p class="info">Wczytuję...</p>';
+  try {
+    const r = await api(`https://sheets.googleapis.com/v4/spreadsheets/${ust().arkusz}/values/Rozmowy!A2:I`);
+    const wiersze = (r.values || []).map((w, i) => ({ w, nr: i + 2 })).filter(x => !(x.w[2] || '').replace(/\D/g, '')).reverse();
+    localStorage.setItem('kramm_braki', wiersze.length); pokazBraki();
+    if (!wiersze.length) { $('#listaBrakow').innerHTML = '<p class="info">Wszystkie notatki mają numery.</p>'; return; }
+    const dzis = fmtData(new Date());
+    $('#listaBrakow').innerHTML = wiersze.map(({ w, nr }) => `
+      <div class="brak-karta" data-nr="${nr}">
+        <div class="kiedy">${esc(w[0] === dzis ? 'dziś' : w[0])}, ${esc(w[1])}</div>
+        <div class="kto">${esc(w[3] || 'bez nazwy')}</div>
+        <div class="co">${esc(w[4])}</div>
+        <div class="wiersz"><input type="tel" inputmode="tel" placeholder="Numer telefonu"><button type="button" class="wklej">Wklej</button></div>
+        <button class="glowny" style="margin-top:10px;padding:12px">Zapisz numer</button>
+      </div>`).join('');
+    $('#listaBrakow').querySelectorAll('.brak-karta').forEach(k => {
+      const pole = k.querySelector('input');
+      k.querySelector('.wklej').onclick = async () => {
+        try { const t = await navigator.clipboard.readText(); const n = wyczyscNumer(t); pole.value = n.length >= 9 ? n : t.trim(); }
+        catch (e) { pole.focus(); }
+      };
+      k.querySelector('.glowny').onclick = async () => {
+        const n = pole.value.trim(); if (!n) { pole.focus(); return; }
+        try {
+          await api(`https://sheets.googleapis.com/v4/spreadsheets/${ust().arkusz}/values/Rozmowy!C${k.dataset.nr}?valueInputOption=USER_ENTERED`,
+            { method: 'PUT', body: JSON.stringify({ values: [["'" + n]] }) });
+          k.innerHTML = `<div class="gotowe">✓ ${esc(n)} zapisany</div>`; dodajBrak(-1);
+        } catch (e) { pole.insertAdjacentHTML('afterend', `<p class="info">Nie zapisano: ${esc(e.message)}</p>`); }
+      };
+    });
+  } catch (e) { $('#listaBrakow').innerHTML = `<p class="info">Nie udało się wczytać: ${esc(e.message)}</p>`; }
+}
 function pokazKolejke() {
   let k = []; try { k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); } catch (e) {}
   $('#btnKolejka').classList.toggle('ukryty', !k.length);
@@ -523,7 +570,7 @@ function pokazKolejke() {
 function zapisz() {
   if (!ust().arkusz) { $('#komunikat').textContent = 'Najpierw zaloguj się (⚙).'; return; }
   const dane = {
-    czas: new Date().toISOString(),
+    czas: poczatek || new Date().toISOString(),
     numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
     akcja, tytul: akcja !== 'brak' ? $('#tytul').value.trim() : '', termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
   };
@@ -556,7 +603,10 @@ $('#btnStart').onclick = rozmowa;
 $('#ekranGlos').addEventListener('click', e => { if (!trwa && !e.target.closest('button, a, input')) rozmowa(); });
 $('#btnKolejka').onclick = () => zTokenem(wyslijKolejke);
 pokazKolejke();
-$('#btnRecznie').onclick = () => pokaz('#ekranForm');
+$('#btnBraki').onclick = () => zTokenem(pokazUzupelnianie);
+$('#btnUzupWroc').onclick = () => pokaz('#ekranGlos');
+pokazBraki();
+$('#btnRecznie').onclick = () => { if (!poczatek) poczatek = new Date().toISOString(); pokaz('#ekranForm'); };
 $('#btnZapisz').onclick = zapisz;
 $('#btnNowa').onclick = nowa;
 $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
