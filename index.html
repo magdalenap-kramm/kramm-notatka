@@ -111,6 +111,8 @@
 
   footer { text-align:center; padding:14px 0 calc(16px + env(safe-area-inset-bottom)); color:var(--granat); }
   footer .podpis { font-family:"Arlanda", "Cormorant Garamond", serif; font-size:30px; line-height:1; opacity:.85; }
+  footer .atrybucja { font-size:11px; letter-spacing:.5px; color:var(--szary); margin-top:4px; }
+  footer .atrybucja a { color:var(--szary); }
   footer .podpis small { font-family:"Cormorant Garamond", serif; font-style:italic; font-size:16px; margin-right:6px; opacity:.8; }
 </style>
 </head>
@@ -226,7 +228,7 @@
   </div>
   <button class="drugi" id="btnIkonaPozniej">Nie teraz</button>
 </div><div class="strzalka ukryty" id="strzalka">↓</div></div>
-<footer><div class="podpis"><small>by</small>Magdalena Pyrc</div></footer>
+<footer><div class="podpis"><small>by</small>Magdalena Pyrc</div><div class="atrybucja ukryty" id="atrybucja">Głosy lektorek: <a href="https://elevenlabs.io" target="_blank" rel="noopener">ElevenLabs</a></div></footer>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -278,6 +280,7 @@ fetch('glos/lektorki.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : [
   const nowe = {}; lista.forEach(l => nowe[l.id] = l.nazwa + (l.opis ? ' - ' + l.opis : ''));
   Object.keys(LEKTORKI).forEach(k => { nowe[k] = LEKTORKI[k].replace('Lektorka', 'Gosia').replace(' (polecany)', ''); });
   Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]); Object.assign(LEKTORKI, nowe);
+  $('#atrybucja').classList.remove('ukryty');
   DOMYSLNA = lista[0].id; if (typeof wypelnijGlosy === 'function') wypelnijGlosy();
 }).catch(() => {});
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
