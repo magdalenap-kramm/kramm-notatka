@@ -272,17 +272,17 @@ const NAGRANIA = {
   'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Kto dzwonił?': 'probka'
 };
 const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
-let DOMYSLNA = 'gosia_niska';
-const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : DOMYSLNA;
-// lektorki ElevenLabs (jeśli nagrane): na górze listy, pierwsza jest domyślna
+let DOMYSLNA = 'el_alice_clear_engaging_edu';
+Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]);
+LEKTORKI.el_alice_clear_engaging_edu = 'Alice - dojrzała, profesjonalna';
+LEKTORKI.el_lily_velvety_actress = 'Lily - dojrzała, pewna siebie';
 fetch('glos/lektorki.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : []).then(lista => {
   if (!Array.isArray(lista) || !lista.length) return;
-  const nowe = {}; lista.forEach(l => nowe[l.id] = l.nazwa + (l.opis ? ' - ' + l.opis : ''));
-  Object.keys(LEKTORKI).forEach(k => { nowe[k] = LEKTORKI[k].replace('Lektorka', 'Gosia').replace(' (polecany)', ''); });
-  Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]); Object.assign(LEKTORKI, nowe);
-  $('#atrybucja').classList.remove('ukryty');
+  Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]);
+  lista.forEach(l => LEKTORKI[l.id] = l.nazwa + (l.opis ? ' - ' + l.opis : ''));
   DOMYSLNA = lista[0].id; if (typeof wypelnijGlosy === 'function') wypelnijGlosy();
 }).catch(() => {});
+document.getElementById('atrybucja') && document.getElementById('atrybucja').classList.remove('ukryty');
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
 function odblokujDzwiek() { /* odtwarzanie startuje bezpośrednio z dotknięcia, osobne odblokowanie niepotrzebne */ }
 let zatrzymajDzwiek = () => {};
@@ -313,7 +313,7 @@ function mowTelefonem(t) {
 }
 async function powiedz(t) {
   const plik = NAGRANIA[t];
-  if (plik && !ust().glosTelefonu) { if (await zagraj(plik)) return; }
+  if (plik) { if (await zagraj(plik)) return; }
   return mowTelefonem(t);
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
@@ -765,8 +765,8 @@ $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
 function wypelnijGlosy() {
   const gl = polskieGlosy(), wyb = wybierzGlos();
-  const nagr = Object.entries(LEKTORKI).map(([k, n]) => `<option value="lek:${k}"${!ust().glosTelefonu && lektorka() === k ? ' selected' : ''}>${n}</option>`).join('');
-  $('#wyborGlosu').innerHTML = nagr + (gl.length ? gl.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}"${ust().glosTelefonu && wyb && v.name === wyb.name ? ' selected' : ''}>${v.name.replace(/</g, '&lt;')}</option>`).join('') : '');
+  const nagr = Object.entries(LEKTORKI).map(([k, n]) => `<option value="lek:${k}"${lektorka() === k ? ' selected' : ''}>${n}</option>`).join('');
+  $('#wyborGlosu').innerHTML = nagr;
 }
 $('#wyborGlosu').onchange = () => { const v = $('#wyborGlosu').value; zapiszUst(v.startsWith('lek:') ? { glosTelefonu: false, lektorka: v.slice(4) } : { glos: v, glosTelefonu: true }); };
 $('#btnPosluchaj').onclick = () => { odblokujDzwiek(); powiedz('Dzień dobry. Kto dzwonił?'); };
