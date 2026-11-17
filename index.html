@@ -126,7 +126,7 @@
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
     <button class="glowny ukryty" id="btnMow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg>Mów</button>
-    <div id="diag" style="text-align:center;font-size:11px;color:var(--szary);min-height:14px;margin-top:4px"></div>
+    <div id="diag" style="text-align:center;font-size:13px;color:#8a6f6a;min-height:14px;margin-top:4px"></div>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
@@ -338,18 +338,30 @@ function diag(t) { const d = $('#diag'); if (d) d.textContent = t; }
 function wlaczRozpoznawanie() {}
 function wylaczRozpoznawanie() { slucham = false; try { rozp && rozp.abort(); } catch (e) {} trybRozmowy(false); }
 // nowa sesja rozpoznawania; start od razu (ważne: w przycisku "Mów" musi być wywołane bezpośrednio z dotknięcia)
+// dziennik diagnostyczny (ostatnie zdarzenia mikrofonu), zapisywany do arkusza w zakładce Diagnostyka
+const dziennik = [];
+function loguj(t) { const d = new Date(); dziennik.push(`${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(Math.floor(d.getMilliseconds()/100))} ${t}`); if (dziennik.length > 150) dziennik.shift(); }
 function nowaSesja() {
   return new Promise(res => {
     const r = new SR(); rozp = r; aktywne = r;
-    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
-    let wynik = '', blad = '', koniec = false;
-    const zakoncz = () => { if (!koniec) { koniec = true; res({ wynik: wynik.trim(), blad }); } };
-    r.onstart = () => diag('mikrofon: włączony');
-    r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
-    r.onerror = e => { blad = e.error || 'błąd'; diag('mikrofon: ' + blad); if (BLEDY_MIKROFONU[blad]) $('#slyszy').textContent = BLEDY_MIKROFONU[blad]; };
-    r.onend = () => setTimeout(zakoncz, 50);
-    try { r.start(); } catch (e) { blad = 'start'; diag('mikrofon: nie wystartował'); zakoncz(); }
-    setTimeout(() => { try { r.stop(); } catch (e) {} }, 15000);
+    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;   // nie kończ przy pierwszej pauzie
+    let wynik = '', blad = '', koniec = false, ostatni = 0, pocz = Date.now();
+    const zakoncz = () => { if (!koniec) { koniec = true; clearInterval(t); loguj('koniec: "' + wynik.trim() + '"' + (blad ? ' błąd=' + blad : '')); res({ wynik: wynik.trim(), blad }); } };
+    r.onstart = () => { diag('mikrofon: włączony'); loguj('start'); };
+    r.onaudiostart = () => loguj('audio');
+    r.onspeechstart = () => loguj('mowa');
+    r.onresult = e => {
+      let txt = ''; for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript + ' ';
+      wynik = txt; ostatni = Date.now(); $('#slyszy').textContent = wynik.trim();
+      loguj('wynik: ' + wynik.trim().slice(0, 40) + (e.results[e.results.length - 1].isFinal ? ' [final]' : ''));
+    };
+    r.onerror = e => { blad = e.error || 'błąd'; loguj('błąd: ' + blad); diag('mikrofon: ' + blad); if (BLEDY_MIKROFONU[blad]) $('#slyszy').textContent = BLEDY_MIKROFONU[blad]; };
+    r.onend = () => { loguj('onend'); setTimeout(zakoncz, 50); };
+    // odpowiedź gotowa: jest tekst i 1,5 s ciszy; bez odpowiedzi: 12 s
+    const t = setInterval(() => {
+      if ((wynik.trim() && Date.now() - ostatni > 1500) || Date.now() - pocz > 12000) { try { r.stop(); } catch (e) {} setTimeout(zakoncz, 1200); }
+    }, 250);
+    try { r.start(); } catch (e) { blad = 'start'; loguj('start nieudany: ' + e.message); diag('mikrofon: nie wystartował'); zakoncz(); }
   });
 }
 async function sluchaj() {
@@ -722,6 +734,7 @@ async function wyslij(d) {
   const wynik = await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:I:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: [wiersz] }) });
   localStorage.setItem('kramm_ostatnia', Date.now());
+  if (dziennik.length) wyslijDziennik().catch(() => {});
   // iPhone: przypomnienie w kalendarzu 30 min później, żeby dopisać numer
   if (!d.numer && !/android/i.test(navigator.userAgent)) {
     try {
@@ -735,6 +748,16 @@ async function wyslij(d) {
       }) });
       if (wierszNr && ev.id) { const m = przypomnienia(); m[wierszNr[1]] = ev.id; localStorage.setItem('kramm_przyp', JSON.stringify(m)); }
     } catch (e) { /* przypomnienie to dodatek - notatka i tak jest zapisana */ }
+  }
+}
+async function wyslijDziennik() {
+  const u = ust(), wiersz = [[new Date().toLocaleString('pl-PL'), navigator.userAgent.replace(/^.*?\(/, '(').slice(0, 80), dziennik.join(' | ')]];
+  dziennik.length = 0;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Diagnostyka!A:C:append?valueInputOption=RAW`;
+  try { await api(url, { method: 'POST', body: JSON.stringify({ values: wiersz }) }); }
+  catch (e) {
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: 'Diagnostyka' } } }] }) });
+    await api(url, { method: 'POST', body: JSON.stringify({ values: wiersz }) });
   }
 }
 function przypomnienia() { try { return JSON.parse(localStorage.getItem('kramm_przyp') || '{}'); } catch (e) { return {}; } }
@@ -969,7 +992,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171540';
+const WERSJA = '202611171553';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
