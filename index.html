@@ -109,7 +109,7 @@
 </style>
 </head>
 <body>
-<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span class="ikony"><button id="btnPomoc" aria-label="Instrukcja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button id="btnUst" aria-label="Konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg></button></span></header>
+<header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span class="ikony"><button id="btnArkusz" class="ukryty" aria-label="Mój arkusz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M4 9h16M4 14.5h16M10 9v11.5"/></svg></button><button id="btnPomoc" aria-label="Instrukcja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button id="btnUst" aria-label="Konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg></button></span></header>
 <main>
   <section id="ekranGlos">
     <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów.</div></div></div>
@@ -119,6 +119,7 @@
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
+    <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
     <button class="glowny ukryty" id="btnKolejka"></button>
     <button class="glowny ukryty" id="btnBraki"></button>
   </section>
@@ -177,6 +178,8 @@
     <p class="info" id="ustStan">Zaloguj się kontem KRAMM. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię” i będzie do niego dopisywać notatki. Alerty i zadania trafią do Twojego Kalendarza Google.</p>
     <button class="glowny" id="btnZaloguj">Zaloguj przez Google</button>
     <button class="drugi ukryty" id="btnOtworzArkusz">Otwórz mój arkusz</button>
+    <label>Głos aplikacji</label>
+    <div class="wiersz"><select id="wyborGlosu"></select><button type="button" class="wklej" id="btnPosluchaj">Posłuchaj</button></div>
     <button class="drugi ukryty" id="btnWyloguj">Wyloguj</button>
     <p class="info">Wskazówka: dodaj tę stronę do ekranu głównego. Na iPhonie: Ustawienia -> Dostępność -> Dotyk -> Stuknięcie w tył -> Stuknij 2x -> wybierz skrót otwierający tę stronę. Na Androidzie: ikonę połóż obok aplikacji Telefon.</p>
   </section>
@@ -205,17 +208,35 @@ function ustawAkcje(a) {
 }
 document.querySelectorAll('.akcje button').forEach(b => b.onclick = () => { ustawAkcje(b.dataset.a); zapiszSzkic(); });
 
+// łagodny kobiecy głos: najpierw wybrany w ustawieniach, potem znane polskie głosy kobiece
+const GLOSY_KOBIECE = ['zosia', 'paulina', 'ewa', 'agnieszka', 'maja', 'ola', 'zofia', 'marta', 'google polski', 'pl-pl-x-oda', 'pl-pl-x-afb', 'pl-pl-x-zfg', 'pl-pl-language'];
+const GLOSY_MESKIE = /krzysztof|adam|marek|jacek|jan\b|pl-pl-x-bmg|pl-pl-x-jmk/i;
+function polskieGlosy() { return speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith('pl')); }
+function wybierzGlos() {
+  const gl = polskieGlosy(); if (!gl.length) return null;
+  const zapisany = ust().glos && gl.find(v => v.name === ust().glos);
+  if (zapisany) return zapisany;
+  const ocena = v => {
+    const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+    let o = GLOSY_MESKIE.test(n) ? -100 : 0;
+    const i = GLOSY_KOBIECE.findIndex(k => n.includes(k)); if (i >= 0) o += 50 - i;
+    if (/premium|enhanced|rozszerz|natural|neural/.test(n)) o += 20;
+    return o;
+  };
+  return gl.slice().sort((x, y) => ocena(y) - ocena(x))[0];
+}
+if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => wypelnijGlosy && wypelnijGlosy(); }
 function powiedz(t) {
   return new Promise(res => {
     if (!('speechSynthesis' in window)) return res();
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(t);
-    u.lang = 'pl-PL'; u.rate = 1.05;
-    const g = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('pl'));
-    if (g) u.voice = g;
-    u.onend = res; u.onerror = res;
+    u.lang = 'pl-PL'; u.rate = 0.92; u.pitch = 1.08; u.volume = 0.95;
+    const g = wybierzGlos(); if (g) u.voice = g;
+    let gotowe = false; const koniec = () => { if (!gotowe) { gotowe = true; res(); } };
+    u.onend = koniec; u.onerror = koniec;
     speechSynthesis.speak(u);
-    setTimeout(res, 6000);
+    setTimeout(koniec, 2500 + t.length * 95);
   });
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '';
@@ -482,7 +503,7 @@ function pokazStanKonta() {
 function zaloguj() {
   zTokenem(async () => {
     $('#ustStan').textContent = 'Przygotowuję arkusz...';
-    try { await przygotujArkusz(); pokazStanKonta(); pokazAgentke(); pokaz('#ekranGlos'); wyslijKolejke(); }
+    try { await przygotujArkusz(); pokazStanKonta(); pokazAgentke(); pokazLinkArkusza(); pokaz('#ekranGlos'); wyslijKolejke(); }
     catch (e) { $('#ustStan').textContent = 'Nie udało się: ' + e.message; }
   }, true);
 }
@@ -641,6 +662,17 @@ $('#btnZapisz').onclick = zapisz;
 $('#btnNowa').onclick = nowa;
 $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
+function wypelnijGlosy() {
+  const gl = polskieGlosy(), wyb = wybierzGlos();
+  $('#wyborGlosu').innerHTML = gl.length ? gl.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}"${wyb && v.name === wyb.name ? ' selected' : ''}>${v.name.replace(/</g, '&lt;')}</option>`).join('') : '<option>Głos telefonu</option>';
+}
+$('#wyborGlosu').onchange = () => zapiszUst({ glos: $('#wyborGlosu').value });
+$('#btnPosluchaj').onclick = () => powiedz('Dzień dobry. Kto dzwonił?');
+wypelnijGlosy();
+function otworzArkusz() { const id = ust().arkusz; if (id) window.open('https://docs.google.com/spreadsheets/d/' + id + '/edit', '_blank'); }
+function pokazLinkArkusza() { const jest = !!ust().arkusz; $('#btnArkusz').classList.toggle('ukryty', !jest); $('#btnArkuszDol').classList.toggle('ukryty', !jest); }
+$('#btnArkusz').onclick = otworzArkusz; $('#btnArkuszDol').onclick = otworzArkusz;
+pokazLinkArkusza();
 $('#btnOtworzArkusz').onclick = () => window.open('https://docs.google.com/spreadsheets/d/' + ust().arkusz, '_blank');
 $('#btnWyloguj').onclick = () => { localStorage.removeItem('kramm_ust'); token = null; pokazStanKonta(); location.reload(); };
 // numer z linku, np. ...?numer=570195243 (pod automatyczne uruchamianie z Androida)
