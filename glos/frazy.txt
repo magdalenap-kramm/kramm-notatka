@@ -14,3 +14,5 @@ zapisane|Zapisane.
 blad|Nie udało się zapisać. Sprawdź na postoju.
 w_telefonie|Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.
 probka|Dzień dobry. Podaj numer telefonu albo powiedz: pomiń.
+usunac|Usunąć notatkę?
+usuniete|Usunięte.

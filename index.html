@@ -119,7 +119,7 @@
 <header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span class="ikony"><button id="btnArkusz" class="ukryty" aria-label="Mój arkusz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M4 9h16M4 14.5h16M10 9v11.5"/></svg></button><button id="btnPomoc" aria-label="Instrukcja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button id="btnUst" aria-label="Konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg></button></span></header>
 <main>
   <section id="ekranGlos">
-    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów. Powiedz „cofnij”, żeby wrócić.</div></div></div>
+    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów. Powiedz „cofnij”, żeby wrócić, albo „usuń”.</div></div></div>
     <div class="mic-wrap" id="mic"><div class="fale"><i></i><i></i><i></i></div>
       <button class="start" id="btnStart" aria-label="Zaczynamy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span class="slupki"><b></b><b></b><b></b><b></b><b></b></span><span class="napis" id="napisMic">Zaczynamy</span></button></div>
     <div class="kropki" id="kropki"></div>
@@ -151,6 +151,7 @@
     </div>
     <button class="glowny" id="btnZapisz">Zapisz do arkusza</button>
     <button class="drugi" id="btnNowa">Nowa notatka</button>
+    <button class="drugi" id="btnUsun" style="color:#b0544a;text-decoration-color:#e3b8b1">Usuń notatkę</button>
     <button class="drugi" id="btnFormWroc">← Wróć</button>
     <div id="komunikat"></div>
   </section>
@@ -192,7 +193,7 @@
       <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
     <div class="krok"><h3>Po każdej rozmowie</h3>
       <ol><li>Otwórz aplikację i dotknij <b>Zaczynamy</b>.</li><li>Odpowiadaj krótko: numer (albo „pomiń”), imię i nazwisko, w jakiej sprawie był telefon, czy ustawić przypomnienie, wydarzenie albo zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Nie pamiętasz numeru? Powiedz „pomiń”. Aplikacja zapisze godzinę rozmowy, a na postoju dotkniesz „Uzupełnij numery” i wkleisz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
-      <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
+      <p>W każdej chwili powiedz „cofnij”, żeby wrócić do poprzedniego pytania, albo „usuń”, żeby skasować notatkę.</p><p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
     <button class="drugi" id="btnInstrWroc">← Wróć</button>
   </section>
@@ -277,7 +278,7 @@ const NAGRANIA = {
   'Ustawić w kalendarzu przypomnienie, wydarzenie czy zadanie? Albo powiedz: nic.': 'co_dalej',
   'Jak nazwać przypomnienie?': 'nazwa_przyp', 'Jaki jest tytuł zadania?': 'tytul_zad', 'Jak nazwać wydarzenie?': 'nazwa_wyd',
   'Kiedy przypomnieć?': 'kiedy_przyp', 'Na kiedy zadanie?': 'kiedy_zad', 'Kiedy wydarzenie?': 'kiedy_wyd',
-  'Zapisać notatkę?': 'zapisac', 'Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.': 'popraw',
+  'Zapisać notatkę?': 'zapisac', 'Usunąć notatkę?': 'usunac', 'Usunięte.': 'usuniete', 'Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.': 'popraw',
   'Zapisane.': 'zapisane', 'Nie udało się zapisać. Sprawdź na postoju.': 'blad',
   'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Podaj numer telefonu albo powiedz: pomiń.': 'probka'
 };
@@ -497,10 +498,21 @@ async function rozmowa() {
         .filter(Boolean).join('. ');
     }
     const odp = await zapytaj(k.pyt());
-    if (odp === '__cofnij' || /^\s*(cofnij|wróć|wstecz|poprzednie|jeszcze raz)\b/i.test(odp)) {
+    if (odp === '__cofnij' || /^\s*(cofnij|wróć|wroc|wstecz|poprzednie|jeszcze raz)(?![a-ząćęłńóśźż])/i.test(odp)) {
       do { i--; } while (i > 0 && kroki[i].jest && !kroki[i].jest());
       if (i < 0 || (kroki[i].jest && !kroki[i].jest())) i = Math.max(0, i);
       continue;
+    }
+    if (/^\s*(usuń|usun|anuluj|skasuj|wyrzuć)(?![a-ząćęłńóśźż])/i.test(odp)) {
+      const pew = await zapytaj('Usunąć notatkę?');
+      if (czyTak(pew)) {
+        await powiedz('Usunięte.');
+        trwa = false; wylaczRozpoznawanie(); $('#btnStart').disabled = false; krok = 0; rysujKropki();
+        $('#pytanie').textContent = ''; $('#slyszy').textContent = ''; $('#btnCofnij').classList.add('ukryty');
+        $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
+        poczatek = ''; nowa(); return;
+      }
+      continue;   // nie usuwaj: powtórz bieżące pytanie
     }
     if (k.koniec) { decyzja = odp; break; }
     k.ustaw(odp); zapiszSzkic(); i++;
@@ -811,6 +823,12 @@ async function wyslijKolejke() {
   localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
   pokazKolejke();
 }
+let usunKlik = 0;
+function usunNotatke() {
+  if (Date.now() - usunKlik > 4000) { usunKlik = Date.now(); $('#btnUsun').textContent = 'Na pewno? Dotknij jeszcze raz, żeby usunąć'; setTimeout(() => { $('#btnUsun').textContent = 'Usuń notatkę'; }, 4000); return; }
+  usunKlik = 0; $('#btnUsun').textContent = 'Usuń notatkę'; poczatek = ''; nowa();
+  $('#pytanie').textContent = 'Notatka usunięta.';
+}
 function nowa() {
   ['#numer','#kto','#sprawa','#tytul','#termin'].forEach(x => $(x).value = '');
   ustawAkcje('brak'); usunSzkic(); $('#komunikat').textContent = ''; pokaz('#ekranGlos');
@@ -833,6 +851,7 @@ pokazBraki();
 $('#btnRecznie').onclick = () => { if (!poczatek) poczatek = new Date().toISOString(); pokaz('#ekranForm'); };
 $('#btnZapisz').onclick = zapisz;
 $('#btnNowa').onclick = nowa;
+$('#btnUsun').onclick = usunNotatke;
 $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
 function wypelnijGlosy() {
@@ -935,7 +954,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171522';
+const WERSJA = '202611171526';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
