@@ -507,7 +507,7 @@ const SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file 
 let token = null, tokenDo = 0, tokenZakres = '';
 try { const z = JSON.parse(localStorage.getItem('kramm_token') || 'null'); if (z) { token = z.t; tokenDo = z.do; tokenZakres = z.zakres || ''; } } catch (e) {}
 function maToken() { return token && Date.now() < tokenDo; }
-const ADRES_POWROTU = location.origin + location.pathname;
+const ADRES_POWROTU = location.hostname.endsWith('github.io') ? 'https://magdalenap-kramm.github.io/kramm-notatka/' : location.origin + location.pathname;
 function przekieruj(nazwa, prompt) {
   const u = ust();
   const stan = btoa(JSON.stringify({ n: nazwa || '', p: prompt || '' }));
@@ -531,7 +531,7 @@ let poLogowaniu = null;
   if (!location.hash.includes('access_token') && !location.hash.includes('error')) return;
   const h = new URLSearchParams(location.hash.slice(1));
   let stan = {}; try { stan = JSON.parse(atob(h.get('state') || '')); } catch (e) {}
-  history.replaceState(null, '', ADRES_POWROTU + location.search);
+  history.replaceState(null, '', location.pathname + location.search);
   if (h.get('access_token')) {
     token = h.get('access_token'); tokenDo = Date.now() + ((+h.get('expires_in') || 3600) - 60) * 1000; tokenZakres = h.get('scope') || '';
     localStorage.setItem('kramm_token', JSON.stringify({ t: token, do: tokenDo, zakres: tokenZakres }));
@@ -864,7 +864,7 @@ if (maToken() && tokenZakres && !tokenZakres.includes('calendar')) $('#komunikat
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171448';
+const WERSJA = '202611171455';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
