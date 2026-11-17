@@ -74,6 +74,9 @@
   input, textarea, select { width:100%; padding:13px 14px; font-size:17px; border:1px solid #eadfd8; border-radius:14px; background:#fffdfb; font-family:inherit; font-weight:400; color:var(--tekst); outline:none; transition:border .2s, box-shadow .2s; }
   input:focus, textarea:focus { border-color:var(--roz); box-shadow:0 0 0 3px rgba(216,167,160,.25); }
   textarea { min-height:86px; resize:vertical; }
+  .wiersz { display:flex; gap:8px; }
+  .wklej { flex:none; padding:0 16px; border-radius:14px; border:1px solid #e3d3cc; background:var(--roz-j); color:var(--granat); font-family:inherit; font-size:15px; }
+  .powrot { background:var(--roz-j); color:var(--granat); border-radius:14px; padding:10px 14px; font-size:14px; margin:0 0 10px; }
   .akcje { display:flex; gap:8px; }
   .akcje button { flex:1; padding:11px 6px; border-radius:999px; border:1px solid #e3d3cc; background:#fff; color:var(--granat); font-size:15px; font-family:inherit; }
   .akcje button.on { background:var(--granat); border-color:var(--granat); color:#fff; box-shadow:0 6px 16px rgba(46,49,146,.25); }
@@ -111,8 +114,9 @@
 
   <section id="ekranForm" class="ukryty">
     <h2 style="color:var(--granat);margin:2px 0 10px;font-size:28px">Sprawdź notatkę</h2>
+    <div class="powrot ukryty" id="powrot">Wróciłaś do niezapisanej notatki - nic nie zginęło.</div>
     <div class="karta">
-    <label>Numer telefonu</label><input id="numer" type="tel" inputmode="tel">
+    <label>Numer telefonu</label><div class="wiersz"><input id="numer" type="tel" inputmode="tel"><button type="button" class="wklej" id="btnWklej">Wklej</button></div>
     <label>Kto dzwonił</label><input id="kto">
     <label>Sprawa</label><textarea id="sprawa"></textarea>
     <label>Co dalej</label>
@@ -171,7 +175,7 @@ function ustawAkcje(a) {
   $('#boxTermin').classList.toggle('ukryty', a === 'brak');
   if (a !== 'brak' && !$('#termin').value) $('#termin').value = lokalnyISO(domyslnyTermin());
 }
-document.querySelectorAll('.akcje button').forEach(b => b.onclick = () => ustawAkcje(b.dataset.a));
+document.querySelectorAll('.akcje button').forEach(b => b.onclick = () => { ustawAkcje(b.dataset.a); zapiszSzkic(); });
 
 function powiedz(t) {
   return new Promise(res => {
@@ -186,9 +190,10 @@ function powiedz(t) {
     setTimeout(res, 6000);
   });
 }
+let aktywne = null, trwa = false, przerwano = false;
 function sluchaj() {
   return new Promise(res => {
-    const r = new SR();
+    const r = new SR(); aktywne = r;
     r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1;
     let wynik = '';
     r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
@@ -207,8 +212,11 @@ async function zapytaj(tekst) {
   $('#mic').classList.add('mowi'); $('#napisMic').textContent = 'Pytam';
   await powiedz(tekst);
   $('#mic').classList.remove('mowi'); $('#mic').classList.add('slucha'); $('#napisMic').textContent = 'Słucham';
+  if (przerwano) throw new Error('przerwano');
   const odp = await sluchaj();
   $('#mic').classList.remove('slucha'); $('#napisMic').textContent = 'Zacznij';
+  if (przerwano) throw new Error('przerwano');
+  zapiszSzkic();
   return odp;
 }
 
@@ -250,9 +258,13 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
-  $('#btnStart').disabled = true;
+  $('#btnStart').disabled = true; trwa = true; przerwano = false;
+  try {
   krok = 0; krokow = 3 + ($('#numer').value ? 0 : 1) + ($('#kto').value ? 0 : 1);
-  if (!$('#numer').value) { const numer = await zapytaj('Z jakiego numeru dzwoniono?'); $('#numer').value = wyczyscNumer(numer) || numer; }
+  if (!$('#numer').value) {
+    const numer = await zapytaj('Z jakiego numeru dzwoniono? Możesz też powiedzieć: wkleję.');
+    if (!/wklej|pomi|później|potem|nie wiem/i.test(numer)) $('#numer').value = wyczyscNumer(numer) || numer;
+  }
   if (!$('#kto').value) $('#kto').value = await zapytaj('Kto dzwonił?');
   $('#sprawa').value = await zapytaj('W jakiej sprawie?');
   const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
@@ -263,12 +275,46 @@ async function rozmowa() {
     const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
     $('#termin').value = lokalnyISO(rozpoznajTermin(t));
   }
+  await powiedz('Sprawdź i zapisz.');
+  } catch (e) { /* przerwane - przechodzimy do formularza z tym, co już jest */ }
+  trwa = false; aktywne = null;
   $('#btnStart').disabled = false;
+  $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zacznij';
   krok = 0; rysujKropki();
   $('#pytanie').textContent = '';
-  await powiedz('Sprawdź i zapisz.');
+  zapiszSzkic();
   pokaz('#ekranForm');
 }
+
+// ---------- szkic: nic nie ginie po zminimalizowaniu ----------
+const POLA = ['#numer', '#kto', '#sprawa', '#tytul', '#termin'];
+function zapiszSzkic() {
+  const d = { akcja }; POLA.forEach(x => d[x] = $(x).value);
+  if (POLA.some(x => d[x]) || akcja !== 'brak') localStorage.setItem('kramm_szkic', JSON.stringify(d));
+}
+function usunSzkic() { localStorage.removeItem('kramm_szkic'); $('#powrot').classList.add('ukryty'); }
+function wczytajSzkic() {
+  let d; try { d = JSON.parse(localStorage.getItem('kramm_szkic') || 'null'); } catch (e) {}
+  if (!d) return false;
+  POLA.forEach(x => { if (!$(x).value && d[x]) $(x).value = d[x]; });
+  ustawAkcje(d.akcja || 'brak');
+  return true;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    zapiszSzkic();
+    if (trwa) { przerwano = true; try { aktywne && aktywne.abort(); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
+  }
+});
+window.addEventListener('pagehide', zapiszSzkic);
+POLA.forEach(x => $(x).addEventListener('input', zapiszSzkic));
+$('#btnWklej').onclick = async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    const n = wyczyscNumer(t);
+    $('#numer').value = n.length >= 9 ? n : t.trim(); zapiszSzkic();
+  } catch (e) { $('#numer').focus(); $('#komunikat').textContent = 'Przytrzymaj pole numeru i wybierz Wklej.'; }
+};
 
 // ---------- Google: logowanie, arkusz, kalendarz ----------
 const CLIENT_ID = '696449098485-ejg71rbdnanoqbm7rql7033stlmg7tfu.apps.googleusercontent.com';
@@ -407,10 +453,10 @@ function zapisz() {
     numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
     akcja, tytul: akcja !== 'brak' ? $('#tytul').value.trim() : '', termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
   };
-  if (!navigator.onLine) { doKolejki(dane); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; return; }
+  if (!navigator.onLine) { doKolejki(dane); usunSzkic(); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; return; }
   zTokenem(async () => {
     $('#komunikat').textContent = 'Zapisuję...';
-    try { await wyslij(dane); $('#komunikat').textContent = 'Zapisane ✓'; powiedz('Zapisane.'); }
+    try { await wyslij(dane); usunSzkic(); $('#komunikat').textContent = 'Zapisane ✓'; powiedz('Zapisane.'); }
     catch (e) {
       if (e instanceof TypeError) { doKolejki(dane); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; }
       else $('#komunikat').textContent = 'Nie zapisano: ' + e.message;
@@ -427,7 +473,7 @@ async function wyslijKolejke() {
 }
 function nowa() {
   ['#numer','#kto','#sprawa','#tytul','#termin'].forEach(x => $(x).value = '');
-  ustawAkcje('brak'); $('#komunikat').textContent = ''; pokaz('#ekranGlos');
+  ustawAkcje('brak'); usunSzkic(); $('#komunikat').textContent = ''; pokaz('#ekranGlos');
 }
 
 $('#btnStart').onclick = rozmowa;
@@ -440,6 +486,8 @@ $('#btnOtworzArkusz').onclick = () => window.open('https://docs.google.com/sprea
 $('#btnWyloguj').onclick = () => { localStorage.removeItem('kramm_ust'); token = null; pokazStanKonta(); location.reload(); };
 // numer z linku, np. ...?numer=570195243 (pod automatyczne uruchamianie z Androida)
 const q = new URLSearchParams(location.search);
+let przywrocono = false;
+if (q.get('numer') || q.get('kto')) usunSzkic(); else przywrocono = wczytajSzkic();
 if (q.get('numer')) $('#numer').value = q.get('numer');
 if (q.get('kto')) $('#kto').value = q.get('kto');
 if (q.get('numer') || q.get('kto')) $('#pytanie').textContent = 'Rozmowa z: ' + (q.get('kto') || q.get('numer')) + '. Dotknij Zacznij.';
@@ -456,6 +504,7 @@ $('#btnPomoc').onclick = () => pokaz('#ekranInstr');
 $('#btnInstrOk').onclick = () => { localStorage.setItem('kramm_instr', '1'); ust().arkusz ? pokaz('#ekranGlos') : $('#btnUst').click(); };
 if (!localStorage.getItem('kramm_instr')) pokaz('#ekranInstr');
 else if (!ust().arkusz) $('#btnUst').click();
+else if (przywrocono) { $('#powrot').classList.remove('ukryty'); pokaz('#ekranForm'); }
 window.addEventListener('online', wyslijKolejke); wyslijKolejke();
 </script>
 </body>
