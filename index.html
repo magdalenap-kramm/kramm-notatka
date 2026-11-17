@@ -189,7 +189,7 @@
       <p>Zainstaluj małą aplikację „KRAMM Notatka”. Po odebranej rozmowie przychodzącej pokaże powiadomienie „Dodaj notatkę” z numerem i nazwą kontaktu.</p>
       <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
     <div class="krok"><h3>Po każdej rozmowie</h3>
-      <ol><li>Otwórz aplikację i dotknij <b>Zaczynamy</b>.</li><li>Odpowiadaj krótko: kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Numeru nie dyktujesz. Aplikacja zapisuje godzinę rozmowy, a na postoju dotykasz „Uzupełnij numery” i wklejasz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
+      <ol><li>Otwórz aplikację i dotknij <b>Zaczynamy</b>.</li><li>Odpowiadaj krótko: kto dzwonił, jaki numer (albo „pomiń”), jaka sprawa, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Nie pamiętasz numeru? Powiedz „pomiń”. Aplikacja zapisze godzinę rozmowy, a na postoju dotkniesz „Uzupełnij numery” i wkleisz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
     <button class="drugi" id="btnInstrWroc">← Wróć</button>
@@ -264,7 +264,7 @@ function wybierzGlos() {
 if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => wypelnijGlosy && wypelnijGlosy(); }
 // nagrane frazy (naturalny polski głos lektorki); reszta głosem telefonu
 const NAGRANIA = {
-  'Kto dzwonił?': 'kto', 'W jakiej sprawie?': 'sprawa', 'Ustawić alert, zadanie, czy nic?': 'co_dalej',
+  'Kto dzwonił?': 'kto', 'Jaka sprawa?': 'sprawa', 'Jaki numer? Jeśli go nie masz, powiedz: pomiń.': 'numer', 'Ustawić alert, zadanie, czy nic?': 'co_dalej',
   'Jak nazwać przypomnienie?': 'nazwa_przyp', 'Jaki jest tytuł zadania?': 'tytul_zad', 'Kiedy przypomnieć?': 'kiedy_przyp',
   'Na kiedy zadanie?': 'kiedy_zad', 'Zapisać notatkę?': 'zapisac', 'Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.': 'popraw',
   'Zapisane.': 'zapisane', 'Nie udało się zapisać. Sprawdź na postoju.': 'blad',
@@ -286,12 +286,11 @@ document.getElementById('atrybucja') && document.getElementById('atrybucja').cla
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
 function odblokujDzwiek() { /* odtwarzanie startuje bezpośrednio z dotknięcia, osobne odblokowanie niepotrzebne */ }
 let zatrzymajDzwiek = () => {};
-function sesjaDzwieku(typ) { try { if (navigator.audioSession) navigator.audioSession.type = typ; } catch (e) {} }
+function sesjaDzwieku(typ) { /* nie zmieniamy sesji dźwięku: na iPhonie blokowało to mikrofon */ }
 function zagraj(plik) {
   return new Promise(res => {
     let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; zatrzymajDzwiek = () => {}; res(ok); } };
     zatrzymajDzwiek = () => { try { odtwarzacz.pause(); } catch (e) {} koniec(true); };
-    sesjaDzwieku('playback');   // iPhone: głośnik, nie słuchawka rozmów
     odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false); odtwarzacz.onpause = null;
     odtwarzacz.src = 'glos/' + lektorka() + '/' + plik + '.mp3';
     const p = odtwarzacz.play(); if (p) p.catch(() => koniec(false));
@@ -318,15 +317,16 @@ async function powiedz(t) {
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
 function sluchaj() {
-  sesjaDzwieku('play-and-record');
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'auto') navigator.audioSession.type = 'auto'; } catch (e) {}
   return new Promise(res => {
     const r = new SR(); aktywne = r;
     r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1;
     let wynik = '';
     r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
-    r.onerror = () => res(wynik);
+    const BLEDY = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'audio-capture': 'Mikrofon zajęty lub niedostępny.', 'network': 'Brak internetu do rozpoznawania mowy.' };
+    r.onerror = e => { if (BLEDY[e.error]) $('#slyszy').textContent = BLEDY[e.error]; res(wynik); };
     r.onend = () => res(wynik.trim());
-    r.start();
+    setTimeout(() => { try { r.start(); } catch (e) { res(wynik); } }, 250);   // chwila na przełączenie dźwięku po pytaniu
   });
 }
 let krok = 0, krokow = 5;
@@ -423,16 +423,19 @@ async function rozmowa() {
   $('#btnCofnij').classList.remove('ukryty');
   if (!poczatek) poczatek = new Date().toISOString();
   // kroki z możliwością cofnięcia ("cofnij" głosem albo przycisk Cofnij)
-  const ktoZRozmowy = !!$('#kto').value;
+  const ktoZRozmowy = !!$('#kto').value, numerZRozmowy = !!$('#numer').value;
   const kroki = [
     { pyt: () => 'Kto dzwonił?', jest: () => !ktoZRozmowy, ustaw: o => $('#kto').value = o },
-    { pyt: () => 'W jakiej sprawie?', ustaw: o => $('#sprawa').value = o },
-    { pyt: () => 'Ustawić alert, zadanie, czy nic?', ustaw: o => { ustawAkcje(rozpoznajAkcje(o)); krokow = (ktoZRozmowy ? 3 : 4) + (akcja !== 'brak' ? 2 : 0); } },
+    { pyt: () => 'Jaki numer? Jeśli go nie masz, powiedz: pomiń.', jest: () => !numerZRozmowy, ustaw: o => {
+        if (/pomi|nie mam|nie wiem|nie znam|brak|dalej/i.test(o)) return;
+        const n = wyczyscNumer(o); $('#numer').value = n.replace(/\D/g, '').length >= 7 ? n : o; } },
+    { pyt: () => 'Jaka sprawa?', ustaw: o => $('#sprawa').value = o },
+    { pyt: () => 'Ustawić alert, zadanie, czy nic?', ustaw: o => { ustawAkcje(rozpoznajAkcje(o)); krokow = 3 + (ktoZRozmowy ? 0 : 1) + (numerZRozmowy ? 0 : 1) + (akcja !== 'brak' ? 2 : 0); } },
     { pyt: () => akcja === 'alert' ? 'Jak nazwać przypomnienie?' : 'Jaki jest tytuł zadania?', jest: () => akcja !== 'brak', ustaw: o => $('#tytul').value = o },
     { pyt: () => akcja === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?', jest: () => akcja !== 'brak', ustaw: o => $('#termin').value = lokalnyISO(rozpoznajTermin(o)) },
     { pyt: () => 'Zapisać notatkę?', koniec: true }
   ];
-  krokow = ktoZRozmowy ? 3 : 4;
+  krokow = 3 + (ktoZRozmowy ? 0 : 1) + (numerZRozmowy ? 0 : 1);
   let i = 0, decyzja = '';
   while (i < kroki.length) {
     const k = kroki[i];
@@ -864,7 +867,7 @@ if (maToken() && tokenZakres && !tokenZakres.includes('calendar')) $('#komunikat
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171455';
+const WERSJA = '202611171500';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {

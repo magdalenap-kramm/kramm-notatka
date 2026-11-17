@@ -20,7 +20,7 @@ def zapytanie(metoda, sciezka, dane=None, surowe=False):
 
 # 1. polskie kobiece głosy z biblioteki ElevenLabs (natywne, najczęściej używane)
 q = urllib.parse.urlencode({"language": "pl", "gender": "female", "page_size": 40, "sort": "usage_character_count_1y"})
-glosy = zapytanie("GET", "/v1/shared-voices?" + q).get("voices", [])
+glosy = [] if os.environ.get("LEKTORKI") else zapytanie("GET", "/v1/shared-voices?" + q).get("voices", [])
 wybrane, uzyte = [], set()
 for g in glosy:
     nazwa = (g.get("name") or "").split(" - ")[0].strip()
@@ -61,6 +61,8 @@ if not lektorki:
     wbudowane = [v for v in zapytanie("GET", "/v1/voices").get("voices", [])
                  if v.get("category") == "premade" and (v.get("labels") or {}).get("gender") == "female"]
     print("Wbudowane kobiece:", [v["name"] for v in wbudowane])
+    tylko = [x.strip().lower() for x in os.environ.get("LEKTORKI", "").split(",") if x.strip()]
+    if tylko: wbudowane = [v for v in wbudowane if v["name"].split(" - ")[0].strip().lower() in tylko]
     for v in wbudowane[:ILE]:
         slug = "el_" + re.sub(r"[^a-z0-9]+", "_", v["name"].lower()).strip("_")[:24]
         os.makedirs(f"glos/{slug}", exist_ok=True)

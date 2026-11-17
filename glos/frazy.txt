@@ -1,5 +1,6 @@
 kto|Kto dzwonił?
-sprawa|W jakiej sprawie?
+numer|Jaki numer? Jeśli go nie masz, powiedz: pomiń.
+sprawa|Jaka sprawa?
 co_dalej|Ustawić alert, zadanie, czy nic?
 nazwa_przyp|Jak nazwać przypomnienie?
 tytul_zad|Jaki jest tytuł zadania?

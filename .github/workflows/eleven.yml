@@ -8,7 +8,7 @@ on:
         default: '6'
   push:
     branches: [main]
-    paths: ['narzedzia/eleven.py', '.github/workflows/eleven.yml']
+    paths: ['narzedzia/eleven.py', '.github/workflows/eleven.yml', 'glos/frazy.txt']
 
 permissions:
   contents: write
@@ -28,6 +28,7 @@ jobs:
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           ILE_LEKTOREK: ${{ github.event.inputs.ile || '6' }}
+          LEKTORKI: Alice,Lily
         run: python3 narzedzia/eleven.py
       - name: Zapisz
         if: steps.klucz.outputs.jest == '1'
