@@ -129,6 +129,7 @@
     <div id="diag" style="display:none;text-align:left;font-family:monospace;font-size:11px;line-height:1.4;color:#8a6f6a;background:rgba(255,255,255,.6);border-radius:8px;padding:4px 8px;min-height:14px;margin-top:4px"></div>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <div class="powrot ukryty" id="apkInfo" style="margin-top:14px">Na Androidzie numer i nazwa kontaktu mogą wpisywać się same z ostatniej rozmowy. <a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk" style="color:var(--granat);font-weight:500">Pobierz aplikację KRAMM Notatka</a> · <a href="#" id="apkMam" style="color:var(--szary)">Mam już</a></div>
+    <button class="drugi ukryty" id="btnUsunGlos" style="color:#b0544a;text-decoration-color:#e3b8b1">Usuń notatkę</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
     <button class="glowny ukryty" id="btnKolejka"></button>
@@ -350,7 +351,7 @@ async function powiedz(t) {
   if (plik && lektorka() !== 'telefon') { if (await zagraj(plik)) return; }
   return mowTelefonem(t);
 }
-let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
+let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false, usuwam = false;
 // Rozpoznawanie mowy: osobno dla każdego pytania. Na czas rozmowy iPhone przechodzi w tryb
 // "odtwarzanie i nagrywanie", żeby nagranie pytania nie blokowało mikrofonu.
 let rozp = null, slucham = false, wstrzyknieta = null;
@@ -513,7 +514,7 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
-  dziennik.length = 0; trybRozmowy(true); odblokujDzwiek(); $('#btnMow').classList.remove('ukryty'); loguj('wersja ' + WERSJA + ', sesja: ' + (navigator.audioSession ? navigator.audioSession.type : 'brak'));
+  dziennik.length = 0; trybRozmowy(true); odblokujDzwiek(); $('#btnMow').classList.remove('ukryty'); $('#btnUsunGlos').classList.remove('ukryty'); loguj('wersja ' + WERSJA + ', sesja: ' + (navigator.audioSession ? navigator.audioSession.type : 'brak'));
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
   $('#btnCofnij').classList.remove('ukryty');
@@ -577,6 +578,8 @@ async function rozmowa() {
   $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
   krok = 0; rysujKropki();
   $('#pytanie').textContent = '';
+  $('#btnUsunGlos').classList.add('ukryty');
+  if (usuwam) { usuwam = false; zapiszSzkic(); usunNotatke(); return; }
   zapiszSzkic();
   pokaz('#ekranForm');
 }
@@ -912,6 +915,7 @@ pokazBraki();
 $('#btnRecznie').onclick = () => { if (!poczatek) poczatek = new Date().toISOString(); pokaz('#ekranForm'); };
 $('#btnZapisz').onclick = zapisz;
 $('#btnUsun').onclick = usunNotatke;
+$('#btnUsunGlos').onclick = e => { e.stopPropagation(); if (!trwa) return; usuwam = true; przerwano = true; wylaczRozpoznawanie(); try { zatrzymajDzwiek(); } catch (x) {} try { speechSynthesis.cancel(); } catch (x) {} };
 $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
 function wypelnijGlosy() {
@@ -1017,7 +1021,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171746';
+const WERSJA = '202611171759';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
