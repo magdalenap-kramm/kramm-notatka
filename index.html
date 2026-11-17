@@ -82,6 +82,10 @@
   .brak-karta .kto { font-weight:500; margin:2px 0; }
   .brak-karta .co { font-size:14px; color:#6f6878; margin-bottom:10px; }
   .brak-karta .gotowe { color:var(--granat); font-weight:500; }
+  .okno { position:fixed; inset:0; z-index:20; background:rgba(42,42,58,.35); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); display:grid; place-items:end center; padding:16px; }
+  .okno-tresc { width:100%; max-width:480px; background:#fffdfb; border-radius:26px; padding:22px 22px 14px; text-align:center; box-shadow:0 -10px 40px rgba(46,49,146,.2); margin-bottom:env(safe-area-inset-bottom); }
+  .okno-ikona { width:54px; height:54px; margin:0 auto 8px; border-radius:50%; background:var(--roz-j); color:var(--granat); display:grid; place-items:center; font-size:26px; box-shadow:0 0 0 2px var(--roz); }
+  .okno h2 { color:var(--granat); margin:6px 0 4px; font-size:26px; }
   .akcje { display:flex; gap:8px; }
   .akcje button { flex:1; padding:11px 6px; border-radius:999px; border:1px solid #e3d3cc; background:#fff; color:var(--granat); font-size:15px; font-family:inherit; }
   .akcje button.on { background:var(--granat); border-color:var(--granat); color:#fff; box-shadow:0 6px 16px rgba(46,49,146,.25); }
@@ -177,6 +181,13 @@
     <p class="info">Wskazówka: dodaj tę stronę do ekranu głównego. Na iPhonie: Ustawienia -> Dostępność -> Dotyk -> Stuknięcie w tył -> Stuknij 2x -> wybierz skrót otwierający tę stronę. Na Androidzie: ikonę połóż obok aplikacji Telefon.</p>
   </section>
 </main>
+<div class="okno ukryty" id="oknoBraki"><div class="okno-tresc">
+  <div class="okno-ikona">☎</div>
+  <h2 id="oknoTytul">Dopisz numer do rozmowy</h2>
+  <p class="info" id="oknoTekst"></p>
+  <button class="glowny" id="oknoDopisz">Dopisz teraz</button>
+  <button class="drugi" id="oknoPozniej">Później</button>
+</div></div>
 <footer><div class="podpis"><small>by</small>Magdalena Pyrc</div></footer>
 
 <script>
@@ -495,9 +506,25 @@ async function wyslij(d) {
   if (!d.numer) { status = status ? status + ', brak numeru' : 'Brak numeru'; dodajBrak(1); }
   const t = new Date(d.czas), ter = d.termin ? new Date(d.termin) : null;
   const wiersz = [fmtData(t), fmtGodz(t), "'" + (d.numer || ''), d.kto || '', d.sprawa || '', d.akcja, d.tytul || '', ter ? fmtData(ter) + ' ' + fmtGodz(ter) : '', status];
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:I:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+  const wynik = await api(`https://sheets.googleapis.com/v4/spreadsheets/${u.arkusz}/values/Rozmowy!A:I:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: [wiersz] }) });
+  localStorage.setItem('kramm_ostatnia', Date.now());
+  // iPhone: przypomnienie w kalendarzu 30 min później, żeby dopisać numer
+  if (!d.numer && !/android/i.test(navigator.userAgent)) {
+    try {
+      const wierszNr = ((wynik.updates && wynik.updates.updatedRange) || '').match(/(\d+)$/);
+      const start = new Date(Math.max(Date.now(), new Date(d.czas).getTime()) + 30 * 60000);
+      const ev = await api('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({
+        summary: 'Dopisz numer: ' + (d.kto || 'rozmowa') + ' (' + fmtGodz(t) + ')',
+        description: `Rozmowa o ${fmtGodz(t)}: ${d.sprawa || ''}\nOtwórz: ${location.origin}${location.pathname}?uzupelnij=1`,
+        start: { dateTime: start.toISOString() }, end: { dateTime: new Date(start.getTime() + 5 * 60000).toISOString() },
+        reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] }
+      }) });
+      if (wierszNr && ev.id) { const m = przypomnienia(); m[wierszNr[1]] = ev.id; localStorage.setItem('kramm_przyp', JSON.stringify(m)); }
+    } catch (e) { /* przypomnienie to dodatek - notatka i tak jest zapisana */ }
+  }
 }
+function przypomnienia() { try { return JSON.parse(localStorage.getItem('kramm_przyp') || '{}'); } catch (e) { return {}; } }
 function doKolejki(d) {
   const k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); k.push(d);
   localStorage.setItem('kramm_kolejka', JSON.stringify(k));
@@ -557,6 +584,9 @@ async function pokazUzupelnianie() {
           await api(`https://sheets.googleapis.com/v4/spreadsheets/${ust().arkusz}/values/Rozmowy!C${k.dataset.nr}?valueInputOption=USER_ENTERED`,
             { method: 'PUT', body: JSON.stringify({ values: [["'" + n]] }) });
           k.innerHTML = `<div class="gotowe">✓ ${esc(n)} zapisany</div>`; dodajBrak(-1);
+          const m = przypomnienia(), id = m[k.dataset.nr];
+          if (id) { delete m[k.dataset.nr]; localStorage.setItem('kramm_przyp', JSON.stringify(m));
+            api('https://www.googleapis.com/calendar/v3/calendars/primary/events/' + id, { method: 'DELETE' }).catch(() => {}); }
         } catch (e) { pole.insertAdjacentHTML('afterend', `<p class="info">Nie zapisano: ${esc(e.message)}</p>`); }
       };
     });
@@ -631,6 +661,17 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instal
 $('#btnInstaluj').onclick = async () => { if (instalacja) { instalacja.prompt(); instalacja = null; $('#btnInstaluj').classList.add('ukryty'); } };
 $('#btnPomoc').onclick = () => pokaz('#ekranInstr');
 $('#btnInstrOk').onclick = () => { localStorage.setItem('kramm_instr', '1'); ust().arkusz ? pokaz('#ekranGlos') : $('#btnUst').click(); };
+function pokazOkno() {
+  const n = +localStorage.getItem('kramm_braki') || 0;
+  if (!n || !ust().arkusz) return;
+  $('#oknoTekst').textContent = n === 1 ? 'Jedna rozmowa czeka na numer. Znajdziesz go na liście połączeń po godzinie.' : `${n} rozmowy czekają na numer. Znajdziesz je na liście połączeń po godzinie.`;
+  $('#oknoBraki').classList.remove('ukryty');
+}
+$('#oknoPozniej').onclick = e => { e.stopPropagation(); $('#oknoBraki').classList.add('ukryty'); };
+$('#oknoDopisz').onclick = e => { e.stopPropagation(); $('#oknoBraki').classList.add('ukryty'); zTokenem(pokazUzupelnianie); };
+// okienko: z przypomnienia w kalendarzu albo gdy od ostatniej notatki minęło 20 min (nie w trakcie jazdy zaraz po rozmowie)
+const odOstatniej = Date.now() - (+localStorage.getItem('kramm_ostatnia') || 0);
+if (q.get('uzupelnij') || odOstatniej > 20 * 60000) setTimeout(pokazOkno, 400);
 if (!localStorage.getItem('kramm_instr')) pokaz('#ekranInstr');
 else if (!ust().arkusz) $('#btnUst').click();
 else if (przywrocono) { $('#powrot').classList.remove('ukryty'); pokaz('#ekranForm'); }
