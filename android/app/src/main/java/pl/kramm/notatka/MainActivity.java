@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
         TextView tytul = tekst("Notatka po rozmowie", 22, true);
         tytul.setTextColor(GRANAT);
         tresc.addView(tytul);
-        tresc.addView(tekst("Po każdej odebranej rozmowie przychodzącej pokażę powiadomienie „Dodaj notatkę”. "
+        tresc.addView(tekst("Po każdej odebranej rozmowie przychodzącej pokażę pytanie „Zrobić notatkę z rozmowy?”. "
                 + "Dotknięcie otworzy aplikację KRAMM z wpisanym numerem i nazwą kontaktu. Ikona KRAMM Notatka otwiera notatkę z ostatniej rozmowy. Te ustawienia: przytrzymaj ikonę i wybierz Ustawienia.", 16, false));
 
         przelacznik = new Switch(this);
@@ -81,6 +81,7 @@ public class MainActivity extends Activity {
 
         stan = tekst("", 15, false);
         tresc.addView(stan);
+        tresc.addView(przycisk("Gotowe - zamknij", v -> finish()));
 
         tresc.addView(przycisk("Nadaj uprawnienia", v -> poprosOUprawnienia()));
         tresc.addView(przycisk("Notatka z ostatniej rozmowy", v -> {
