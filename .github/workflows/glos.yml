@@ -1,0 +1,41 @@
+name: Nagrania głosu
+
+on:
+  push:
+    branches: [main]
+    paths: ['glos/frazy.txt', '.github/workflows/glos.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nagraj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Piper i ffmpeg
+        run: |
+          pip install piper-tts
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+          mkdir -p modele
+          curl -sSL -o modele/gosia.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx
+          curl -sSL -o modele/gosia.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx.json
+      - name: Nagraj frazy
+        run: |
+          while IFS='|' read -r klucz tekst; do
+            [ -z "$klucz" ] && continue
+            echo "$tekst" | piper --model modele/gosia.onnx --length_scale 1.12 --sentence_silence 0.15 --output_file "/tmp/$klucz.wav"
+            ffmpeg -y -loglevel error -i "/tmp/$klucz.wav" -af "afade=t=in:d=0.02,loudnorm=I=-16:TP=-1.5" -ac 1 -ar 24000 -b:a 64k "glos/$klucz.mp3"
+          done < glos/frazy.txt
+          ls -la glos
+      - name: Zapisz w repozytorium
+        run: |
+          git config user.name "magdalenap-kramm"
+          git config user.email "magdalena.p@kramm.pl"
+          git add glos/*.mp3
+          git diff --cached --quiet || git commit -m "Nagrania głosu (Piper, gosia)"
+          git push

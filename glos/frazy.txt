@@ -1,0 +1,13 @@
+kto|Kto dzwonił?
+sprawa|W jakiej sprawie?
+co_dalej|Ustawić alert, zadanie, czy nic?
+nazwa_przyp|Jak nazwać przypomnienie?
+tytul_zad|Jaki jest tytuł zadania?
+kiedy_przyp|Kiedy przypomnieć?
+kiedy_zad|Na kiedy zadanie?
+zapisac|Zapisać notatkę?
+popraw|Dobrze. Popraw na ekranie, kiedy będzie bezpiecznie.
+zapisane|Zapisane.
+blad|Nie udało się zapisać. Sprawdź na postoju.
+w_telefonie|Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.
+probka|Dzień dobry. Kto dzwonił?
