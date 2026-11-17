@@ -1,14 +1,16 @@
-kto|Kto dzwonił?
-numer|Jaki numer? Jeśli go nie masz, powiedz: pomiń.
-sprawa|Jaka sprawa?
-co_dalej|Ustawić alert, zadanie, czy nic?
+numer|Podaj numer telefonu albo powiedz: pomiń.
+kto|Podaj imię i nazwisko.
+sprawa|W jakiej sprawie był telefon?
+co_dalej|Ustawić w kalendarzu przypomnienie, wydarzenie czy zadanie? Albo powiedz: nic.
 nazwa_przyp|Jak nazwać przypomnienie?
 tytul_zad|Jaki jest tytuł zadania?
+nazwa_wyd|Jak nazwać wydarzenie?
 kiedy_przyp|Kiedy przypomnieć?
 kiedy_zad|Na kiedy zadanie?
+kiedy_wyd|Kiedy wydarzenie?
 zapisac|Zapisać notatkę?
 popraw|Dobrze. Popraw na ekranie, kiedy będzie bezpiecznie.
 zapisane|Zapisane.
 blad|Nie udało się zapisać. Sprawdź na postoju.
 w_telefonie|Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.
-probka|Dzień dobry. Kto dzwonił?
+probka|Dzień dobry. Podaj numer telefonu albo powiedz: pomiń.

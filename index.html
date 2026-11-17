@@ -145,6 +145,7 @@
       <button data-a="brak" class="on">Nic</button>
       <button data-a="alert">Alert</button>
       <button data-a="zadanie">Zadanie</button>
+      <button data-a="wydarzenie">Wydarzenie</button>
     </div>
     <div id="boxTermin" class="ukryty"><label>Tytuł zadania</label><input id="tytul" placeholder="np. Wysłać ofertę najmu"><label>Termin</label><input id="termin" type="datetime-local"></div>
     </div>
@@ -190,7 +191,7 @@
       <p>Zainstaluj małą aplikację „KRAMM Notatka”. Po odebranej rozmowie przychodzącej pokaże powiadomienie „Dodaj notatkę” z numerem i nazwą kontaktu.</p>
       <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
     <div class="krok"><h3>Po każdej rozmowie</h3>
-      <ol><li>Otwórz aplikację i dotknij <b>Zaczynamy</b>.</li><li>Odpowiadaj krótko: kto dzwonił, jaki numer (albo „pomiń”), jaka sprawa, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Nie pamiętasz numeru? Powiedz „pomiń”. Aplikacja zapisze godzinę rozmowy, a na postoju dotkniesz „Uzupełnij numery” i wkleisz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
+      <ol><li>Otwórz aplikację i dotknij <b>Zaczynamy</b>.</li><li>Odpowiadaj krótko: numer (albo „pomiń”), imię i nazwisko, w jakiej sprawie był telefon, czy ustawić przypomnienie, wydarzenie albo zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Nie pamiętasz numeru? Powiedz „pomiń”. Aplikacja zapisze godzinę rozmowy, a na postoju dotkniesz „Uzupełnij numery” i wkleisz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
     <button class="drugi" id="btnInstrWroc">← Wróć</button>
@@ -272,11 +273,13 @@ function wybierzGlos() {
 if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => wypelnijGlosy && wypelnijGlosy(); }
 // nagrane frazy (naturalny polski głos lektorki); reszta głosem telefonu
 const NAGRANIA = {
-  'Kto dzwonił?': 'kto', 'Jaka sprawa?': 'sprawa', 'Jaki numer? Jeśli go nie masz, powiedz: pomiń.': 'numer', 'Ustawić alert, zadanie, czy nic?': 'co_dalej',
-  'Jak nazwać przypomnienie?': 'nazwa_przyp', 'Jaki jest tytuł zadania?': 'tytul_zad', 'Kiedy przypomnieć?': 'kiedy_przyp',
-  'Na kiedy zadanie?': 'kiedy_zad', 'Zapisać notatkę?': 'zapisac', 'Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.': 'popraw',
+  'Podaj numer telefonu albo powiedz: pomiń.': 'numer', 'Podaj imię i nazwisko.': 'kto', 'W jakiej sprawie był telefon?': 'sprawa',
+  'Ustawić w kalendarzu przypomnienie, wydarzenie czy zadanie? Albo powiedz: nic.': 'co_dalej',
+  'Jak nazwać przypomnienie?': 'nazwa_przyp', 'Jaki jest tytuł zadania?': 'tytul_zad', 'Jak nazwać wydarzenie?': 'nazwa_wyd',
+  'Kiedy przypomnieć?': 'kiedy_przyp', 'Na kiedy zadanie?': 'kiedy_zad', 'Kiedy wydarzenie?': 'kiedy_wyd',
+  'Zapisać notatkę?': 'zapisac', 'Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.': 'popraw',
   'Zapisane.': 'zapisane', 'Nie udało się zapisać. Sprawdź na postoju.': 'blad',
-  'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Kto dzwonił?': 'probka'
+  'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Podaj numer telefonu albo powiedz: pomiń.': 'probka'
 };
 const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
 let DOMYSLNA = 'el_alice_clear_engaging_edu';
@@ -411,6 +414,8 @@ function czyTak(t) { return !/(^|\s)nie(\s|$)/i.test(t) && TAK.test(t); }
 const TAK = /\b(tak|zgadza|dobrze|ok|okej|zapisz|zapisuj|jasne|potwierdzam|może być)\b/i;
 function rozpoznajAkcje(t) {
   t = t.toLowerCase();
+  if (/^\s*(nic|nie\b|brak|żadne|bez)/.test(t)) return 'brak';
+  if (/wydarz|spotkani|prezentacj|oglądani|ogladani|wizyt/.test(t)) return 'wydarzenie';
   if (/alert|przypom|oddzwo/.test(t)) return 'alert';
   if (/zadani|zrobi|task/.test(t)) return 'zadanie';
   return 'brak';
@@ -454,15 +459,16 @@ async function rozmowa() {
   if (!poczatek) poczatek = new Date().toISOString();
   // kroki z możliwością cofnięcia ("cofnij" głosem albo przycisk Cofnij)
   const ktoZRozmowy = !!$('#kto').value, numerZRozmowy = !!$('#numer').value;
+  const NAZWA = { alert: 'przypomnienie', zadanie: 'zadanie', wydarzenie: 'wydarzenie' };
   const kroki = [
-    { pyt: () => 'Kto dzwonił?', jest: () => !ktoZRozmowy, ustaw: o => $('#kto').value = o },
-    { pyt: () => 'Jaki numer? Jeśli go nie masz, powiedz: pomiń.', jest: () => !numerZRozmowy, ustaw: o => {
+    { pyt: () => 'Podaj numer telefonu albo powiedz: pomiń.', jest: () => !numerZRozmowy, ustaw: o => {
         if (/pomi|nie mam|nie wiem|nie znam|brak|dalej/i.test(o)) return;
         const n = wyczyscNumer(o); $('#numer').value = n.replace(/\D/g, '').length >= 7 ? n : o; } },
-    { pyt: () => 'Jaka sprawa?', ustaw: o => $('#sprawa').value = o },
-    { pyt: () => 'Ustawić alert, zadanie, czy nic?', ustaw: o => { ustawAkcje(rozpoznajAkcje(o)); krokow = 3 + (ktoZRozmowy ? 0 : 1) + (numerZRozmowy ? 0 : 1) + (akcja !== 'brak' ? 2 : 0); } },
-    { pyt: () => akcja === 'alert' ? 'Jak nazwać przypomnienie?' : 'Jaki jest tytuł zadania?', jest: () => akcja !== 'brak', ustaw: o => $('#tytul').value = o },
-    { pyt: () => akcja === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?', jest: () => akcja !== 'brak', ustaw: o => $('#termin').value = lokalnyISO(rozpoznajTermin(o)) },
+    { pyt: () => 'Podaj imię i nazwisko.', jest: () => !ktoZRozmowy, ustaw: o => $('#kto').value = o },
+    { pyt: () => 'W jakiej sprawie był telefon?', ustaw: o => $('#sprawa').value = o },
+    { pyt: () => 'Ustawić w kalendarzu przypomnienie, wydarzenie czy zadanie? Albo powiedz: nic.', ustaw: o => { ustawAkcje(rozpoznajAkcje(o)); krokow = 3 + (ktoZRozmowy ? 0 : 1) + (numerZRozmowy ? 0 : 1) + (akcja !== 'brak' ? 2 : 0); } },
+    { pyt: () => ({ alert: 'Jak nazwać przypomnienie?', zadanie: 'Jaki jest tytuł zadania?', wydarzenie: 'Jak nazwać wydarzenie?' })[akcja], jest: () => akcja !== 'brak', ustaw: o => $('#tytul').value = o },
+    { pyt: () => ({ alert: 'Kiedy przypomnieć?', zadanie: 'Na kiedy zadanie?', wydarzenie: 'Kiedy wydarzenie?' })[akcja], jest: () => akcja !== 'brak', ustaw: o => $('#termin').value = lokalnyISO(rozpoznajTermin(o)) },
     { pyt: () => 'Zapisać notatkę?', koniec: true }
   ];
   krokow = 3 + (ktoZRozmowy ? 0 : 1) + (numerZRozmowy ? 0 : 1);
@@ -473,7 +479,7 @@ async function rozmowa() {
     krok = kroki.slice(0, i).filter(x => !x.jest || x.jest()).length;
     if (k.koniec) {
       $('#slyszy').textContent = [$('#kto').value && 'Rozmowa z ' + $('#kto').value, $('#sprawa').value, !$('#numer').value && 'Numer uzupełnisz później',
-        akcja !== 'brak' && $('#termin').value && (akcja === 'alert' ? 'Przypomnienie ' : 'Zadanie ') + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
+        akcja !== 'brak' && $('#termin').value && ({ alert: 'Przypomnienie ', zadanie: 'Zadanie ', wydarzenie: 'Wydarzenie ' })[akcja] + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
         .filter(Boolean).join('. ');
     }
     const odp = await zapytaj(k.pyt());
@@ -661,9 +667,9 @@ async function wyslij(d) {
   let status = '';
   if (d.akcja !== 'brak' && d.termin) {
     try {
-    const start = new Date(d.termin), koniec = new Date(start.getTime() + 15 * 60000);
+    const start = new Date(d.termin), koniec = new Date(start.getTime() + (d.akcja === 'wydarzenie' ? 60 : 15) * 60000);
     await api('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({
-      summary: d.tytul || ((d.akcja === 'alert' ? 'Oddzwonić: ' : 'Zadanie: ') + (d.kto || d.numer || '') + ' - ' + (d.sprawa || '')),
+      summary: d.tytul || (({ alert: 'Oddzwonić: ', zadanie: 'Zadanie: ', wydarzenie: 'Spotkanie: ' })[d.akcja] + (d.kto || d.numer || '') + ' - ' + (d.sprawa || '')),
       description: `Numer: ${d.numer || '-'}\nKto: ${d.kto || '-'}\nSprawa: ${d.sprawa || '-'}`,
       start: { dateTime: start.toISOString() }, end: { dateTime: koniec.toISOString() },
       reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }, { method: 'popup', minutes: 0 }] }
@@ -820,7 +826,7 @@ function wypelnijGlosy() {
   $('#wyborGlosu').innerHTML = nagr;
 }
 $('#wyborGlosu').onchange = () => { const v = $('#wyborGlosu').value; zapiszUst(v.startsWith('lek:') ? { glosTelefonu: false, lektorka: v.slice(4) } : { glos: v, glosTelefonu: true }); };
-$('#btnPosluchaj').onclick = () => { odblokujDzwiek(); powiedz('Dzień dobry. Kto dzwonił?'); };
+$('#btnPosluchaj').onclick = () => { odblokujDzwiek(); powiedz('Dzień dobry. Podaj numer telefonu albo powiedz: pomiń.'); };
 wypelnijGlosy();
 function otworzArkusz() { const id = ust().arkusz; if (id) window.open('https://docs.google.com/spreadsheets/d/' + id + '/edit', '_blank'); }
 function pokazLinkArkusza() { const jest = !!ust().arkusz; $('#btnArkusz').classList.toggle('ukryty', !jest); $('#btnArkuszDol').classList.toggle('ukryty', !jest); }
@@ -914,7 +920,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171514';
+const WERSJA = '202611171515';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
