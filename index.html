@@ -265,13 +265,15 @@ const NAGRANIA = {
   'Zapisane.': 'zapisane', 'Nie udało się zapisać. Sprawdź na postoju.': 'blad',
   'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Kto dzwonił?': 'probka'
 };
+const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
+const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : 'gosia_niska';
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
-function odblokujDzwiek() { try { odtwarzacz.src = 'glos/zapisane.mp3'; odtwarzacz.volume = 0; const p = odtwarzacz.play(); if (p) p.then(() => { odtwarzacz.pause(); odtwarzacz.volume = 1; }).catch(() => { odtwarzacz.volume = 1; }); } catch (e) {} }
+function odblokujDzwiek() { try { odtwarzacz.src = 'glos/' + lektorka() + '/zapisane.mp3'; odtwarzacz.volume = 0; const p = odtwarzacz.play(); if (p) p.then(() => { odtwarzacz.pause(); odtwarzacz.volume = 1; }).catch(() => { odtwarzacz.volume = 1; }); } catch (e) {} }
 function zagraj(plik) {
   return new Promise(res => {
     let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; res(ok); } };
     odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false);
-    odtwarzacz.volume = 1; odtwarzacz.src = 'glos/' + plik + '.mp3';
+    odtwarzacz.volume = 1; odtwarzacz.src = 'glos/' + lektorka() + '/' + plik + '.mp3';
     const p = odtwarzacz.play(); if (p) p.catch(() => koniec(false));
     setTimeout(() => koniec(true), 9000);
   });
@@ -721,10 +723,10 @@ $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
 function wypelnijGlosy() {
   const gl = polskieGlosy(), wyb = wybierzGlos();
-  const nagr = `<option value="__nagranie"${!ust().glosTelefonu ? ' selected' : ''}>Lektorka KRAMM (polecany)</option>`;
+  const nagr = Object.entries(LEKTORKI).map(([k, n]) => `<option value="lek:${k}"${!ust().glosTelefonu && lektorka() === k ? ' selected' : ''}>${n}</option>`).join('');
   $('#wyborGlosu').innerHTML = nagr + (gl.length ? gl.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}"${ust().glosTelefonu && wyb && v.name === wyb.name ? ' selected' : ''}>${v.name.replace(/</g, '&lt;')}</option>`).join('') : '');
 }
-$('#wyborGlosu').onchange = () => { const v = $('#wyborGlosu').value; zapiszUst(v === '__nagranie' ? { glosTelefonu: false } : { glos: v, glosTelefonu: true }); };
+$('#wyborGlosu').onchange = () => { const v = $('#wyborGlosu').value; zapiszUst(v.startsWith('lek:') ? { glosTelefonu: false, lektorka: v.slice(4) } : { glos: v, glosTelefonu: true }); };
 $('#btnPosluchaj').onclick = () => { odblokujDzwiek(); powiedz('Dzień dobry. Kto dzwonił?'); };
 wypelnijGlosy();
 function otworzArkusz() { const id = ust().arkusz; if (id) window.open('https://docs.google.com/spreadsheets/d/' + id + '/edit', '_blank'); }
