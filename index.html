@@ -125,6 +125,7 @@
     <div class="kropki" id="kropki"></div>
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
+    <button class="glowny ukryty" id="btnMow">🎙 Dotknij i mów</button>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
@@ -323,18 +324,40 @@ async function powiedz(t) {
   return mowTelefonem(t);
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
-function sluchaj() {
-  try { if (navigator.audioSession && navigator.audioSession.type !== 'auto') navigator.audioSession.type = 'auto'; } catch (e) {}
+// jedno rozpoznawanie mowy na całą rozmowę (iPhone źle znosi tworzenie nowego przy każdym pytaniu)
+let rozp = null;
+const BLEDY_MIKROFONU = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'audio-capture': 'Mikrofon zajęty lub niedostępny.', 'network': 'Brak internetu do rozpoznawania mowy.' };
+function jednaProba() {
   return new Promise(res => {
-    const r = new SR(); aktywne = r;
-    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1;
-    let wynik = '';
+    if (!rozp) { rozp = new SR(); rozp.lang = 'pl-PL'; rozp.interimResults = true; rozp.maxAlternatives = 1; rozp.continuous = false; }
+    const r = rozp; aktywne = r;
+    let wynik = '', blad = '', koniec = false;
+    const zakoncz = () => { if (!koniec) { koniec = true; res({ wynik: wynik.trim(), blad }); } };
     r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
-    const BLEDY = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'audio-capture': 'Mikrofon zajęty lub niedostępny.', 'network': 'Brak internetu do rozpoznawania mowy.' };
-    r.onerror = e => { if (BLEDY[e.error]) $('#slyszy').textContent = BLEDY[e.error]; res(wynik); };
-    r.onend = () => res(wynik.trim());
-    setTimeout(() => { try { r.start(); } catch (e) { res(wynik); } }, 250);   // chwila na przełączenie dźwięku po pytaniu
+    r.onerror = e => { blad = e.error || ''; if (BLEDY_MIKROFONU[blad]) $('#slyszy').textContent = BLEDY_MIKROFONU[blad]; };
+    r.onend = () => setTimeout(zakoncz, 50);
+    const start = () => { try { r.start(); } catch (e) { try { r.abort(); } catch (x) {} setTimeout(() => { try { r.start(); } catch (x) { blad = 'start'; zakoncz(); } }, 300); } };
+    setTimeout(start, 250);   // chwila na przełączenie dźwięku po pytaniu
+    setTimeout(() => { try { r.stop(); } catch (e) {} }, 15000);
   });
+}
+// gdy iPhone nie pozwala włączyć mikrofonu bez dotknięcia: przycisk "Dotknij i mów"
+function czekajNaDotkniecie() {
+  return new Promise(res => {
+    const b = $('#btnMow'); b.classList.remove('ukryty');
+    b.onclick = e => { e.stopPropagation(); b.classList.add('ukryty'); res(); };
+  });
+}
+async function sluchaj() {
+  for (let proba = 0; proba < 3; proba++) {
+    if (przerwano || cofnijTeraz) return '';
+    const { wynik, blad } = await jednaProba();
+    if (wynik) return wynik;
+    if (blad === 'not-allowed' || blad === 'start' || blad === 'audio-capture') { rozp = null; await czekajNaDotkniecie(); continue; }
+    if (blad === 'aborted') return '';
+    if (proba < 2) $('#slyszy').textContent = 'Słucham...';   // cisza: słuchaj dalej, bez ponownego pytania
+  }
+  return '';
 }
 let krok = 0, krokow = 5;
 function rysujKropki() {
@@ -424,7 +447,7 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
-  odblokujDzwiek();
+  odblokujDzwiek(); rozp = null;
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
   $('#btnCofnij').classList.remove('ukryty');
@@ -891,7 +914,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171511';
+const WERSJA = '202611171514';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
