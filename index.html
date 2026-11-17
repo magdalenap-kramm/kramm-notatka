@@ -86,6 +86,10 @@
   .okno-tresc { width:100%; max-width:480px; background:#fffdfb; border-radius:26px; padding:22px 22px 14px; text-align:center; box-shadow:0 -10px 40px rgba(46,49,146,.2); margin-bottom:env(safe-area-inset-bottom); }
   .okno-ikona { width:54px; height:54px; margin:0 auto 8px; border-radius:50%; background:var(--roz-j); color:var(--granat); display:grid; place-items:center; font-size:26px; box-shadow:0 0 0 2px var(--roz); }
   .okno h2 { color:var(--granat); margin:6px 0 4px; font-size:26px; }
+  #oknoIkona .okno-tresc { margin-bottom:calc(48px + env(safe-area-inset-bottom)); }
+  .kroki-ikona { margin:10px 0 4px; padding-left:22px; line-height:1.9; font-size:15px; color:var(--tekst); }
+  .strzalka { position:fixed; bottom:calc(6px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); color:#fff; font-size:34px; text-shadow:0 2px 8px rgba(46,49,146,.6); animation:skacz 1.2s ease-in-out infinite; }
+  @keyframes skacz { 50% { transform:translate(-50%, 8px); } }
   .akcje { display:flex; gap:8px; }
   .akcje button { flex:1; padding:11px 6px; border-radius:999px; border:1px solid #e3d3cc; background:#fff; color:var(--granat); font-size:15px; font-family:inherit; }
   .akcje button.on { background:var(--granat); border-color:var(--granat); color:#fff; box-shadow:0 6px 16px rgba(46,49,146,.25); }
@@ -191,6 +195,20 @@
   <button class="glowny" id="oknoDopisz">Dopisz teraz</button>
   <button class="drugi" id="oknoPozniej">Później</button>
 </div></div>
+<div class="okno ukryty" id="oknoIkona"><div class="okno-tresc">
+  <img src="ikona-192.png" alt="" style="width:64px;height:64px;border-radius:16px;box-shadow:0 6px 18px rgba(46,49,146,.25)">
+  <h2>Dodaj ikonę KRAMM</h2>
+  <p class="info">Aplikacja będzie na ekranie telefonu, otworzysz ją jednym dotknięciem jak każdą inną.</p>
+  <div id="ikonaAndroid" class="ukryty"><button class="glowny" id="btnDodajIkone">Dodaj na ekran</button></div>
+  <div id="ikonaIos" class="ukryty" style="text-align:left">
+    <ol class="kroki-ikona">
+      <li>Dotknij <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;vertical-align:-4px"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg> <b>Udostępnij</b> na dolnym pasku Safari.</li>
+      <li>Przewiń w dół i wybierz <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="width:20px;height:20px;vertical-align:-4px"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg> <b>Do ekranu początkowego</b>.</li>
+      <li>Dotknij <b>Dodaj</b> w prawym górnym rogu.</li>
+    </ol>
+  </div>
+  <button class="drugi" id="btnIkonaPozniej">Nie teraz</button>
+</div><div class="strzalka ukryty" id="strzalka">↓</div></div>
 <footer><div class="podpis"><small>by</small>Magdalena Pyrc</div></footer>
 
 <script>
@@ -689,10 +707,25 @@ const jestAndroid = /android/i.test(navigator.userAgent);
 if (jestIos) $('#krokAndroid').classList.add('ukryty');
 if (jestAndroid) $('#krokIos').classList.add('ukryty');
 let instalacja = null;
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instalacja = e; $('#btnInstaluj').classList.remove('ukryty'); });
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instalacja = e; $('#btnInstaluj').classList.remove('ukryty'); if (!$('#oknoIkona').classList.contains('ukryty')) $('#ikonaAndroid').classList.remove('ukryty'); });
+// okienko "Dodaj ikonę": pokazuje się samo, dopóki aplikacja nie jest na ekranie telefonu
+const zainstalowana = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function pokazOknoIkony() {
+  if (zainstalowana || Date.now() < (+localStorage.getItem('kramm_ikona_pozniej') || 0)) return false;
+  if (!jestIos && !jestAndroid) return false;
+  if (jestAndroid && !instalacja) return false;
+  $('#ikonaIos').classList.toggle('ukryty', !jestIos);
+  $('#strzalka').classList.toggle('ukryty', !(jestIos && /safari/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent)));
+  $('#ikonaAndroid').classList.toggle('ukryty', !jestAndroid);
+  $('#oknoIkona').classList.remove('ukryty');
+  return true;
+}
+$('#btnDodajIkone').onclick = async e => { e.stopPropagation(); if (instalacja) { instalacja.prompt(); const w = await instalacja.userChoice.catch(() => ({})); instalacja = null; if (w.outcome === 'accepted') $('#oknoIkona').classList.add('ukryty'); } };
+$('#btnIkonaPozniej').onclick = e => { e.stopPropagation(); localStorage.setItem('kramm_ikona_pozniej', Date.now() + 2 * 864e5); $('#oknoIkona').classList.add('ukryty'); };
+window.addEventListener('appinstalled', () => $('#oknoIkona').classList.add('ukryty'));
 $('#btnInstaluj').onclick = async () => { if (instalacja) { instalacja.prompt(); instalacja = null; $('#btnInstaluj').classList.add('ukryty'); } };
 $('#btnPomoc').onclick = () => pokaz('#ekranInstr');
-$('#btnInstrOk').onclick = () => { localStorage.setItem('kramm_instr', '1'); ust().arkusz ? pokaz('#ekranGlos') : $('#btnUst').click(); };
+$('#btnInstrOk').onclick = () => { localStorage.setItem('kramm_instr', '1'); setTimeout(pokazOknoIkony, 500); ust().arkusz ? pokaz('#ekranGlos') : $('#btnUst').click(); };
 function pokazOkno() {
   const n = +localStorage.getItem('kramm_braki') || 0;
   if (!n || !ust().arkusz) return;
@@ -704,6 +737,9 @@ $('#oknoDopisz').onclick = e => { e.stopPropagation(); $('#oknoBraki').classList
 // okienko: z przypomnienia w kalendarzu albo gdy od ostatniej notatki minęło 20 min (nie w trakcie jazdy zaraz po rozmowie)
 const odOstatniej = Date.now() - (+localStorage.getItem('kramm_ostatnia') || 0);
 if (q.get('uzupelnij') || odOstatniej > 20 * 60000) setTimeout(pokazOkno, 400);
+// ikona: po instrukcji/logowaniu, nie nad innym okienkiem; na Androidzie czeka na zgodę przeglądarki
+setTimeout(() => { if (localStorage.getItem('kramm_instr') && $('#oknoBraki').classList.contains('ukryty')) pokazOknoIkony(); }, 1200);
+window.addEventListener('beforeinstallprompt', () => setTimeout(() => { if (localStorage.getItem('kramm_instr') && $('#oknoBraki').classList.contains('ukryty')) pokazOknoIkony(); }, 300));
 if (!localStorage.getItem('kramm_instr')) pokaz('#ekranInstr');
 else if (!ust().arkusz) $('#btnUst').click();
 else if (przywrocono) { $('#powrot').classList.remove('ukryty'); pokaz('#ekranForm'); }
