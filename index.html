@@ -125,7 +125,7 @@
     <div class="kropki" id="kropki"></div>
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
-    <button class="glowny ukryty" id="btnMow">🎙 Mów</button>
+    <button class="glowny ukryty" id="btnMow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg>Mów</button>
     <div id="diag" style="text-align:center;font-size:11px;color:var(--szary);min-height:14px;margin-top:4px"></div>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
@@ -969,7 +969,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171539';
+const WERSJA = '202611171540';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
