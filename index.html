@@ -273,6 +273,7 @@ const NAGRANIA = {
 };
 const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
 let DOMYSLNA = 'el_alice_clear_engaging_edu';
+const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : DOMYSLNA;
 Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]);
 LEKTORKI.el_alice_clear_engaging_edu = 'Alice - dojrzała, profesjonalna';
 LEKTORKI.el_lily_velvety_actress = 'Lily - dojrzała, pewna siebie';
