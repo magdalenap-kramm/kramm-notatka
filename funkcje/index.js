@@ -30,7 +30,7 @@ const agentkaRef = email => db.collection('agentki').doc(email);
 // ---------- powiadomienia ----------
 let vapidGotowe = false;
 function vapid() {
-  if (!vapidGotowe) { webpush.setVapidDetails('mailto:magdalena.p@kramm.pl', VAPID_PUBLIC.value(), VAPID_PRIVATE.value()); vapidGotowe = true; }
+  if (!vapidGotowe) { webpush.setVapidDetails('mailto:magdalena.p@kramm.pl', VAPID_PUBLIC.value().trim(), VAPID_PRIVATE.value().trim()); vapidGotowe = true; }
 }
 async function wyslijPush(email, tresc) {
   vapid();
@@ -57,7 +57,7 @@ function podsumowanie(b) {
 async function zrobBrief(email) {
   const ref = agentkaRef(email);
   const a = (await ref.get()).data();
-  const b = await brief.przygotuj(a, { sekret: GOOGLE_CLIENT_SECRET.value(), klucz: ANTHROPIC_API_KEY.value() });
+  const b = await brief.przygotuj(a, { sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
   await ref.collection('briefy').doc(b.data).set(b);
   await ref.update({ ostatniBrief: b.data, ...(b.arkusz && !a.arkuszNotatki ? { arkuszNotatki: b.arkusz } : {}), polaczenie: 'ok' });
   return b;
@@ -70,7 +70,7 @@ async function dzisiejszyBrief(email) {
 // ---------- logowanie ----------
 async function polacz({ kod, powrot }) {
   if (!kod || !powrot) throw Object.assign(new Error('Brak kodu logowania'), { status: 400 });
-  const t = await g.wymienKod(kod, powrot, GOOGLE_CLIENT_SECRET.value());
+  const t = await g.wymienKod(kod, powrot, GOOGLE_CLIENT_SECRET.value().trim());
   if (!t.weryfikacja || (t.domena !== DOMENA && !t.email.endsWith('@' + DOMENA))) throw Object.assign(new Error('Zaloguj się kontem @kramm.pl'), { status: 403 });
   const ref = agentkaRef(t.email); const byla = (await ref.get()).data();
   const refresh = t.refresh || (byla && byla.refresh);
@@ -98,7 +98,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
   if (req.method !== 'POST') return res.status(405).json({ blad: 'Tylko POST' });
   const body = req.body || {};
   try {
-    if (body.akcja === 'konfig') return res.json({ vapid: VAPID_PUBLIC.value(), clientId: g.CLIENT_ID, zakresy: g.ZAKRESY.join(' ') });
+    if (body.akcja === 'konfig') return res.json({ vapid: VAPID_PUBLIC.value().trim(), clientId: g.CLIENT_ID, zakresy: g.ZAKRESY.join(' ') });
     if (body.akcja === 'polacz') return res.json(await polacz(body));
 
     const email = await kto(req);
@@ -144,7 +144,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
           b = await zrobBrief(email);
           return res.json({ mow: b.mowa, oczekuje: false, brief: b });
         }
-        const w = await komendy.obsluz({ agentka: a, tekst, stan: { oczekujace: ocz, rozmowa: roz, brief: b }, sekret: GOOGLE_CLIENT_SECRET.value(), klucz: ANTHROPIC_API_KEY.value() });
+        const w = await komendy.obsluz({ agentka: a, tekst, stan: { oczekujace: ocz, rozmowa: roz, brief: b }, sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
         const zapisy = [stanRef.doc('rozmowa').set({ czas: Date.now(), wpisy: [...roz, { rola: 'agentka', tekst }, { rola: 'asystentka', tekst: w.mow }].slice(-10) })];
         if (w.noweOczekujace === null) zapisy.push(stanRef.doc('oczekujace').set({ typ: null }));
         else if (w.noweOczekujace) zapisy.push(stanRef.doc('oczekujace').set({ ...w.noweOczekujace, czas: Date.now() }));
