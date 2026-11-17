@@ -180,6 +180,8 @@
     <div class="krok"><h3>2. Zaloguj się</h3><p>Dotknij ikony konta i zaloguj się kontem <b>@kramm.pl</b>. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię”. Alerty i zadania trafią do Twojego Kalendarza Google.</p></div>
     <div class="krok" id="krokIos"><span class="tag">iPhone</span><h3>3. Dodaj ikonę na ekran</h3>
       <ol><li>Otwórz ten link w <b>Safari</b>.</li><li>Dotknij <b>Udostępnij</b> (kwadrat ze strzałką) na dole.</li><li>Nie zmieniaj opcji „Automatycznie / PDF / Kompletna witryna” u góry. Przewiń w dół i wybierz <b>Do ekranu początkowego</b> -> <b>Dodaj</b>.</li><li>Przesuń ikonę KRAMM na dolny pasek, obok Telefonu.</li></ol>
+      <h3 style="margin-top:12px">Ładniejszy głos: Zosia Premium</h3>
+      <ol><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Zawartość mówiona</b> -> <b>Głosy</b> -> <b>Polski</b> -> <b>Zosia</b>.</li><li>Pobierz wersję <b>Premium</b> (albo <b>Rozszerzony</b>, jeśli Premium nie ma). Najlepiej przez Wi-Fi.</li><li>Aplikacja sama użyje tego głosu.</li></ol>
       <h3 style="margin-top:12px">Otwieranie głosem: „Hej Krammuszko”</h3>
       <ol><li>Otwórz aplikację <b>Skróty</b> -> <b>+</b> -> <b>Dodaj czynność</b> -> <b>Otwórz adresy URL</b>.</li><li>Wpisz adres: <b>magdalenap-kramm.github.io/kramm-notatka</b> i nazwij skrót „Notatki KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Skróty głosowe</b> -> <b>Ustaw</b>.</li><li>Wybierz <b>Skrót</b> -> „Notatki KRAMM”, a jako frazę powiedz: <b>„Hej Krammuszko, otwórz notatki KRAMM”</b>. Telefon poprosi o powtórzenie frazy 3 razy.</li></ol>
       <p>Działa bez „Hej Siri”, także w aucie. Wymaga iOS 18.</p>
@@ -266,7 +268,7 @@ function wybierzGlos() {
     const n = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
     let o = GLOSY_MESKIE.test(n) ? -100 : 0;
     const i = GLOSY_KOBIECE.findIndex(k => n.includes(k)); if (i >= 0) o += 50 - i;
-    if (/premium|enhanced|rozszerz|natural|neural/.test(n)) o += 20;
+    if (/premium/.test(n)) o += 30; else if (/enhanced|rozszerz|ulepsz|natural|neural/.test(n)) o += 20;
     return o;
   };
   return gl.slice().sort((x, y) => ocena(y) - ocena(x))[0];
@@ -283,20 +285,24 @@ const NAGRANIA = {
   'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Podaj numer telefonu albo powiedz: pomiń.': 'probka'
 };
 const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
-let DOMYSLNA = 'el_alice_clear_engaging_edu';
-const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : DOMYSLNA;
+let DOMYSLNA = 'telefon';
+const lektorka = () => (ust().lektorka === 'telefon' || LEKTORKI[ust().lektorka]) ? ust().lektorka : DOMYSLNA;
 Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]);
 LEKTORKI.el_alice_clear_engaging_edu = 'Alice - dojrzała, profesjonalna';
 LEKTORKI.el_lily_velvety_actress = 'Lily - dojrzała, pewna siebie';
+const NAZWA_TELEFON = 'Głos telefonu (Zosia) - polecany';
+// jednorazowo: wszyscy wracają do głosu telefonu (z nim mikrofon działa najpewniej)
+if (!localStorage.getItem('kramm_glos_v2')) { try { const u = JSON.parse(localStorage.getItem('kramm_ust') || '{}'); u.lektorka = 'telefon'; localStorage.setItem('kramm_ust', JSON.stringify(u)); } catch (e) {} localStorage.setItem('kramm_glos_v2', '1'); }
 fetch('glos/lektorki.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : []).then(lista => {
   if (!Array.isArray(lista) || !lista.length) return;
   Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]);
   lista.forEach(l => LEKTORKI[l.id] = l.nazwa + (l.opis ? ' - ' + l.opis : ''));
-  DOMYSLNA = lista[0].id; if (typeof wypelnijGlosy === 'function') wypelnijGlosy();
+  LEKTORKI.telefon = NAZWA_TELEFON;
+  DOMYSLNA = 'telefon'; if (typeof wypelnijGlosy === 'function') wypelnijGlosy();
 }).catch(() => {});
 document.getElementById('atrybucja') && document.getElementById('atrybucja').classList.remove('ukryty');
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
-function odblokujDzwiek() { const c = kontekstAudio(); if (c) { try { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(); } catch (e) {} zaladujNagrania(); } }
+function odblokujDzwiek() { if (lektorka() === 'telefon') return; const c = kontekstAudio(); if (c) { try { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(); } catch (e) {} zaladujNagrania(); } }
 let zatrzymajDzwiek = () => {};
 function sesjaDzwieku(typ) { /* nie zmieniamy sesji dźwięku: na iPhonie blokowało to mikrofon */ }
 // Nagrania odtwarzane przez Web Audio (nie przez odtwarzacz audio): na iPhonie odtwarzacz
@@ -331,7 +337,7 @@ function mowTelefonem(t) {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(t);
     u.lang = 'pl-PL'; u.rate = 0.92; u.pitch = 1.08; u.volume = 0.95;
-    const g = wybierzGlos(); if (g) u.voice = g;
+    const g = wybierzGlos(); if (g) { try { u.voice = g; } catch (e) {} }
     let gotowe = false; const koniec = () => { if (!gotowe) { gotowe = true; res(); } };
     u.onend = koniec; u.onerror = koniec;
     speechSynthesis.speak(u);
@@ -340,7 +346,7 @@ function mowTelefonem(t) {
 }
 async function powiedz(t) {
   const plik = NAGRANIA[t];
-  if (plik) { if (await zagraj(plik)) return; }
+  if (plik && lektorka() !== 'telefon') { if (await zagraj(plik)) return; }
   return mowTelefonem(t);
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
@@ -909,7 +915,8 @@ $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
 function wypelnijGlosy() {
   const gl = polskieGlosy(), wyb = wybierzGlos();
-  const nagr = Object.entries(LEKTORKI).map(([k, n]) => `<option value="lek:${k}"${lektorka() === k ? ' selected' : ''}>${n}</option>`).join('');
+  const lista = [['telefon', NAZWA_TELEFON], ...Object.entries(LEKTORKI).filter(([k]) => k !== 'telefon')];
+  const nagr = lista.map(([k, n]) => `<option value="lek:${k}"${lektorka() === k ? ' selected' : ''}>${n}</option>`).join('');
   $('#wyborGlosu').innerHTML = nagr;
 }
 $('#wyborGlosu').onchange = () => { const v = $('#wyborGlosu').value; zapiszUst(v.startsWith('lek:') ? { glosTelefonu: false, lektorka: v.slice(4) } : { glos: v, glosTelefonu: true }); };
@@ -1007,7 +1014,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171615';
+const WERSJA = '202611171619';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
