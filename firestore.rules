@@ -1,0 +1,10 @@
+rules_version = '2';
+// Dane asystentki czytają i zapisują wyłącznie funkcje na serwerze (Admin SDK).
+// Telefony nie mają bezpośredniego dostępu do bazy.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

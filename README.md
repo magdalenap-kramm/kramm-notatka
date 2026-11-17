@@ -6,3 +6,6 @@ Po rozmowie telefonicznej pyta głosem o numer, osobę, sprawę oraz alert lub z
 
 - Logowanie: Google OAuth, projekt Google Cloud `calm-metric-514918-h8`, klient typu aplikacja internetowa, dostęp tylko dla domeny kramm.pl.
 - Uprawnienia: `drive.file` (tylko pliki założone przez aplikację), `calendar.events`.
+
+## Asystentka KRAMM
+Poranny brief, maile i kalendarz głosem: https://magdalenap-kramm.github.io/kramm-notatka/asystentka/ - opis i uruchomienie w [asystentka/README.md](asystentka/README.md).

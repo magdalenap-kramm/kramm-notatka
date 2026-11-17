@@ -1,0 +1,6 @@
+{
+  "functions": [
+    { "source": "funkcje", "codebase": "asystentka", "runtime": "nodejs22", "ignore": ["node_modules", "test.js"] }
+  ],
+  "firestore": { "rules": "firestore.rules" }
+}
