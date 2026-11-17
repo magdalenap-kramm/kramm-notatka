@@ -126,8 +126,9 @@
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
     <button class="glowny ukryty" id="btnMow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg>Mów</button>
-    <div id="diag" style="text-align:left;font-family:monospace;font-size:11px;line-height:1.4;color:#8a6f6a;background:rgba(255,255,255,.6);border-radius:8px;padding:4px 8px;min-height:14px;margin-top:4px"></div>
+    <div id="diag" style="display:none;text-align:left;font-family:monospace;font-size:11px;line-height:1.4;color:#8a6f6a;background:rgba(255,255,255,.6);border-radius:8px;padding:4px 8px;min-height:14px;margin-top:4px"></div>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
+    <div class="powrot ukryty" id="apkInfo" style="margin-top:14px">Na Androidzie numer i nazwa kontaktu mogą wpisywać się same z ostatniej rozmowy. <a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk" style="color:var(--granat);font-weight:500">Pobierz aplikację KRAMM Notatka</a> · <a href="#" id="apkMam" style="color:var(--szary)">Mam już</a></div>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
     <button class="glowny ukryty" id="btnKolejka"></button>
@@ -553,7 +554,7 @@ async function rozmowa() {
       const pew = await zapytaj('Usunąć notatkę?');
       if (czyTak(pew)) {
         await powiedz('Usunięte.');
-        trwa = false; wylaczRozpoznawanie(); $('#btnStart').disabled = false; krok = 0; rysujKropki();
+        trwa = false; wylaczRozpoznawanie(); setTimeout(() => { if (!trwa) $('#diag').innerHTML = ''; }, 4000); $('#btnStart').disabled = false; krok = 0; rysujKropki();
         $('#pytanie').textContent = ''; $('#slyszy').textContent = ''; $('#btnCofnij').classList.add('ukryty'); $('#btnMow').classList.add('ukryty');
         $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
         poczatek = ''; nowa(); return;
@@ -571,7 +572,7 @@ async function rozmowa() {
   }
   await powiedz('Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.');
   } catch (e) { /* przerwane - przechodzimy do formularza z tym, co już jest */ }
-  trwa = false; aktywne = null; wylaczRozpoznawanie(); $('#btnCofnij').classList.add('ukryty'); $('#btnMow').classList.add('ukryty');
+  trwa = false; aktywne = null; wylaczRozpoznawanie(); setTimeout(() => { if (!trwa) $('#diag').innerHTML = ''; }, 4000); $('#btnCofnij').classList.add('ukryty'); $('#btnMow').classList.add('ukryty');
   $('#btnStart').disabled = false;
   $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
   krok = 0; rysujKropki();
@@ -934,6 +935,10 @@ if (q.get('numer')) $('#numer').value = q.get('numer');
 if (q.get('kto')) $('#kto').value = q.get('kto');
 if (q.get('numer') || q.get('kto')) $('#pytanie').textContent = 'Rozmowa z: ' + (q.get('kto') || q.get('numer')) + '. Dotknij Zaczynamy.';
 pokazAgentke();
+// Android w przeglądarce (nie z aplikacji KRAMM Notatka): podpowiedź z linkiem do aplikacji
+if (/android/i.test(navigator.userAgent) && !q.get('numer') && !q.get('kto') && !localStorage.getItem('kramm_apk')) $('#apkInfo').classList.remove('ukryty');
+if (q.get('numer') || q.get('kto')) localStorage.setItem('kramm_apk', '1');
+$('#apkMam').onclick = e => { e.preventDefault(); e.stopPropagation(); localStorage.setItem('kramm_apk', '1'); $('#apkInfo').classList.add('ukryty'); };
 // instrukcja: przy pierwszym uruchomieniu i pod "?"
 const jestIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const jestAndroid = /android/i.test(navigator.userAgent);
@@ -1012,7 +1017,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171620';
+const WERSJA = '202611171746';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
