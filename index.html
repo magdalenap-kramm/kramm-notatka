@@ -830,6 +830,16 @@ if (!localStorage.getItem('kramm_instr')) pokaz('#ekranInstr');
 else if (!ust().arkusz) $('#btnUst').click();
 else if (przywrocono) { $('#powrot').classList.remove('ukryty'); pokaz('#ekranForm'); }
 window.addEventListener('online', wyslijKolejke); wyslijKolejke();
+// automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
+const WERSJA = '202611171313';
+function sprawdzWersje() {
+  if (trwa) return;
+  fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
+    w = w.trim(); if (w && w !== WERSJA && !trwa) { zapiszSzkic(); location.reload(); }
+  }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sprawdzWersje(); });
+setTimeout(sprawdzWersje, 1500);
 </script>
 </body>
 </html>
