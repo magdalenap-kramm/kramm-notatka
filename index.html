@@ -11,7 +11,6 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="ikona-192.png">
 <meta name="apple-mobile-web-app-title" content="KRAMM Notatka">
-<script src="https://accounts.google.com/gsi/client" async></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -503,29 +502,44 @@ $('#btnWklej').onclick = async () => {
 // ---------- Google: logowanie, arkusz, kalendarz ----------
 const CLIENT_ID = '696449098485-ejg71rbdnanoqbm7rql7033stlmg7tfu.apps.googleusercontent.com';
 const SCOPES = 'openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
-let token = null, tokenDo = 0, tokenClient = null, poTokenie = null;
-
-function initGoogle() {
-  if (tokenClient || !window.google || !google.accounts) return !!tokenClient;
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID, scope: SCOPES, hd: 'kramm.pl',
-    callback: r => {
-      if (r.error) { $('#komunikat').textContent = 'Logowanie przerwane.'; poTokenie = null; return; }
-      token = r.access_token; tokenDo = Date.now() + (r.expires_in - 60) * 1000;
-      const f = poTokenie; poTokenie = null; if (f) f();
-    }
-  });
-  return true;
-}
+// Logowanie Google przez przekierowanie (działa też w aplikacji z ikony na iPhonie).
+// Token (ważny ok. godziny) zapamiętany w telefonie; po wygaśnięciu odświeżany bez pytania.
+let token = null, tokenDo = 0, tokenZakres = '';
+try { const z = JSON.parse(localStorage.getItem('kramm_token') || 'null'); if (z) { token = z.t; tokenDo = z.do; tokenZakres = z.zakres || ''; } } catch (e) {}
 function maToken() { return token && Date.now() < tokenDo; }
-// wywoływać bezpośrednio z kliknięcia (wymóg przeglądarek dla okienka Google)
-function zTokenem(f, wymus) {
-  if (maToken() && !wymus) return f();
-  if (!initGoogle()) { $('#komunikat').textContent = 'Ładuję logowanie Google, spróbuj za chwilę.'; return; }
-  poTokenie = f;
+const ADRES_POWROTU = location.origin + location.pathname;
+function przekieruj(nazwa, prompt) {
   const u = ust();
-  tokenClient.requestAccessToken({ prompt: u.email && !wymus ? '' : 'consent', login_hint: u.email || undefined });
+  const stan = btoa(JSON.stringify({ n: nazwa || '', p: prompt || '' }));
+  const par = new URLSearchParams({ client_id: CLIENT_ID, redirect_uri: ADRES_POWROTU, response_type: 'token', scope: SCOPES,
+    include_granted_scopes: 'true', hd: 'kramm.pl', state: stan });
+  if (prompt) par.set('prompt', prompt);
+  if (u.email) par.set('login_hint', u.email);
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + par.toString();
 }
+// nazwa: akcja do wykonania po powrocie z logowania (zaloguj, zapisz, kolejka, uzupelnij)
+function zTokenem(f, wymus, nazwa) {
+  if (maToken() && !wymus) return f();
+  try { zapiszSzkic(); } catch (e) {}
+  const u = ust();
+  const brakKal = tokenZakres && !tokenZakres.includes('calendar');
+  przekieruj(nazwa, wymus || brakKal ? 'consent select_account' : (u.email ? 'none' : 'select_account'));
+}
+// powrót z Google: token w adresie (#access_token=...)
+let poLogowaniu = null;
+(() => {
+  if (!location.hash.includes('access_token') && !location.hash.includes('error')) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  let stan = {}; try { stan = JSON.parse(atob(h.get('state') || '')); } catch (e) {}
+  history.replaceState(null, '', ADRES_POWROTU + location.search);
+  if (h.get('access_token')) {
+    token = h.get('access_token'); tokenDo = Date.now() + ((+h.get('expires_in') || 3600) - 60) * 1000; tokenZakres = h.get('scope') || '';
+    localStorage.setItem('kramm_token', JSON.stringify({ t: token, do: tokenDo, zakres: tokenZakres }));
+    poLogowaniu = stan.n || '';
+  } else if (stan.p === 'none' && stan.n && stan.n !== 'cicho') {
+    przekieruj(stan.n, 'select_account');   // sesja Google wygasła: pokaż wybór konta
+  }
+})();
 async function api(url, opcje = {}) {
   const r = await fetch(url, { ...opcje, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opcje.headers || {}) } });
   const j = await r.json().catch(() => ({}));
@@ -597,12 +611,13 @@ function pokazStanKonta() {
   $('#btnOtworzArkusz').classList.toggle('ukryty', !zalogowana);
   $('#btnWyloguj').classList.toggle('ukryty', !zalogowana);
 }
+async function dokonczLogowanie() {
+  pokaz('#ekranUst'); $('#ustStan').textContent = 'Przygotowuję arkusz...';
+  try { await przygotujArkusz(); pokazStanKonta(); pokazAgentke(); pokazLinkArkusza(); pokaz('#ekranGlos'); wyslijKolejke(); }
+  catch (e) { $('#ustStan').textContent = 'Nie udało się: ' + e.message; }
+}
 function zaloguj() {
-  zTokenem(async () => {
-    $('#ustStan').textContent = 'Przygotowuję arkusz...';
-    try { await przygotujArkusz(); pokazStanKonta(); pokazAgentke(); pokazLinkArkusza(); pokaz('#ekranGlos'); wyslijKolejke(); }
-    catch (e) { $('#ustStan').textContent = 'Nie udało się: ' + e.message; }
-  }, true);
+  zTokenem(dokonczLogowanie, true, 'zaloguj');
 }
 
 const pad = n => String(n).padStart(2, '0');
@@ -612,6 +627,7 @@ async function wyslij(d) {
   const u = ust();
   let status = '';
   if (d.akcja !== 'brak' && d.termin) {
+    try {
     const start = new Date(d.termin), koniec = new Date(start.getTime() + 15 * 60000);
     await api('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({
       summary: d.tytul || ((d.akcja === 'alert' ? 'Oddzwonić: ' : 'Zadanie: ') + (d.kto || d.numer || '') + ' - ' + (d.sprawa || '')),
@@ -620,6 +636,7 @@ async function wyslij(d) {
       reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }, { method: 'popup', minutes: 0 }] }
     }) });
     status = 'W kalendarzu';
+    } catch (e) { status = 'Kalendarz: ' + e.message; }
   }
   if (!d.numer) { status = status ? status + ', brak numeru' : 'Brak numeru'; dodajBrak(1); }
   const t = new Date(d.czas), ter = d.termin ? new Date(d.termin) : null;
@@ -730,7 +747,7 @@ function zapisz() {
       if (e instanceof TypeError) { doKolejki(dane); $('#komunikat').textContent = 'Brak sieci - zapiszę, gdy wróci połączenie.'; }
       else $('#komunikat').textContent = 'Nie zapisano: ' + e.message;
     }
-  });
+  }, false, 'zapisz');
 }
 async function wyslijKolejke() {
   let k = [];
@@ -751,9 +768,9 @@ $('#btnCofnij').onclick = e => { e.stopPropagation(); if (!trwa) return; cofnijT
   try { aktywne && aktywne.abort(); } catch (x) {} try { speechSynthesis.cancel(); } catch (x) {} zatrzymajDzwiek(); };
 // w aucie: dotknięcie w dowolnym miejscu ekranu nagrywania startuje pytania
 $('#ekranGlos').addEventListener('click', e => { if (!trwa && !e.target.closest('button, a, input')) rozmowa(); });
-$('#btnKolejka').onclick = () => zTokenem(wyslijKolejke);
+$('#btnKolejka').onclick = () => zTokenem(wyslijKolejke, false, 'kolejka');
 pokazKolejke();
-$('#btnBraki').onclick = () => zTokenem(pokazUzupelnianie);
+$('#btnBraki').onclick = () => zTokenem(pokazUzupelnianie, false, 'uzupelnij');
 $('#btnUzupWroc').onclick = () => pokaz('#ekranGlos');
 $('#btnFormWroc').onclick = () => { zapiszSzkic(); $('#komunikat').textContent = ''; pokaz('#ekranGlos'); };
 $('#btnUstWroc').onclick = () => pokaz(localStorage.getItem('kramm_instr') ? '#ekranGlos' : '#ekranInstr');
@@ -819,7 +836,7 @@ function pokazOkno() {
   $('#oknoBraki').classList.remove('ukryty');
 }
 $('#oknoPozniej').onclick = e => { e.stopPropagation(); $('#oknoBraki').classList.add('ukryty'); };
-$('#oknoDopisz').onclick = e => { e.stopPropagation(); $('#oknoBraki').classList.add('ukryty'); zTokenem(pokazUzupelnianie); };
+$('#oknoDopisz').onclick = e => { e.stopPropagation(); $('#oknoBraki').classList.add('ukryty'); zTokenem(pokazUzupelnianie, false, 'uzupelnij'); };
 // okienko: z przypomnienia w kalendarzu albo gdy od ostatniej notatki minęło 20 min (nie w trakcie jazdy zaraz po rozmowie)
 const odOstatniej = Date.now() - (+localStorage.getItem('kramm_ostatnia') || 0);
 if (q.get('uzupelnij') || odOstatniej > 20 * 60000) setTimeout(pokazOkno, 400);
@@ -830,8 +847,24 @@ if (!localStorage.getItem('kramm_instr')) pokaz('#ekranInstr');
 else if (!ust().arkusz) $('#btnUst').click();
 else if (przywrocono) { $('#powrot').classList.remove('ukryty'); pokaz('#ekranForm'); }
 window.addEventListener('online', wyslijKolejke); wyslijKolejke();
+
+// po powrocie z logowania dokończ to, co agentka robiła
+if (poLogowaniu === 'zaloguj') dokonczLogowanie();
+else if (poLogowaniu === 'zapisz') { pokaz('#ekranForm'); setTimeout(zapisz, 300); }
+else if (poLogowaniu === 'kolejka') wyslijKolejke();
+else if (poLogowaniu === 'uzupelnij') pokazUzupelnianie();
+if (poLogowaniu !== null) wyslijKolejke();
+if (maToken() && tokenZakres && !tokenZakres.includes('calendar')) $('#komunikat').textContent = 'Brak dostępu do kalendarza - zaloguj się ponownie i zaznacz Kalendarz Google.';
+// przy otwarciu: gdy logowanie wygasło, odśwież je od razu (bez pytania), żeby zapis w aucie działał
+(() => {
+  if (poLogowaniu !== null || !ust().arkusz || maToken() || !navigator.onLine) return;
+  const ost = +localStorage.getItem('kramm_cicho') || 0;
+  if (Date.now() - ost < 10 * 60000) return;
+  localStorage.setItem('kramm_cicho', Date.now());
+  przekieruj('cicho', 'none');
+})();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171313';
+const WERSJA = '202611171448';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
