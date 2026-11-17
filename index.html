@@ -646,7 +646,7 @@ async function wyslij(d) {
       reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 10 }, { method: 'popup', minutes: 0 }] }
     }) });
     status = 'W kalendarzu';
-    } catch (e) { status = 'Kalendarz: ' + e.message; setTimeout(pokazOknoKalendarza, 1500); }
+    } catch (e) { status = 'Kalendarz: ' + e.message; if (/insufficient|permission|scope|uprawnie|401|403/i.test(e.message)) setTimeout(pokazOknoKalendarza, 1500); }
   }
   if (!d.numer) { status = status ? status + ', brak numeru' : 'Brak numeru'; dodajBrak(1); }
   const t = new Date(d.czas), ter = d.termin ? new Date(d.termin) : null;
@@ -867,8 +867,10 @@ function pokazOknoKalendarza() {
 async function sprawdzKalendarz() {
   if (!maToken() || !ust().arkusz) return;
   if (tokenZakres && !tokenZakres.includes('calendar')) return pokazOknoKalendarza();
-  try { await api('https://www.googleapis.com/calendar/v3/calendars/primary?fields=id'); localStorage.removeItem('kramm_kal_blad'); }
-  catch (e) { if (navigator.onLine) pokazOknoKalendarza(); }
+  // ten sam zakres, którego używa zapis zadań (calendar.events)
+  const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1&fields=kind', { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
+  if (r && (r.status === 401 || r.status === 403)) pokazOknoKalendarza();
+  else if (r && r.ok) { localStorage.removeItem('kramm_kal_pozniej'); $('#oknoKalendarz').classList.add('ukryty'); }
 }
 $('#btnPolaczKal').onclick = e => { e.stopPropagation(); $('#oknoKalendarz').classList.add('ukryty'); localStorage.removeItem('kramm_kal_pozniej'); zTokenem(() => {}, true, 'kalendarz'); };
 $('#btnKalPozniej').onclick = e => { e.stopPropagation(); localStorage.setItem('kramm_kal_pozniej', Date.now() + 4 * 3600e3); $('#oknoKalendarz').classList.add('ukryty'); };
@@ -889,7 +891,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171506';
+const WERSJA = '202611171511';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
