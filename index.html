@@ -122,7 +122,7 @@
   <section id="ekranGlos">
     <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów. Powiedz „cofnij”, żeby wrócić.</div></div></div>
     <div class="mic-wrap" id="mic"><div class="fale"><i></i><i></i><i></i></div>
-      <button class="start" id="btnStart" aria-label="Zacznij"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span class="slupki"><b></b><b></b><b></b><b></b><b></b></span><span class="napis" id="napisMic">Zacznij</span></button></div>
+      <button class="start" id="btnStart" aria-label="Zaczynamy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span class="slupki"><b></b><b></b><b></b><b></b><b></b></span><span class="napis" id="napisMic">Zaczynamy</span></button></div>
     <div class="kropki" id="kropki"></div>
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
@@ -190,7 +190,7 @@
       <p>Zainstaluj małą aplikację „KRAMM Notatka”. Po odebranej rozmowie przychodzącej pokaże powiadomienie „Dodaj notatkę” z numerem i nazwą kontaktu.</p>
       <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
     <div class="krok"><h3>Po każdej rozmowie</h3>
-      <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Numeru nie dyktujesz. Aplikacja zapisuje godzinę rozmowy, a na postoju dotykasz „Uzupełnij numery” i wklejasz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
+      <ol><li>Otwórz aplikację i dotknij <b>Zaczynamy</b>.</li><li>Odpowiadaj krótko: kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Numeru nie dyktujesz. Aplikacja zapisuje godzinę rozmowy, a na postoju dotykasz „Uzupełnij numery” i wklejasz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
     <button class="drugi" id="btnInstrWroc">← Wróć</button>
@@ -342,7 +342,7 @@ async function zapytaj(tekst) {
   if (przerwano) throw new Error('przerwano');
   if (cofnijTeraz) { cofnijTeraz = false; $('#mic').classList.remove('mowi'); return '__cofnij'; }
   const odp = await sluchaj();
-  $('#mic').classList.remove('slucha'); $('#napisMic').textContent = 'Zacznij';
+  $('#mic').classList.remove('slucha'); $('#napisMic').textContent = 'Zaczynamy';
   if (przerwano) throw new Error('przerwano');
   if (cofnijTeraz) { cofnijTeraz = false; return '__cofnij'; }
   zapiszSzkic();
@@ -462,7 +462,7 @@ async function rozmowa() {
   } catch (e) { /* przerwane - przechodzimy do formularza z tym, co już jest */ }
   trwa = false; aktywne = null; $('#btnCofnij').classList.add('ukryty');
   $('#btnStart').disabled = false;
-  $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zacznij';
+  $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
   krok = 0; rysujKropki();
   $('#pytanie').textContent = '';
   zapiszSzkic();
@@ -783,7 +783,7 @@ let przywrocono = false;
 if (q.get('numer') || q.get('kto')) usunSzkic(); else przywrocono = wczytajSzkic();
 if (q.get('numer')) $('#numer').value = q.get('numer');
 if (q.get('kto')) $('#kto').value = q.get('kto');
-if (q.get('numer') || q.get('kto')) $('#pytanie').textContent = 'Rozmowa z: ' + (q.get('kto') || q.get('numer')) + '. Dotknij Zacznij.';
+if (q.get('numer') || q.get('kto')) $('#pytanie').textContent = 'Rozmowa z: ' + (q.get('kto') || q.get('numer')) + '. Dotknij Zaczynamy.';
 pokazAgentke();
 // instrukcja: przy pierwszym uruchomieniu i pod "?"
 const jestIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
