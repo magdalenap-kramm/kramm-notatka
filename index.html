@@ -90,6 +90,8 @@
   .kroki-ikona { margin:10px 0 4px; padding-left:22px; line-height:1.9; font-size:15px; color:var(--tekst); }
   .strzalka { position:fixed; bottom:calc(6px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); color:#fff; font-size:34px; text-shadow:0 2px 8px rgba(46,49,146,.6); animation:skacz 1.2s ease-in-out infinite; }
   @keyframes skacz { 50% { transform:translate(-50%, 8px); } }
+  .sklepy { display:flex; gap:8px; margin:10px 0 6px; }
+  .sklep { flex:1; text-align:center; padding:11px 8px; border-radius:999px; background:var(--granat); color:#fff !important; text-decoration:none; font-size:14px; font-weight:400 !important; }
   .akcje { display:flex; gap:8px; }
   .akcje button { flex:1; padding:11px 6px; border-radius:999px; border:1px solid #e3d3cc; background:#fff; color:var(--granat); font-size:15px; font-family:inherit; }
   .akcje button.on { background:var(--granat); border-color:var(--granat); color:#fff; box-shadow:0 6px 16px rgba(46,49,146,.25); }
@@ -158,21 +160,32 @@
   <section id="ekranInstr" class="ukryty">
     <h2 style="color:var(--granat);margin:4px 0 2px;font-size:30px">Jak zacząć</h2>
     <p class="info">Zajmie to 3 minuty, robisz to tylko raz.</p>
-    <div class="krok"><h3>1. Zaloguj się</h3><p>Dotknij ⚙ i zaloguj się kontem <b>@kramm.pl</b>. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię”. Alerty i zadania trafią do Twojego Kalendarza Google.</p></div>
-    <div class="krok" id="krokIos"><span class="tag">iPhone</span><h3>2. Dodaj ikonę na ekran</h3>
+    <div class="krok"><h3>1. Zainstaluj aplikacje Google</h3>
+      <p>Notatki trafiają do Arkuszy Google, a przypomnienia do Kalendarza Google. Zainstaluj obie aplikacje i zaloguj się w nich kontem <b>@kramm.pl</b>.</p>
+      <div class="sklepy" id="sklepyIos">
+        <a class="sklep" href="https://apps.apple.com/pl/app/arkusze-google/id842849113" target="_blank" rel="noopener">Arkusze Google</a>
+        <a class="sklep" href="https://apps.apple.com/pl/app/kalendarz-google/id909319292" target="_blank" rel="noopener">Kalendarz Google</a>
+      </div>
+      <div class="sklepy" id="sklepyAndroid">
+        <a class="sklep" href="https://play.google.com/store/apps/details?id=com.google.android.apps.docs.editors.sheets" target="_blank" rel="noopener">Arkusze Google</a>
+        <a class="sklep" href="https://play.google.com/store/apps/details?id=com.google.android.calendar" target="_blank" rel="noopener">Kalendarz Google</a>
+      </div>
+      <p style="font-size:13px;color:var(--szary)">Na iPhonie w Kalendarzu Google włącz powiadomienia - stąd przyjdzie przypomnienie „Dopisz numer”.</p></div>
+    <div class="krok"><h3>2. Zaloguj się</h3><p>Dotknij ikony konta i zaloguj się kontem <b>@kramm.pl</b>. Aplikacja założy na Twoim Dysku arkusz „Rozmowy - imię”. Alerty i zadania trafią do Twojego Kalendarza Google.</p></div>
+    <div class="krok" id="krokIos"><span class="tag">iPhone</span><h3>3. Dodaj ikonę na ekran</h3>
       <ol><li>Otwórz ten link w <b>Safari</b>.</li><li>Dotknij <b>Udostępnij</b> (kwadrat ze strzałką) na dole.</li><li>Wybierz <b>Do ekranu początkowego</b> -> <b>Dodaj</b>.</li><li>Przesuń ikonę KRAMM na dolny pasek, obok Telefonu.</li></ol>
       <h3 style="margin-top:12px">Otwieranie głosem: „Hej Krammuszko”</h3>
       <ol><li>Otwórz aplikację <b>Skróty</b> -> <b>+</b> -> <b>Dodaj czynność</b> -> <b>Otwórz adresy URL</b>.</li><li>Wpisz adres: <b>magdalenap-kramm.github.io/kramm-notatka</b> i nazwij skrót „Notatki KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Skróty głosowe</b> -> <b>Ustaw</b>.</li><li>Wybierz <b>Skrót</b> -> „Notatki KRAMM”, a jako frazę powiedz: <b>„Hej Krammuszko, otwórz notatki KRAMM”</b>. Telefon poprosi o powtórzenie frazy 3 razy.</li></ol>
       <p>Działa bez „Hej Siri”, także w aucie. Wymaga iOS 18.</p>
       <h3 style="margin-top:12px">Albo: 2x stuknięcie w tył telefonu</h3>
       <ol><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b> -> <b>Stuknięcie w tył</b> -> <b>Stuknij dwukrotnie</b> -> wybierz „Notatki KRAMM”.</li></ol></div>
-    <div class="krok" id="krokAndroid"><span class="tag">Android</span><h3>2. Zainstaluj aplikację</h3>
+    <div class="krok" id="krokAndroid"><span class="tag">Android</span><h3>3. Zainstaluj aplikację</h3>
       <button class="glowny ukryty" id="btnInstaluj" style="margin:6px 0 10px">Zainstaluj na telefonie</button>
       <ol><li>Otwórz ten link w <b>Chrome</b>.</li><li>Dotknij <b>⋮</b> w prawym górnym rogu.</li><li>Wybierz <b>Zainstaluj aplikację</b> albo <b>Dodaj do ekranu głównego</b>.</li><li>Przesuń ikonę KRAMM obok ikony Telefonu.</li><li>Głosem: „Ok Google, otwórz KRAMM Notatka”.</li></ol>
-      <h3 style="margin-top:12px">3. Powiadomienie po każdej rozmowie</h3>
+      <h3 style="margin-top:12px">4. Powiadomienie po każdej rozmowie</h3>
       <p>Zainstaluj małą aplikację „KRAMM Notatka”. Po odebranej rozmowie przychodzącej pokaże powiadomienie „Dodaj notatkę” z numerem i nazwą kontaktu.</p>
       <ol><li><a href="https://github.com/magdalenap-kramm/kramm-notatka/releases/latest/download/kramm-notatka.apk">Pobierz KRAMM Notatka (.apk)</a></li><li>Otwórz pobrany plik. Jeśli telefon zapyta, zezwól Chrome na instalowanie aplikacji.</li><li>Uruchom „KRAMM Notatka” i zezwól na: telefon, rejestr połączeń, powiadomienia.</li><li>Dotknij „Pokaż próbne powiadomienie”, żeby sprawdzić.</li></ol></div>
-    <div class="krok"><h3>3. Po każdej rozmowie</h3>
+    <div class="krok"><h3>Po każdej rozmowie</h3>
       <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Numeru nie dyktujesz. Aplikacja zapisuje godzinę rozmowy, a na postoju dotykasz „Uzupełnij numery” i wklejasz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
@@ -244,7 +257,26 @@ function wybierzGlos() {
   return gl.slice().sort((x, y) => ocena(y) - ocena(x))[0];
 }
 if ('speechSynthesis' in window) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => wypelnijGlosy && wypelnijGlosy(); }
-function powiedz(t) {
+// nagrane frazy (naturalny polski głos lektorki); reszta głosem telefonu
+const NAGRANIA = {
+  'Kto dzwonił?': 'kto', 'W jakiej sprawie?': 'sprawa', 'Ustawić alert, zadanie, czy nic?': 'co_dalej',
+  'Jak nazwać przypomnienie?': 'nazwa_przyp', 'Jaki jest tytuł zadania?': 'tytul_zad', 'Kiedy przypomnieć?': 'kiedy_przyp',
+  'Na kiedy zadanie?': 'kiedy_zad', 'Zapisać notatkę?': 'zapisac', 'Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.': 'popraw',
+  'Zapisane.': 'zapisane', 'Nie udało się zapisać. Sprawdź na postoju.': 'blad',
+  'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Kto dzwonił?': 'probka'
+};
+const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
+function odblokujDzwiek() { try { odtwarzacz.src = 'glos/zapisane.mp3'; odtwarzacz.volume = 0; const p = odtwarzacz.play(); if (p) p.then(() => { odtwarzacz.pause(); odtwarzacz.volume = 1; }).catch(() => { odtwarzacz.volume = 1; }); } catch (e) {} }
+function zagraj(plik) {
+  return new Promise(res => {
+    let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; res(ok); } };
+    odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false);
+    odtwarzacz.volume = 1; odtwarzacz.src = 'glos/' + plik + '.mp3';
+    const p = odtwarzacz.play(); if (p) p.catch(() => koniec(false));
+    setTimeout(() => koniec(true), 9000);
+  });
+}
+function mowTelefonem(t) {
   return new Promise(res => {
     if (!('speechSynthesis' in window)) return res();
     speechSynthesis.cancel();
@@ -256,6 +288,11 @@ function powiedz(t) {
     speechSynthesis.speak(u);
     setTimeout(koniec, 2500 + t.length * 95);
   });
+}
+async function powiedz(t) {
+  const plik = NAGRANIA[t];
+  if (plik && !ust().glosTelefonu) { if (await zagraj(plik)) return; }
+  return mowTelefonem(t);
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '';
 function sluchaj() {
@@ -355,6 +392,7 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
+  odblokujDzwiek();
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
   krok = 0; krokow = 4 + ($('#kto').value ? 0 : 1);
@@ -373,7 +411,8 @@ async function rozmowa() {
     akcja !== 'brak' && $('#termin').value && (akcja === 'alert' ? 'Przypomnienie ' : 'Zadanie ') + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
     .filter(Boolean).join('. ');
   krok = krokow - 1;
-  const decyzja = await zapytaj(podsum + '. Zapisać?');
+  $('#slyszy').textContent = podsum;
+  const decyzja = await zapytaj('Zapisać notatkę?');
   if (czyTak(decyzja)) {
     trwa = false; $('#btnStart').disabled = false; krok = 0; rysujKropki(); $('#pytanie').textContent = '';
     pokaz('#ekranForm');
@@ -682,10 +721,11 @@ $('#btnUst').onclick = () => { pokazStanKonta(); pokaz('#ekranUst'); };
 $('#btnZaloguj').onclick = zaloguj;
 function wypelnijGlosy() {
   const gl = polskieGlosy(), wyb = wybierzGlos();
-  $('#wyborGlosu').innerHTML = gl.length ? gl.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}"${wyb && v.name === wyb.name ? ' selected' : ''}>${v.name.replace(/</g, '&lt;')}</option>`).join('') : '<option>Głos telefonu</option>';
+  const nagr = `<option value="__nagranie"${!ust().glosTelefonu ? ' selected' : ''}>Lektorka KRAMM (polecany)</option>`;
+  $('#wyborGlosu').innerHTML = nagr + (gl.length ? gl.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}"${ust().glosTelefonu && wyb && v.name === wyb.name ? ' selected' : ''}>${v.name.replace(/</g, '&lt;')}</option>`).join('') : '');
 }
-$('#wyborGlosu').onchange = () => zapiszUst({ glos: $('#wyborGlosu').value });
-$('#btnPosluchaj').onclick = () => powiedz('Dzień dobry. Kto dzwonił?');
+$('#wyborGlosu').onchange = () => { const v = $('#wyborGlosu').value; zapiszUst(v === '__nagranie' ? { glosTelefonu: false } : { glos: v, glosTelefonu: true }); };
+$('#btnPosluchaj').onclick = () => { odblokujDzwiek(); powiedz('Dzień dobry. Kto dzwonił?'); };
 wypelnijGlosy();
 function otworzArkusz() { const id = ust().arkusz; if (id) window.open('https://docs.google.com/spreadsheets/d/' + id + '/edit', '_blank'); }
 function pokazLinkArkusza() { const jest = !!ust().arkusz; $('#btnArkusz').classList.toggle('ukryty', !jest); $('#btnArkuszDol').classList.toggle('ukryty', !jest); }
@@ -704,7 +744,8 @@ pokazAgentke();
 // instrukcja: przy pierwszym uruchomieniu i pod "?"
 const jestIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 const jestAndroid = /android/i.test(navigator.userAgent);
-if (jestIos) $('#krokAndroid').classList.add('ukryty');
+if (jestIos) { $('#krokAndroid').classList.add('ukryty'); $('#sklepyAndroid').classList.add('ukryty'); }
+else $('#sklepyIos').classList.add('ukryty');
 if (jestAndroid) $('#krokIos').classList.add('ukryty');
 let instalacja = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instalacja = e; $('#btnInstaluj').classList.remove('ukryty'); if (!$('#oknoIkona').classList.contains('ukryty')) $('#ikonaAndroid').classList.remove('ukryty'); });
