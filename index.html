@@ -296,17 +296,33 @@ fetch('glos/lektorki.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : [
 }).catch(() => {});
 document.getElementById('atrybucja') && document.getElementById('atrybucja').classList.remove('ukryty');
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
-function odblokujDzwiek() { /* odtwarzanie startuje bezpośrednio z dotknięcia, osobne odblokowanie niepotrzebne */ }
+function odblokujDzwiek() { const c = kontekstAudio(); if (c) { try { const b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(); } catch (e) {} zaladujNagrania(); } }
 let zatrzymajDzwiek = () => {};
 function sesjaDzwieku(typ) { /* nie zmieniamy sesji dźwięku: na iPhonie blokowało to mikrofon */ }
-function zagraj(plik) {
+// Nagrania odtwarzane przez Web Audio (nie przez odtwarzacz audio): na iPhonie odtwarzacz
+// zajmował mikrofon, a dawny głos telefonu - nie. Web Audio zachowuje się jak głos telefonu.
+let kontekst = null; const bufory = {};
+function kontekstAudio() {
+  if (!kontekst) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) kontekst = new AC(); }
+  if (kontekst && kontekst.state === 'suspended') kontekst.resume().catch(() => {});
+  return kontekst;
+}
+async function bufor(plik) {
+  const klucz = lektorka() + '/' + plik;
+  if (!bufory[klucz]) bufory[klucz] = fetch('glos/' + klucz + '.mp3').then(r => r.arrayBuffer()).then(a => new Promise((ok, bl) => kontekst.decodeAudioData(a, ok, bl)));
+  return bufory[klucz];
+}
+function zaladujNagrania() { if (!kontekstAudio()) return; Object.values(NAGRANIA).forEach(p => bufor(p).catch(() => {})); }
+async function zagraj(plik) {
+  const ctx = kontekstAudio(); if (!ctx) return false;
+  let buf; try { buf = await bufor(plik); } catch (e) { return false; }
   return new Promise(res => {
     let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; zatrzymajDzwiek = () => {}; res(ok); } };
-    zatrzymajDzwiek = () => { try { odtwarzacz.pause(); } catch (e) {} koniec(true); };
-    odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false); odtwarzacz.onpause = null;
-    odtwarzacz.src = 'glos/' + lektorka() + '/' + plik + '.mp3';
-    const p = odtwarzacz.play(); if (p) p.catch(() => koniec(false));
-    setTimeout(() => koniec(!odtwarzacz.paused || odtwarzacz.currentTime > 0), 9000);
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination);
+    zatrzymajDzwiek = () => { try { src.stop(); } catch (e) {} koniec(true); };
+    src.onended = () => koniec(true);
+    try { src.start(); } catch (e) { koniec(false); }
+    setTimeout(() => koniec(true), (buf.duration + 1) * 1000);
   });
 }
 function mowTelefonem(t) {
@@ -332,8 +348,8 @@ let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz 
 // "odtwarzanie i nagrywanie", żeby nagranie pytania nie blokowało mikrofonu.
 let rozp = null, slucham = false, wstrzyknieta = null;
 const BLEDY_MIKROFONU = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'network': 'Brak internetu do rozpoznawania mowy.' };
-function trybRozmowy(wl) { try { if (navigator.audioSession) navigator.audioSession.type = wl ? 'play-and-record' : 'auto'; } catch (e) {} }
-function zwolnijDzwiek() { try { odtwarzacz.pause(); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
+function trybRozmowy(wl) { /* bez zmian trybu dźwięku - tak jak w pierwszej działającej wersji */ }
+function zwolnijDzwiek() { try { zatrzymajDzwiek(); } catch (e) {} }
 function diag(t) { loguj(t); }
 function wlaczRozpoznawanie() {}
 function wylaczRozpoznawanie() { slucham = false; try { rozp && rozp.abort(); } catch (e) {} trybRozmowy(false); }
@@ -344,7 +360,7 @@ function loguj(t) { const d = new Date(); dziennik.push(`${String(d.getMinutes()
 function nowaSesja() {
   return new Promise(res => {
     const r = new SR(); rozp = r; aktywne = r;
-    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = true;   // nie kończ przy pierwszej pauzie
+    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1;
     let wynik = '', blad = '', koniec = false, ostatni = 0, pocz = Date.now();
     const zakoncz = () => { if (!koniec) { koniec = true; clearInterval(t); loguj('koniec: "' + wynik.trim() + '"' + (blad ? ' błąd=' + blad : '')); res({ wynik: wynik.trim(), blad }); } };
     r.onstart = () => { diag('mikrofon: włączony'); loguj('start'); };
@@ -367,7 +383,6 @@ function nowaSesja() {
 async function sluchaj() {
   slucham = true;
   zwolnijDzwiek();
-  await new Promise(r => setTimeout(r, 400));
   let pustych = 0;
   for (let proba = 0; proba < 10; proba++) {
     if (przerwano || cofnijTeraz) break;
@@ -992,7 +1007,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171603';
+const WERSJA = '202611171615';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
