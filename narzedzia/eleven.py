@@ -56,6 +56,26 @@ for g in wybrane:
     lektorki.append({"id": slug, "nazwa": g["name"].split(" - ")[0], "opis": opis})
     print("OK", g["name"])
 
+# plan darmowy: głosy z biblioteki niedostępne przez API -> wbudowane kobiece głosy ElevenLabs (mówią po polsku przez model wielojęzyczny)
+if not lektorki:
+    wbudowane = [v for v in zapytanie("GET", "/v1/voices").get("voices", [])
+                 if v.get("category") == "premade" and (v.get("labels") or {}).get("gender") == "female"]
+    print("Wbudowane kobiece:", [v["name"] for v in wbudowane])
+    for v in wbudowane[:ILE]:
+        slug = "el_" + re.sub(r"[^a-z0-9]+", "_", v["name"].lower()).strip("_")[:24]
+        os.makedirs(f"glos/{slug}", exist_ok=True)
+        try:
+            for klucz, tekst in frazy:
+                audio = zapytanie("POST", f"/v1/text-to-speech/{v['voice_id']}?output_format=mp3_44100_64", {
+                    "text": tekst, "model_id": "eleven_multilingual_v2", "language_code": "pl",
+                    "voice_settings": {"stability": 0.6, "similarity_boost": 0.75, "style": 0.1, "use_speaker_boost": True, "speed": 0.95}}, surowe=True)
+                open(f"glos/{slug}/{klucz}.mp3", "wb").write(audio)
+        except Exception as e:
+            print("Błąd nagrania", v["name"], e); continue
+        lab = v.get("labels") or {}
+        lektorki.append({"id": slug, "nazwa": v["name"].split(" - ")[0], "opis": ", ".join(x for x in [lab.get("age", "").replace("_", " "), lab.get("descriptive") or lab.get("description")] if x)})
+        print("OK", v["name"])
+
 json.dump(lektorki, open("glos/lektorki.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 print("Zapisano", len(lektorki), "lektorek")
 if not lektorki:
