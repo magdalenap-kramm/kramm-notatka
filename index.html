@@ -110,6 +110,7 @@
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
+    <button class="glowny ukryty" id="btnKolejka"></button>
   </section>
 
   <section id="ekranForm" class="ukryty">
@@ -221,13 +222,35 @@ async function zapytaj(tekst) {
 }
 
 // numer: "pięćset siedemdziesiąt..." rozpoznawanie zwykle zwraca cyfry; zostawiamy cyfry i +
+const LICZBY = (() => {
+  const m = {};
+  'zero jeden dwa trzy cztery pięć sześć siedem osiem dziewięć'.split(' ').forEach((w, i) => m[w] = [i, 0]);
+  Object.assign(m, { jedynka: [1, 0], dwójka: [2, 0], trójka: [3, 0], czwórka: [4, 0], piątka: [5, 0], szóstka: [6, 0], siódemka: [7, 0], ósemka: [8, 0], dziewiątka: [9, 0], zerko: [0, 0] });
+  'dziesięć jedenaście dwanaście trzynaście czternaście piętnaście szesnaście siedemnaście osiemnaście dziewiętnaście'.split(' ').forEach((w, i) => m[w] = [10 + i, 1]);
+  'dwadzieścia trzydzieści czterdzieści pięćdziesiąt sześćdziesiąt siedemdziesiąt osiemdziesiąt dziewięćdziesiąt'.split(' ').forEach((w, i) => m[w] = [20 + 10 * i, 1]);
+  'sto dwieście trzysta czterysta pięćset sześćset siedemset osiemset dziewięćset'.split(' ').forEach((w, i) => m[w] = [100 * (i + 1), 2]);
+  return m;
+})();
+// "pięćset siedemdziesiąt sto dziewięćdziesiąt pięć dwieście czterdzieści trzy" -> 570195243
 function wyczyscNumer(t) {
-  const slowa = {zero:0,jeden:1,jedynka:1,dwa:2,trzy:3,cztery:4,'pięć':5,'sześć':6,siedem:7,osiem:8,'dziewięć':9};
-  let s = t.toLowerCase().replace(/[a-ząćęłńóśźż]+/g, w => (w in slowa) ? String(slowa[w]) : ' ');
-  s = s.replace(/[^\d+]/g, '');
-  if (s.length === 11 && s.startsWith('48')) s = '+' + s;
-  return s;
+  const plus = /plus|\+/.test(t.toLowerCase());
+  const tokeny = t.toLowerCase().replace(/[-,.]/g, ' ').match(/\d+|[a-ząćęłńóśźż]+/g) || [];
+  let wynik = '', grupa = 0, mag = 3;
+  const zamknij = () => { if (mag < 3) wynik += String(grupa); grupa = 0; mag = 3; };
+  for (const tk of tokeny) {
+    if (/^\d+$/.test(tk)) { zamknij(); wynik += tk; continue; }
+    const w = LICZBY[tk]; if (!w) continue;
+    if (w[1] >= mag) zamknij();
+    grupa += w[0]; mag = w[1];
+  }
+  zamknij();
+  if (wynik.length === 11 && wynik.startsWith('48')) wynik = '+' + wynik;
+  else if (plus && wynik.length > 9) wynik = '+' + wynik;
+  return wynik;
 }
+function czytajNumer(n) { return n.replace(/\D/g, '').replace(/^48(?=\d{9}$)/, '').replace(/(\d{3})(?=\d)/g, '$1,').split('').join(' ').replace(/ , /g, ', '); }
+function czyTak(t) { return !/(^|\s)nie(\s|$)/i.test(t) && TAK.test(t); }
+const TAK = /\b(tak|zgadza|dobrze|ok|okej|zapisz|zapisuj|jasne|potwierdzam|może być)\b/i;
 function rozpoznajAkcje(t) {
   t = t.toLowerCase();
   if (/alert|przypom|oddzwo/.test(t)) return 'alert';
@@ -254,16 +277,32 @@ function rozpoznajTermin(t) {
   if (!dzienUstalony && d < new Date()) d.setDate(d.getDate() + 1);
   return d;
 }
+function mowionyTermin(d) {
+  const dzis = new Date(); dzis.setHours(0, 0, 0, 0);
+  const dzien = new Date(d); dzien.setHours(0, 0, 0, 0);
+  const roznica = Math.round((dzien - dzis) / 864e5);
+  const nazwy = ['w niedzielę', 'w poniedziałek', 'we wtorek', 'w środę', 'w czwartek', 'w piątek', 'w sobotę'];
+  const kiedy = roznica === 0 ? 'dziś' : roznica === 1 ? 'jutro' : roznica === 2 ? 'pojutrze' : roznica < 7 ? nazwy[d.getDay()] : d.getDate() + '.' + (d.getMonth() + 1);
+  return kiedy + ' o ' + d.getHours() + (d.getMinutes() ? ':' + String(d.getMinutes()).padStart(2, '0') : '');
+}
 function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
-  krok = 0; krokow = 3 + ($('#numer').value ? 0 : 1) + ($('#kto').value ? 0 : 1);
+  krok = 0; krokow = 4 + ($('#kto').value ? 0 : 1);
   if (!$('#numer').value) {
-    const numer = await zapytaj('Z jakiego numeru dzwoniono? Możesz też powiedzieć: wkleję.');
-    if (!/wklej|pomi|później|potem|nie wiem/i.test(numer)) $('#numer').value = wyczyscNumer(numer) || numer;
+    krokow += 2;
+    for (let proba = 0; proba < 3; proba++) {
+      const odp = await zapytaj(proba ? 'Powtórz numer, powoli, cyframi.' : 'Podaj numer telefonu.');
+      if (/pomi|później|potem|nie wiem|nie znam/i.test(odp)) break;
+      const n = wyczyscNumer(odp);
+      if (n.replace(/\D/g, '').length < 9) continue;
+      const ok = await zapytaj('Numer ' + czytajNumer(n) + '. Zgadza się?');
+      if (czyTak(ok)) { $('#numer').value = n; break; }
+      krok--;
+    }
   }
   if (!$('#kto').value) $('#kto').value = await zapytaj('Kto dzwonił?');
   $('#sprawa').value = await zapytaj('W jakiej sprawie?');
@@ -275,7 +314,18 @@ async function rozmowa() {
     const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
     $('#termin').value = lokalnyISO(rozpoznajTermin(t));
   }
-  await powiedz('Sprawdź i zapisz.');
+  const podsum = [$('#kto').value && 'Rozmowa z ' + $('#kto').value, $('#sprawa').value,
+    akcja !== 'brak' && $('#termin').value && (akcja === 'alert' ? 'Przypomnienie ' : 'Zadanie ') + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
+    .filter(Boolean).join('. ');
+  krok = krokow - 1;
+  const decyzja = await zapytaj(podsum + '. Zapisać?');
+  if (czyTak(decyzja)) {
+    trwa = false; $('#btnStart').disabled = false; krok = 0; rysujKropki(); $('#pytanie').textContent = '';
+    pokaz('#ekranForm');
+    await zapiszGlosowo();
+    return;
+  }
+  await powiedz('Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.');
   } catch (e) { /* przerwane - przechodzimy do formularza z tym, co już jest */ }
   trwa = false; aktywne = null;
   $('#btnStart').disabled = false;
@@ -446,6 +496,27 @@ function doKolejki(d) {
   const k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); k.push(d);
   localStorage.setItem('kramm_kolejka', JSON.stringify(k));
 }
+function daneZFormularza() {
+  return {
+    czas: new Date().toISOString(),
+    numer: $('#numer').value.trim(), kto: $('#kto').value.trim(), sprawa: $('#sprawa').value.trim(),
+    akcja, tytul: akcja !== 'brak' ? $('#tytul').value.trim() : '', termin: akcja !== 'brak' && $('#termin').value ? new Date($('#termin').value).toISOString() : ''
+  };
+}
+async function zapiszGlosowo() {
+  const dane = daneZFormularza();
+  if (ust().arkusz && maToken() && navigator.onLine) {
+    try { await wyslij(dane); usunSzkic(); $('#komunikat').textContent = 'Zapisane ✓'; await powiedz('Zapisane.'); nowa(); return; }
+    catch (e) { if (!(e instanceof TypeError)) { $('#komunikat').textContent = 'Nie zapisano: ' + e.message; await powiedz('Nie udało się zapisać. Sprawdź na postoju.'); return; } }
+  }
+  doKolejki(dane); usunSzkic(); nowa(); pokazKolejke();
+  await powiedz('Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.');
+}
+function pokazKolejke() {
+  let k = []; try { k = JSON.parse(localStorage.getItem('kramm_kolejka') || '[]'); } catch (e) {}
+  $('#btnKolejka').classList.toggle('ukryty', !k.length);
+  $('#btnKolejka').textContent = k.length === 1 ? '1 notatka czeka na wysłanie - dotknij' : k.length + ' notatki czekają na wysłanie - dotknij';
+}
 function zapisz() {
   if (!ust().arkusz) { $('#komunikat').textContent = 'Najpierw zaloguj się (⚙).'; return; }
   const dane = {
@@ -470,6 +541,7 @@ async function wyslijKolejke() {
   const zostaje = [];
   for (const d of k) { try { await wyslij(d); } catch (e) { zostaje.push(d); } }
   localStorage.setItem('kramm_kolejka', JSON.stringify(zostaje));
+  pokazKolejke();
 }
 function nowa() {
   ['#numer','#kto','#sprawa','#tytul','#termin'].forEach(x => $(x).value = '');
@@ -477,6 +549,8 @@ function nowa() {
 }
 
 $('#btnStart').onclick = rozmowa;
+$('#btnKolejka').onclick = () => zTokenem(wyslijKolejke);
+pokazKolejke();
 $('#btnRecznie').onclick = () => pokaz('#ekranForm');
 $('#btnZapisz').onclick = zapisz;
 $('#btnNowa').onclick = nowa;

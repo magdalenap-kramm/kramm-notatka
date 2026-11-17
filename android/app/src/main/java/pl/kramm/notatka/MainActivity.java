@@ -31,6 +31,15 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        // Ikona KRAMM Notatka: od razu notatka z ostatniej rozmowy (numer i nazwa z rejestru połączeń).
+        // Ekran ustawień: przytrzymaj ikonę -> "Ustawienia", albo gdy brakuje uprawnień.
+        boolean ustawienia = "ustawienia".equals(getIntent().getAction());
+        if (!ustawienia && maWszystkie()) {
+            String[] ost = CallReceiver.ostatniePolaczenie(this, true);
+            startActivity(new Intent(Intent.ACTION_VIEW, CallReceiver.adresNotatki(ost[0], ost[1])));
+            finish();
+            return;
+        }
         getWindow().setStatusBarColor(GRANAT);
         int dp = (int) getResources().getDisplayMetrics().density;
 
@@ -55,7 +64,7 @@ public class MainActivity extends Activity {
         tytul.setTextColor(GRANAT);
         tresc.addView(tytul);
         tresc.addView(tekst("Po każdej odebranej rozmowie przychodzącej pokażę powiadomienie „Dodaj notatkę”. "
-                + "Dotknięcie otworzy aplikację KRAMM z wpisanym numerem i nazwą kontaktu.", 16, false));
+                + "Dotknięcie otworzy aplikację KRAMM z wpisanym numerem i nazwą kontaktu. Ikona KRAMM Notatka otwiera notatkę z ostatniej rozmowy. Te ustawienia: przytrzymaj ikonę i wybierz Ustawienia.", 16, false));
 
         przelacznik = new Switch(this);
         przelacznik.setText("Powiadomienia po rozmowie");
@@ -74,6 +83,10 @@ public class MainActivity extends Activity {
         tresc.addView(stan);
 
         tresc.addView(przycisk("Nadaj uprawnienia", v -> poprosOUprawnienia()));
+        tresc.addView(przycisk("Notatka z ostatniej rozmowy", v -> {
+            String[] ost = CallReceiver.ostatniePolaczenie(this, true);
+            startActivity(new Intent(Intent.ACTION_VIEW, CallReceiver.adresNotatki(ost[0], ost[1])));
+        }));
         tresc.addView(przycisk("Pokaż próbne powiadomienie", v ->
                 CallReceiver.pokazPowiadomienie(this, "+48 600 000 000", "Test KRAMM")));
         tresc.addView(przycisk("Otwórz notatkę teraz", v ->
@@ -140,9 +153,13 @@ public class MainActivity extends Activity {
         odswiez();
     }
 
+    boolean maWszystkie() {
+        for (String s : potrzebne()) if (checkSelfPermission(s) != PackageManager.PERMISSION_GRANTED) return false;
+        return true;
+    }
+
     void odswiez() {
-        boolean wszystkie = true;
-        for (String s : potrzebne()) if (checkSelfPermission(s) != PackageManager.PERMISSION_GRANTED) wszystkie = false;
+        boolean wszystkie = maWszystkie();
         if (!przelacznik.isChecked()) stan.setText("Wyłączone - nie pokażę powiadomień po rozmowach.");
         else if (wszystkie) stan.setText("✓ Działa. Po odebranej rozmowie pojawi się powiadomienie.");
         else stan.setText("Brakuje uprawnień. Dotknij „Nadaj uprawnienia” i zezwól na: telefon, rejestr połączeń, powiadomienia.");

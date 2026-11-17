@@ -65,13 +65,18 @@ public class CallReceiver extends BroadcastReceiver {
     }
 
     /** [numer, nazwa kontaktu] ostatniego połączenia przychodzącego z rejestru. */
-    static String[] ostatniePolaczenie(Context ctx) {
+    static String[] ostatniePolaczenie(Context ctx) { return ostatniePolaczenie(ctx, false); }
+
+    /** wszystkie=true: także wychodzące; tylko połączenia z ostatnich 12 godzin. */
+    static String[] ostatniePolaczenie(Context ctx, boolean wszystkie) {
         String[] w = new String[]{null, null};
         if (ctx.checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) return w;
         try (Cursor c = ctx.getContentResolver().query(CallLog.Calls.CONTENT_URI,
-                new String[]{CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE},
+                new String[]{CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE},
                 null, null, CallLog.Calls.DATE + " DESC")) {
-            if (c != null && c.moveToFirst() && c.getInt(2) == CallLog.Calls.INCOMING_TYPE) {
+            if (c != null && c.moveToFirst()
+                    && (c.getInt(2) == CallLog.Calls.INCOMING_TYPE || (wszystkie && c.getInt(2) == CallLog.Calls.OUTGOING_TYPE))
+                    && (!wszystkie || System.currentTimeMillis() - c.getLong(3) < 12L * 3600 * 1000)) {
                 w[0] = c.getString(0);
                 w[1] = c.getString(1);
             }
@@ -84,6 +89,13 @@ public class CallReceiver extends BroadcastReceiver {
         NotificationChannel k = new NotificationChannel(KANAL, "Notatka po rozmowie", NotificationManager.IMPORTANCE_HIGH);
         k.setDescription("Przypomnienie o notatce po odebranej rozmowie");
         nm.createNotificationChannel(k);
+    }
+
+    static Uri adresNotatki(String numer, String nazwa) {
+        Uri.Builder url = Uri.parse(URL_APLIKACJI).buildUpon();
+        if (numer != null && !numer.isEmpty()) url.appendQueryParameter("numer", numer);
+        if (nazwa != null && !nazwa.isEmpty()) url.appendQueryParameter("kto", nazwa);
+        return url.build();
     }
 
     static void pokazPowiadomienie(Context ctx, String numer, String nazwa) {
