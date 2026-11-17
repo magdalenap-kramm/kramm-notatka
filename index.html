@@ -126,6 +126,7 @@
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
     <button class="glowny ukryty" id="btnMow">🎙 Mów</button>
+    <div id="diag" style="text-align:center;font-size:11px;color:var(--szary);min-height:14px;margin-top:4px"></div>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
@@ -327,51 +328,62 @@ async function powiedz(t) {
   return mowTelefonem(t);
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
-// Rozpoznawanie mowy: osobno dla każdego pytania. Przed włączeniem mikrofonu odtwarzacz zwalnia dźwięk
-// (na iPhonie odtwarzacz trzymał dźwięk i mikrofon zgłaszał "zajęty").
-let rozp = null, slucham = false, rozpBlad = '', ponowStart = null;
+// Rozpoznawanie mowy: osobno dla każdego pytania. Na czas rozmowy iPhone przechodzi w tryb
+// "odtwarzanie i nagrywanie", żeby nagranie pytania nie blokowało mikrofonu.
+let rozp = null, slucham = false, wstrzyknieta = null;
 const BLEDY_MIKROFONU = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'network': 'Brak internetu do rozpoznawania mowy.' };
-function zwolnijDzwiek() { try { odtwarzacz.pause(); odtwarzacz.removeAttribute('src'); odtwarzacz.load(); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
+function trybRozmowy(wl) { try { if (navigator.audioSession) navigator.audioSession.type = wl ? 'play-and-record' : 'auto'; } catch (e) {} }
+function zwolnijDzwiek() { try { odtwarzacz.pause(); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
+function diag(t) { const d = $('#diag'); if (d) d.textContent = t; }
 function wlaczRozpoznawanie() {}
-function wylaczRozpoznawanie() { slucham = false; try { rozp && rozp.abort(); } catch (e) {} }
-function jednaProba() {
+function wylaczRozpoznawanie() { slucham = false; try { rozp && rozp.abort(); } catch (e) {} trybRozmowy(false); }
+// nowa sesja rozpoznawania; start od razu (ważne: w przycisku "Mów" musi być wywołane bezpośrednio z dotknięcia)
+function nowaSesja() {
   return new Promise(res => {
     const r = new SR(); rozp = r; aktywne = r;
     r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
     let wynik = '', blad = '', koniec = false;
     const zakoncz = () => { if (!koniec) { koniec = true; res({ wynik: wynik.trim(), blad }); } };
+    r.onstart = () => diag('mikrofon: włączony');
     r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
-    r.onerror = e => { blad = e.error || ''; if (BLEDY_MIKROFONU[blad]) $('#slyszy').textContent = BLEDY_MIKROFONU[blad]; };
+    r.onerror = e => { blad = e.error || 'błąd'; diag('mikrofon: ' + blad); if (BLEDY_MIKROFONU[blad]) $('#slyszy').textContent = BLEDY_MIKROFONU[blad]; };
     r.onend = () => setTimeout(zakoncz, 50);
-    try { r.start(); } catch (e) { blad = 'start'; zakoncz(); }
+    try { r.start(); } catch (e) { blad = 'start'; diag('mikrofon: nie wystartował'); zakoncz(); }
     setTimeout(() => { try { r.stop(); } catch (e) {} }, 15000);
   });
 }
 async function sluchaj() {
   slucham = true;
   zwolnijDzwiek();
-  await new Promise(r => setTimeout(r, 450));
+  await new Promise(r => setTimeout(r, 400));
   let pustych = 0;
-  for (let proba = 0; proba < 8; proba++) {
+  for (let proba = 0; proba < 10; proba++) {
     if (przerwano || cofnijTeraz) break;
-    const { wynik, blad } = await jednaProba();
+    let p = wstrzyknieta; wstrzyknieta = null;
+    const { wynik, blad } = await (p || nowaSesja());
     if (wynik) { slucham = false; return wynik; }
-    if (blad === 'aborted' && ponowStart) { ponowStart = null; continue; }   // przycisk "Mów": słuchaj od nowa
-    if (blad === 'aborted') break;
-    if (blad === 'audio-capture' || blad === 'start') { zwolnijDzwiek(); await new Promise(r => setTimeout(r, 600)); continue; }
-    if (blad === 'not-allowed' || blad === 'service-not-allowed') { await new Promise(r => { ponowStart = r; }); continue; }   // czeka na przycisk "Mów"
-    if (++pustych >= 3) break;   // 3 razy cisza: idź dalej
+    if (wstrzyknieta) continue;                       // dotknięto "Mów": czekaj na tę sesję
+    if (blad === 'aborted') { if (przerwano || cofnijTeraz) break; continue; }
+    if (blad === 'audio-capture' || blad === 'start') { await new Promise(r => setTimeout(r, 700)); continue; }
+    if (blad === 'not-allowed' || blad === 'service-not-allowed') {   // iPhone chce dotknięcia: czekaj na "Mów"
+      $('#slyszy').textContent = 'Dotknij „Mów” i odpowiedz.';
+      await new Promise(r => { const t = setInterval(() => { if (wstrzyknieta || przerwano || cofnijTeraz) { clearInterval(t); r(); } }, 150); });
+      continue;
+    }
+    if (++pustych >= 3) break;
     $('#slyszy').textContent = 'Słucham...';
   }
   slucham = false;
   return '';
 }
-// przycisk "Mów" (widoczny przez całą rozmowę): słuchaj od nowa
+// przycisk "Mów": mikrofon włączany bezpośrednio w dotknięciu
 function mowDotknieciem(e) {
   e.stopPropagation();
+  if (!trwa) return;
+  zwolnijDzwiek();
+  try { rozp && rozp.abort(); } catch (x) {}
   $('#slyszy').textContent = 'Słucham...';
-  if (ponowStart) { const f = ponowStart; ponowStart = null; f(); return; }
-  if (slucham) { ponowStart = () => {}; try { rozp && rozp.abort(); } catch (x) {} }
+  wstrzyknieta = nowaSesja();
 }
 let krok = 0, krokow = 5;
 function rysujKropki() {
@@ -467,7 +479,7 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
-  odblokujDzwiek(); $('#btnMow').classList.remove('ukryty');
+  trybRozmowy(true); odblokujDzwiek(); $('#btnMow').classList.remove('ukryty'); diag('');
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
   $('#btnCofnij').classList.remove('ukryty');
@@ -957,7 +969,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171533';
+const WERSJA = '202611171539';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
