@@ -867,7 +867,7 @@ if (maToken() && tokenZakres && !tokenZakres.includes('calendar')) $('#komunikat
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171500';
+const WERSJA = '202611171501';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
