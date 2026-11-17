@@ -125,7 +125,7 @@
     <div class="kropki" id="kropki"></div>
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
-    <button class="glowny ukryty" id="btnMow">🎙 Dotknij i mów</button>
+    <button class="glowny ukryty" id="btnMow">🎙 Mów</button>
     <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
@@ -328,50 +328,52 @@ async function powiedz(t) {
   return mowTelefonem(t);
 }
 let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
-// Rozpoznawanie mowy: jedno ciągłe słuchanie przez całą rozmowę (włączone dotknięciem "Zaczynamy").
-// iPhone nie pozwala włączać mikrofonu od nowa przy każdym pytaniu bez dotknięcia.
-let rozp = null, wyniki = [], ostatniWynik = 0, odIndeksu = 0, slucham = false, rozpBlad = '', rozpDziala = false;
-const BLEDY_MIKROFONU = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'audio-capture': 'Mikrofon zajęty lub niedostępny.', 'network': 'Brak internetu do rozpoznawania mowy.' };
-function wlaczRozpoznawanie() {
-  if (!rozp) {
-    rozp = new SR(); rozp.lang = 'pl-PL'; rozp.interimResults = true; rozp.continuous = true; rozp.maxAlternatives = 1;
-    rozp.onresult = e => {
-      for (let i = e.resultIndex; i < e.results.length; i++) wyniki[i] = e.results[i][0].transcript;
-      wyniki.length = e.results.length; ostatniWynik = Date.now();
-      if (slucham) $('#slyszy').textContent = tekstOdpowiedzi();
-    };
-    rozp.onerror = e => { rozpBlad = e.error || ''; if (BLEDY_MIKROFONU[rozpBlad]) $('#slyszy').textContent = BLEDY_MIKROFONU[rozpBlad]; };
-    rozp.onstart = () => { rozpDziala = true; };
-    rozp.onend = () => {
-      rozpDziala = false;
-      // nowa sesja = numeracja wyników od zera
-      wyniki = []; odIndeksu = 0;
-      if (trwa && !przerwano && rozpBlad !== 'not-allowed') setTimeout(() => { try { rozp.start(); } catch (x) {} }, 150);
-    };
-  }
-  rozpBlad = '';
-  try { rozp.start(); } catch (e) {}
-}
-function wylaczRozpoznawanie() { slucham = false; try { rozp && rozp.abort(); } catch (e) {} rozpDziala = false; }
-function tekstOdpowiedzi() { return wyniki.slice(odIndeksu).filter(Boolean).join(' ').trim(); }
-function sluchaj() {
+// Rozpoznawanie mowy: osobno dla każdego pytania. Przed włączeniem mikrofonu odtwarzacz zwalnia dźwięk
+// (na iPhonie odtwarzacz trzymał dźwięk i mikrofon zgłaszał "zajęty").
+let rozp = null, slucham = false, rozpBlad = '', ponowStart = null;
+const BLEDY_MIKROFONU = { 'not-allowed': 'Brak zgody na mikrofon - zezwól w Ustawienia -> Safari -> Mikrofon.', 'service-not-allowed': 'Rozpoznawanie mowy wyłączone - włącz Dyktowanie w Ustawienia -> Ogólne -> Klawiatura.', 'network': 'Brak internetu do rozpoznawania mowy.' };
+function zwolnijDzwiek() { try { odtwarzacz.pause(); odtwarzacz.removeAttribute('src'); odtwarzacz.load(); } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
+function wlaczRozpoznawanie() {}
+function wylaczRozpoznawanie() { slucham = false; try { rozp && rozp.abort(); } catch (e) {} }
+function jednaProba() {
   return new Promise(res => {
-    setTimeout(() => {
-      odIndeksu = wyniki.length;   // pomijamy to, co mikrofon usłyszał w trakcie pytania
-      slucham = true; ostatniWynik = Date.now(); $('#slyszy').textContent = '';
-      const pocz = Date.now(); let przyciskPokazany = false;
-      if (!rozpDziala) { try { rozp.start(); } catch (e) {} }
-      const t = setInterval(() => {
-        const txt = tekstOdpowiedzi(), cisza = Date.now() - ostatniWynik;
-        const koniec = (txt && cisza > 1600) || przerwano || cofnijTeraz || Date.now() - pocz > 25000;
-        if (!txt && !przyciskPokazany && (Date.now() - pocz > 7000 || rozpBlad === 'not-allowed')) { przyciskPokazany = true; $('#btnMow').classList.remove('ukryty'); }
-        if (koniec) { clearInterval(t); slucham = false; $('#btnMow').classList.add('ukryty'); res(txt); }
-      }, 200);
-    }, 350);
+    const r = new SR(); rozp = r; aktywne = r;
+    r.lang = 'pl-PL'; r.interimResults = true; r.maxAlternatives = 1; r.continuous = false;
+    let wynik = '', blad = '', koniec = false;
+    const zakoncz = () => { if (!koniec) { koniec = true; res({ wynik: wynik.trim(), blad }); } };
+    r.onresult = e => { wynik = Array.from(e.results).map(x => x[0].transcript).join(' '); $('#slyszy').textContent = wynik; };
+    r.onerror = e => { blad = e.error || ''; if (BLEDY_MIKROFONU[blad]) $('#slyszy').textContent = BLEDY_MIKROFONU[blad]; };
+    r.onend = () => setTimeout(zakoncz, 50);
+    try { r.start(); } catch (e) { blad = 'start'; zakoncz(); }
+    setTimeout(() => { try { r.stop(); } catch (e) {} }, 15000);
   });
 }
-// awaryjnie: dotknięcie włącza mikrofon ponownie
-function mowDotknieciem(e) { e.stopPropagation(); rozpBlad = ''; try { rozp && rozp.abort(); } catch (x) {} setTimeout(() => { try { rozp.start(); } catch (x) {} }, 200); $('#btnMow').classList.add('ukryty'); }
+async function sluchaj() {
+  slucham = true;
+  zwolnijDzwiek();
+  await new Promise(r => setTimeout(r, 450));
+  let pustych = 0;
+  for (let proba = 0; proba < 8; proba++) {
+    if (przerwano || cofnijTeraz) break;
+    const { wynik, blad } = await jednaProba();
+    if (wynik) { slucham = false; return wynik; }
+    if (blad === 'aborted' && ponowStart) { ponowStart = null; continue; }   // przycisk "Mów": słuchaj od nowa
+    if (blad === 'aborted') break;
+    if (blad === 'audio-capture' || blad === 'start') { zwolnijDzwiek(); await new Promise(r => setTimeout(r, 600)); continue; }
+    if (blad === 'not-allowed' || blad === 'service-not-allowed') { await new Promise(r => { ponowStart = r; }); continue; }   // czeka na przycisk "Mów"
+    if (++pustych >= 3) break;   // 3 razy cisza: idź dalej
+    $('#slyszy').textContent = 'Słucham...';
+  }
+  slucham = false;
+  return '';
+}
+// przycisk "Mów" (widoczny przez całą rozmowę): słuchaj od nowa
+function mowDotknieciem(e) {
+  e.stopPropagation();
+  $('#slyszy').textContent = 'Słucham...';
+  if (ponowStart) { const f = ponowStart; ponowStart = null; f(); return; }
+  if (slucham) { ponowStart = () => {}; try { rozp && rozp.abort(); } catch (x) {} }
+}
 let krok = 0, krokow = 5;
 function rysujKropki() {
   $('#kropki').innerHTML = krok ? Array.from({ length: krokow }, (_, i) => `<i class="${i + 1 < krok ? 'on' : i + 1 === krok ? 'teraz' : ''}"></i>`).join('') : '';
@@ -466,7 +468,7 @@ function lokalnyISO(d) { const p = n => String(n).padStart(2, '0'); return `${d.
 
 async function rozmowa() {
   if (!SR) { pokaz('#ekranForm'); $('#komunikat').textContent = 'Ta przeglądarka nie słucha - użyj mikrofonu na klawiaturze.'; return; }
-  odblokujDzwiek(); wyniki = []; odIndeksu = 0; wlaczRozpoznawanie();
+  odblokujDzwiek(); $('#btnMow').classList.remove('ukryty');
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
   $('#btnCofnij').classList.remove('ukryty');
@@ -508,7 +510,7 @@ async function rozmowa() {
       if (czyTak(pew)) {
         await powiedz('Usunięte.');
         trwa = false; wylaczRozpoznawanie(); $('#btnStart').disabled = false; krok = 0; rysujKropki();
-        $('#pytanie').textContent = ''; $('#slyszy').textContent = ''; $('#btnCofnij').classList.add('ukryty');
+        $('#pytanie').textContent = ''; $('#slyszy').textContent = ''; $('#btnCofnij').classList.add('ukryty'); $('#btnMow').classList.add('ukryty');
         $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
         poczatek = ''; nowa(); return;
       }
@@ -518,14 +520,14 @@ async function rozmowa() {
     k.ustaw(odp); zapiszSzkic(); i++;
   }
   if (czyTak(decyzja)) {
-    trwa = false; wylaczRozpoznawanie(); $('#btnStart').disabled = false; krok = 0; rysujKropki(); $('#pytanie').textContent = ''; $('#btnCofnij').classList.add('ukryty');
+    trwa = false; wylaczRozpoznawanie(); $('#btnStart').disabled = false; krok = 0; rysujKropki(); $('#pytanie').textContent = ''; $('#btnCofnij').classList.add('ukryty'); $('#btnMow').classList.add('ukryty');
     pokaz('#ekranForm');
     await zapiszGlosowo();
     return;
   }
   await powiedz('Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.');
   } catch (e) { /* przerwane - przechodzimy do formularza z tym, co już jest */ }
-  trwa = false; aktywne = null; wylaczRozpoznawanie(); $('#btnCofnij').classList.add('ukryty');
+  trwa = false; aktywne = null; wylaczRozpoznawanie(); $('#btnCofnij').classList.add('ukryty'); $('#btnMow').classList.add('ukryty');
   $('#btnStart').disabled = false;
   $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zaczynamy';
   krok = 0; rysujKropki();
@@ -836,7 +838,7 @@ function nowa() {
 
 $('#btnStart').onclick = rozmowa;
 $('#btnMow').onclick = mowDotknieciem;
-$('#btnCofnij').onclick = e => { e.stopPropagation(); if (!trwa) return; cofnijTeraz = true;
+$('#btnCofnij').onclick = e => { e.stopPropagation(); if (!trwa) return; cofnijTeraz = true; try { rozp && rozp.abort(); } catch (x) {}
    try { speechSynthesis.cancel(); } catch (x) {} zatrzymajDzwiek(); };
 // w aucie: dotknięcie w dowolnym miejscu ekranu nagrywania startuje pytania
 $('#ekranGlos').addEventListener('click', e => { if (!trwa && !e.target.closest('button, a, input')) rozmowa(); });
@@ -954,7 +956,7 @@ if (poLogowaniu === 'kalendarz') setTimeout(() => { if ($('#oknoKalendarz').clas
   przekieruj('cicho', 'none');
 })();
 // automatyczna aktualizacja: gdy na serwerze jest nowsza wersja, aplikacja przeładowuje się sama
-const WERSJA = '202611171527';
+const WERSJA = '202611171528';
 function sprawdzWersje() {
   if (trwa) return;
   fetch('wersja.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(w => {
