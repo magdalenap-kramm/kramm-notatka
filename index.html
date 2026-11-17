@@ -118,12 +118,13 @@
 <header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span class="ikony"><button id="btnArkusz" class="ukryty" aria-label="Mój arkusz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M4 9h16M4 14.5h16M10 9v11.5"/></svg></button><button id="btnPomoc" aria-label="Instrukcja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button id="btnUst" aria-label="Konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg></button></span></header>
 <main>
   <section id="ekranGlos">
-    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów.</div></div></div>
+    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów. Powiedz „cofnij”, żeby wrócić.</div></div></div>
     <div class="mic-wrap" id="mic"><div class="fale"><i></i><i></i><i></i></div>
       <button class="start" id="btnStart" aria-label="Zacznij"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span class="slupki"><b></b><b></b><b></b><b></b><b></b></span><span class="napis" id="napisMic">Zacznij</span></button></div>
     <div class="kropki" id="kropki"></div>
     <div id="pytanie">Dotknij i odpowiedz głosem na kilka pytań.</div>
     <div id="slyszy"></div>
+    <button class="glowny ukryty" id="btnCofnij" style="background:#fff;color:var(--granat);border:1px solid var(--roz);box-shadow:none">↶ Cofnij do poprzedniego pytania</button>
     <button class="drugi" id="btnRecznie">Wpiszę ręcznie</button>
     <button class="drugi ukryty" id="btnArkuszDol">Otwórz mój arkusz</button>
     <button class="glowny ukryty" id="btnKolejka"></button>
@@ -147,6 +148,7 @@
     </div>
     <button class="glowny" id="btnZapisz">Zapisz do arkusza</button>
     <button class="drugi" id="btnNowa">Nowa notatka</button>
+    <button class="drugi" id="btnFormWroc">← Wróć</button>
     <div id="komunikat"></div>
   </section>
 
@@ -189,6 +191,7 @@
       <ol><li>Otwórz aplikację i dotknij <b>Zacznij</b>.</li><li>Odpowiadaj krótko: kto dzwonił, w jakiej sprawie, czy ustawić alert lub zadanie, tytuł i termin (np. „jutro o 10”). Na końcu powiedz „tak”, żeby zapisać.</li><li>Numeru nie dyktujesz. Aplikacja zapisuje godzinę rozmowy, a na postoju dotykasz „Uzupełnij numery” i wklejasz numer z listy połączeń.</li><li>Sprawdź wpis, popraw literówki i dotknij <b>Zapisz do arkusza</b>.</li></ol>
       <p>Nie chcesz mówić na głos? Dotknij <b>Wpiszę ręcznie</b>.</p></div>
     <button class="glowny" id="btnInstrOk">Rozumiem</button>
+    <button class="drugi" id="btnInstrWroc">← Wróć</button>
   </section>
 
   <section id="ekranUst" class="ukryty">
@@ -198,6 +201,7 @@
     <label>Głos aplikacji</label>
     <div class="wiersz"><select id="wyborGlosu"></select><button type="button" class="wklej" id="btnPosluchaj">Posłuchaj</button></div>
     <button class="drugi ukryty" id="btnWyloguj">Wyloguj</button>
+    <button class="drugi" id="btnUstWroc">← Wróć</button>
     <p class="info">Wskazówka: dodaj tę stronę do ekranu głównego. Na iPhonie: Ustawienia -> Dostępność -> Dotyk -> Stuknięcie w tył -> Stuknij 2x -> wybierz skrót otwierający tę stronę. Na Androidzie: ikonę połóż obok aplikacji Telefon.</p>
   </section>
 </main>
@@ -272,7 +276,7 @@ function odblokujDzwiek() { try { odtwarzacz.src = 'glos/' + lektorka() + '/zapi
 function zagraj(plik) {
   return new Promise(res => {
     let gotowe = false; const koniec = ok => { if (!gotowe) { gotowe = true; res(ok); } };
-    odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false);
+    odtwarzacz.onended = () => koniec(true); odtwarzacz.onerror = () => koniec(false); odtwarzacz.onpause = () => koniec(true);
     odtwarzacz.volume = 1; odtwarzacz.src = 'glos/' + lektorka() + '/' + plik + '.mp3';
     const p = odtwarzacz.play(); if (p) p.catch(() => koniec(false));
     setTimeout(() => koniec(true), 9000);
@@ -296,7 +300,7 @@ async function powiedz(t) {
   if (plik && !ust().glosTelefonu) { if (await zagraj(plik)) return; }
   return mowTelefonem(t);
 }
-let aktywne = null, trwa = false, przerwano = false, poczatek = '';
+let aktywne = null, trwa = false, przerwano = false, poczatek = '', cofnijTeraz = false;
 function sluchaj() {
   return new Promise(res => {
     const r = new SR(); aktywne = r;
@@ -319,9 +323,11 @@ async function zapytaj(tekst) {
   await powiedz(tekst);
   $('#mic').classList.remove('mowi'); $('#mic').classList.add('slucha'); $('#napisMic').textContent = 'Słucham';
   if (przerwano) throw new Error('przerwano');
+  if (cofnijTeraz) { cofnijTeraz = false; $('#mic').classList.remove('mowi'); return '__cofnij'; }
   const odp = await sluchaj();
   $('#mic').classList.remove('slucha'); $('#napisMic').textContent = 'Zacznij';
   if (przerwano) throw new Error('przerwano');
+  if (cofnijTeraz) { cofnijTeraz = false; return '__cofnij'; }
   zapiszSzkic();
   return odp;
 }
@@ -397,33 +403,47 @@ async function rozmowa() {
   odblokujDzwiek();
   $('#btnStart').disabled = true; trwa = true; przerwano = false;
   try {
-  krok = 0; krokow = 4 + ($('#kto').value ? 0 : 1);
+  $('#btnCofnij').classList.remove('ukryty');
   if (!poczatek) poczatek = new Date().toISOString();
-  if (!$('#kto').value) $('#kto').value = await zapytaj('Kto dzwonił?');
-  $('#sprawa').value = await zapytaj('W jakiej sprawie?');
-  const a = rozpoznajAkcje(await zapytaj('Ustawić alert, zadanie, czy nic?'));
-  ustawAkcje(a);
-  if (a !== 'brak') {
-    krokow += 2;
-    $('#tytul').value = await zapytaj(a === 'alert' ? 'Jak nazwać przypomnienie?' : 'Jaki jest tytuł zadania?');
-    const t = await zapytaj(a === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?');
-    $('#termin').value = lokalnyISO(rozpoznajTermin(t));
+  // kroki z możliwością cofnięcia ("cofnij" głosem albo przycisk Cofnij)
+  const ktoZRozmowy = !!$('#kto').value;
+  const kroki = [
+    { pyt: () => 'Kto dzwonił?', jest: () => !ktoZRozmowy, ustaw: o => $('#kto').value = o },
+    { pyt: () => 'W jakiej sprawie?', ustaw: o => $('#sprawa').value = o },
+    { pyt: () => 'Ustawić alert, zadanie, czy nic?', ustaw: o => { ustawAkcje(rozpoznajAkcje(o)); krokow = (ktoZRozmowy ? 3 : 4) + (akcja !== 'brak' ? 2 : 0); } },
+    { pyt: () => akcja === 'alert' ? 'Jak nazwać przypomnienie?' : 'Jaki jest tytuł zadania?', jest: () => akcja !== 'brak', ustaw: o => $('#tytul').value = o },
+    { pyt: () => akcja === 'alert' ? 'Kiedy przypomnieć?' : 'Na kiedy zadanie?', jest: () => akcja !== 'brak', ustaw: o => $('#termin').value = lokalnyISO(rozpoznajTermin(o)) },
+    { pyt: () => 'Zapisać notatkę?', koniec: true }
+  ];
+  krokow = ktoZRozmowy ? 3 : 4;
+  let i = 0, decyzja = '';
+  while (i < kroki.length) {
+    const k = kroki[i];
+    if (k.jest && !k.jest()) { i++; continue; }
+    krok = kroki.slice(0, i).filter(x => !x.jest || x.jest()).length;
+    if (k.koniec) {
+      $('#slyszy').textContent = [$('#kto').value && 'Rozmowa z ' + $('#kto').value, $('#sprawa').value, !$('#numer').value && 'Numer uzupełnisz później',
+        akcja !== 'brak' && $('#termin').value && (akcja === 'alert' ? 'Przypomnienie ' : 'Zadanie ') + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
+        .filter(Boolean).join('. ');
+    }
+    const odp = await zapytaj(k.pyt());
+    if (odp === '__cofnij' || /^\s*(cofnij|wróć|wstecz|poprzednie|jeszcze raz)\b/i.test(odp)) {
+      do { i--; } while (i > 0 && kroki[i].jest && !kroki[i].jest());
+      if (i < 0 || (kroki[i].jest && !kroki[i].jest())) i = Math.max(0, i);
+      continue;
+    }
+    if (k.koniec) { decyzja = odp; break; }
+    k.ustaw(odp); zapiszSzkic(); i++;
   }
-  const podsum = [$('#kto').value && 'Rozmowa z ' + $('#kto').value, $('#sprawa').value, !$('#numer').value && 'Numer uzupełnisz później',
-    akcja !== 'brak' && $('#termin').value && (akcja === 'alert' ? 'Przypomnienie ' : 'Zadanie ') + ($('#tytul').value || '') + ', ' + mowionyTermin(new Date($('#termin').value))]
-    .filter(Boolean).join('. ');
-  krok = krokow - 1;
-  $('#slyszy').textContent = podsum;
-  const decyzja = await zapytaj('Zapisać notatkę?');
   if (czyTak(decyzja)) {
-    trwa = false; $('#btnStart').disabled = false; krok = 0; rysujKropki(); $('#pytanie').textContent = '';
+    trwa = false; $('#btnStart').disabled = false; krok = 0; rysujKropki(); $('#pytanie').textContent = ''; $('#btnCofnij').classList.add('ukryty');
     pokaz('#ekranForm');
     await zapiszGlosowo();
     return;
   }
   await powiedz('Dobrze, popraw na ekranie, kiedy będzie bezpiecznie.');
   } catch (e) { /* przerwane - przechodzimy do formularza z tym, co już jest */ }
-  trwa = false; aktywne = null;
+  trwa = false; aktywne = null; $('#btnCofnij').classList.add('ukryty');
   $('#btnStart').disabled = false;
   $('#mic').classList.remove('slucha', 'mowi'); $('#napisMic').textContent = 'Zacznij';
   krok = 0; rysujKropki();
@@ -709,12 +729,17 @@ function nowa() {
 }
 
 $('#btnStart').onclick = rozmowa;
+$('#btnCofnij').onclick = e => { e.stopPropagation(); if (!trwa) return; cofnijTeraz = true;
+  try { aktywne && aktywne.abort(); } catch (x) {} try { speechSynthesis.cancel(); } catch (x) {} try { odtwarzacz.pause(); } catch (x) {} };
 // w aucie: dotknięcie w dowolnym miejscu ekranu nagrywania startuje pytania
 $('#ekranGlos').addEventListener('click', e => { if (!trwa && !e.target.closest('button, a, input')) rozmowa(); });
 $('#btnKolejka').onclick = () => zTokenem(wyslijKolejke);
 pokazKolejke();
 $('#btnBraki').onclick = () => zTokenem(pokazUzupelnianie);
 $('#btnUzupWroc').onclick = () => pokaz('#ekranGlos');
+$('#btnFormWroc').onclick = () => { zapiszSzkic(); $('#komunikat').textContent = ''; pokaz('#ekranGlos'); };
+$('#btnUstWroc').onclick = () => pokaz(localStorage.getItem('kramm_instr') ? '#ekranGlos' : '#ekranInstr');
+$('#btnInstrWroc').onclick = () => { localStorage.setItem('kramm_instr', '1'); pokaz(ust().arkusz ? '#ekranGlos' : '#ekranUst'); };
 pokazBraki();
 $('#btnRecznie').onclick = () => { if (!poczatek) poczatek = new Date().toISOString(); pokaz('#ekranForm'); };
 $('#btnZapisz').onclick = zapisz;
