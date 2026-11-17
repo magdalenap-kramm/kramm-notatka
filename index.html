@@ -103,7 +103,7 @@
 <header><img src="logo-biale.png" alt="KRAMM Nieruchomości" class="logo"><span class="ikony"><button id="btnPomoc" aria-label="Instrukcja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.8"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></button><button id="btnUst" aria-label="Konto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6"/></svg></button></span></header>
 <main>
   <section id="ekranGlos">
-    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Zanotujmy, póki rozmowa jest świeża.</div></div></div>
+    <div class="agentka"><div id="foto" class="foto brak">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="podpowitanie">Dotknij w dowolnym miejscu i mów.</div></div></div>
     <div class="mic-wrap" id="mic"><div class="fale"><i></i><i></i><i></i></div>
       <button class="start" id="btnStart" aria-label="Zacznij"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span class="slupki"><b></b><b></b><b></b><b></b><b></b></span><span class="napis" id="napisMic">Zacznij</span></button></div>
     <div class="kropki" id="kropki"></div>
@@ -140,7 +140,7 @@
     <div class="krok" id="krokIos"><span class="tag">iPhone</span><h3>2. Dodaj ikonę na ekran</h3>
       <ol><li>Otwórz ten link w <b>Safari</b>.</li><li>Dotknij <b>Udostępnij</b> (kwadrat ze strzałką) na dole.</li><li>Wybierz <b>Do ekranu początkowego</b> -> <b>Dodaj</b>.</li><li>Przesuń ikonę KRAMM na dolny pasek, obok Telefonu.</li></ol>
       <h3 style="margin-top:12px">Szybkie otwieranie: 2x stuknięcie w tył telefonu</h3>
-      <ol><li>Otwórz aplikację <b>Skróty</b> -> <b>+</b> -> <b>Dodaj czynność</b> -> <b>Otwórz adresy URL</b>.</li><li>Wpisz adres: <b>magdalenap-kramm.github.io/kramm-notatka</b> i nazwij skrót „Notatka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b> -> <b>Stuknięcie w tył</b> -> <b>Stuknij dwukrotnie</b> -> wybierz „Notatka KRAMM”.</li></ol></div>
+      <ol><li>Otwórz aplikację <b>Skróty</b> -> <b>+</b> -> <b>Dodaj czynność</b> -> <b>Otwórz adresy URL</b>.</li><li>Wpisz adres: <b>magdalenap-kramm.github.io/kramm-notatka</b> i nazwij skrót „Notatka KRAMM”. W aucie wystarczy powiedzieć: <b>„Hej Siri, Notatka KRAMM”</b>.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b> -> <b>Stuknięcie w tył</b> -> <b>Stuknij dwukrotnie</b> -> wybierz „Notatka KRAMM”.</li></ol></div>
     <div class="krok" id="krokAndroid"><span class="tag">Android</span><h3>2. Zainstaluj aplikację</h3>
       <button class="glowny ukryty" id="btnInstaluj" style="margin:6px 0 10px">Zainstaluj na telefonie</button>
       <ol><li>Otwórz ten link w <b>Chrome</b>.</li><li>Dotknij <b>⋮</b> w prawym górnym rogu.</li><li>Wybierz <b>Zainstaluj aplikację</b> albo <b>Dodaj do ekranu głównego</b>.</li><li>Przesuń ikonę KRAMM obok ikony Telefonu.</li></ol>
@@ -549,6 +549,8 @@ function nowa() {
 }
 
 $('#btnStart').onclick = rozmowa;
+// w aucie: dotknięcie w dowolnym miejscu ekranu nagrywania startuje pytania
+$('#ekranGlos').addEventListener('click', e => { if (!trwa && !e.target.closest('button, a, input')) rozmowa(); });
 $('#btnKolejka').onclick = () => zTokenem(wyslijKolejke);
 pokazKolejke();
 $('#btnRecznie').onclick = () => pokaz('#ekranForm');
