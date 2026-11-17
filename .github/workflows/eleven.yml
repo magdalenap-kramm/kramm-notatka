@@ -1,0 +1,38 @@
+name: Lektorki ElevenLabs
+
+on:
+  workflow_dispatch:
+    inputs:
+      ile:
+        description: 'Ile lektorek'
+        default: '6'
+  push:
+    branches: [main]
+    paths: ['narzedzia/eleven.py', '.github/workflows/eleven.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  nagraj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Sprawdź klucz
+        id: klucz
+        env:
+          K: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: if [ -n "$K" ]; then echo "jest=1" >> $GITHUB_OUTPUT; else echo "Brak sekretu ELEVENLABS_API_KEY - pomijam"; fi
+      - name: Nagraj
+        if: steps.klucz.outputs.jest == '1'
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ILE_LEKTOREK: ${{ github.event.inputs.ile || '6' }}
+        run: python3 narzedzia/eleven.py
+      - name: Zapisz
+        if: steps.klucz.outputs.jest == '1'
+        run: |
+          git config user.name "magdalenap-kramm"; git config user.email "magdalena.p@kramm.pl"
+          git add glos
+          git diff --cached --quiet || git commit -m "Lektorki ElevenLabs"
+          git pull --rebase && git push

@@ -270,7 +270,16 @@ const NAGRANIA = {
   'Zapisane w telefonie. Wyślę do arkusza, gdy dotkniesz przypomnienia na postoju.': 'w_telefonie', 'Dzień dobry. Kto dzwonił?': 'probka'
 };
 const LEKTORKI = { gosia_niska: 'Lektorka - niski głos (polecany)', gosia_najnizsza: 'Lektorka - najniższy głos', gosia_nizsza: 'Lektorka - średni głos', gosia: 'Lektorka - pierwotny głos' };
-const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : 'gosia_niska';
+let DOMYSLNA = 'gosia_niska';
+const lektorka = () => LEKTORKI[ust().lektorka] ? ust().lektorka : DOMYSLNA;
+// lektorki ElevenLabs (jeśli nagrane): na górze listy, pierwsza jest domyślna
+fetch('glos/lektorki.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : []).then(lista => {
+  if (!Array.isArray(lista) || !lista.length) return;
+  const nowe = {}; lista.forEach(l => nowe[l.id] = l.nazwa + (l.opis ? ' - ' + l.opis : ''));
+  Object.keys(LEKTORKI).forEach(k => { nowe[k] = LEKTORKI[k].replace('Lektorka', 'Gosia').replace(' (polecany)', ''); });
+  Object.keys(LEKTORKI).forEach(k => delete LEKTORKI[k]); Object.assign(LEKTORKI, nowe);
+  DOMYSLNA = lista[0].id; if (typeof wypelnijGlosy === 'function') wypelnijGlosy();
+}).catch(() => {});
 const odtwarzacz = new Audio(); odtwarzacz.preload = 'auto';
 function odblokujDzwiek() { /* odtwarzanie startuje bezpośrednio z dotknięcia, osobne odblokowanie niepotrzebne */ }
 let zatrzymajDzwiek = () => {};
