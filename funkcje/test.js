@@ -20,10 +20,11 @@ global.fetch = async (url, op = {}) => {
     { id: 'e2', summary: 'Podpisanie umowy', start: { dateTime: jutro + 'T09:00:00+01:00' }, end: { dateTime: jutro + 'T10:00:00+01:00' } }] });
   if (u.endsWith('/calendar/v3/calendars/primary/events')) return ok({ id: 'nowe' });
   if (u.includes('/threads?')) return ok({ threads: [{ id: 't1' }, { id: 't2' }] });
-  if (u.includes('/threads/t1?format=metadata')) return ok({ messages: [{ labelIds: ['INBOX', 'UNREAD'], snippet: 'Czy mieszkanie jest dostępne?', payload: { headers: [{ name: 'From', value: 'Jan Kowalski <jan@x.pl>' }, { name: 'Subject', value: 'Mieszkanie Jeżyce' }] } }] });
+  if (u.includes('/threads/t1?format=metadata')) return ok({ messages: [{ id: 'm1', labelIds: ['INBOX', 'UNREAD'], snippet: 'Czy mieszkanie jest dostępne?', payload: { headers: [{ name: 'From', value: 'Jan Kowalski <jan@x.pl>' }, { name: 'Subject', value: 'Mieszkanie Jeżyce' }] } }] });
   if (u.includes('/threads/t2?format=metadata')) return ok({ messages: [{ labelIds: ['INBOX'], payload: { headers: [{ name: 'From', value: 'Ja <magdalena.p@kramm.pl>' }] } }, { labelIds: ['SENT'], payload: { headers: [{ name: 'From', value: 'magdalena.p@kramm.pl' }] } }] });
   if (u.includes('/threads/t1?format=full')) return ok({ messages: [{ labelIds: ['INBOX'], payload: { mimeType: 'text/plain', body: { data: b64('Dzień dobry, czy mieszkanie na Jeżycach jest dostępne?\n\n> stary cytat') },
     headers: [{ name: 'From', value: 'Jan Kowalski <jan@x.pl>' }, { name: 'Subject', value: 'Mieszkanie Jeżyce' }, { name: 'Message-ID', value: '<abc@x.pl>' }] } }] });
+  if (u.includes('/messages/m1?format=full')) return ok({ payload: { mimeType: 'text/plain', body: { data: b64('Czy mieszkanie jest dostępne?\n\nPozdrawiam\nJan Kowalski\nABC Sp. z o.o.\ntel. 600 100 200') } } });
   if (u.includes('/messages/send')) return ok({ id: 'wyslany' });
   if (u.includes('/drive/v3/files')) return ok({ files: [{ id: 'ark1' }] });
   if (u.includes('sheets.googleapis.com')) return ok({ values: [[czas.dzien(), '10:00', "'570111222", 'Anna Nowak', 'Szuka 3 pokoi', 'zadanie', 'Oddzwonić', czas.dzien() + ' 12:00', 'W kalendarzu']] });
@@ -40,7 +41,7 @@ const opcje = { sekret: 'S', klucz: 'K' };
 
   // brief: bierze tylko istniejące wątki i numeruje
   claudeOdp = c => { assert.ok(!c.tool_choice && c.system.includes('zapisz_brief')); const dane = JSON.parse(c.messages[0].content.split('\n').slice(1).join('\n'));
-    assert.strictEqual(dane.maile_bez_odpowiedzi.length, 1, 'wątek z odpowiedzią pominięty'); assert.strictEqual(dane.kalendarz_jutro.length, 2);
+    assert.strictEqual(dane.maile_bez_odpowiedzi.length, 1, 'wątek z odpowiedzią pominięty'); assert.ok(dane.maile_bez_odpowiedzi[0].podpis.includes('ABC Sp. z o.o.')); assert.strictEqual(dane.kalendarz_jutro.length, 2);
     return { nazwa: 'zapisz_brief', dane: { mowa: 'Dzień dobry Magda.', dzis: [], maile: [{ watek: 't1', od: 'Jan Kowalski', temat: 'Mieszkanie Jeżyce', dlaczego: 'pyta o dostępność' }, { watek: 'zmyslony', od: 'X', temat: 'Y', dlaczego: 'Z' }], kontakty: [], jutro: ['Klucze'], punkty: ['Sprawdzić Otodom'] } }; };
   const b = await brief.przygotuj(agentka, opcje);
   assert.strictEqual(b.maile.length, 1); assert.strictEqual(b.maile[0].nr, 1); assert.strictEqual(b.maile[0].odEmail, 'jan@x.pl'); assert.strictEqual(b.arkusz, 'ark1');

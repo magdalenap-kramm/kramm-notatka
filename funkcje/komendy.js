@@ -37,7 +37,7 @@ const NARZEDZIA = [
 ];
 
 function systemKomend(agentka, brief, ostatni) {
-  const maile = (brief && brief.maile || []).map(m => `${m.nr}. od ${m.od}: ${m.temat}`).join('\n') || '(brak)';
+  const maile = (brief && brief.maile || []).map(m => `${m.nr}. od ${m.od} (${m.odEmail}): ${m.temat}`).join('\n') || '(brak)';
   return `Jesteś głosową asystentką agentki nieruchomości ${agentka.imie || ''} z KRAMM Nieruchomości. Agentka mówi do telefonu, często w samochodzie.
 Teraz: ${czas.terazOpis()}.
 Zawsze wybierz dokładnie jedno narzędzie. Daty względne ("jutro", "w piątek", "za tydzień") zamień na konkretne daty względem dzisiaj; "w piątek" to najbliższy przyszły piątek.

@@ -13,7 +13,7 @@ const NARZEDZIE_BRIEF = {
       dzis: { type: 'array', items: { type: 'object', properties: {
         godzina: { type: 'string' }, tytul: { type: 'string' }, miejsce: { type: 'string' }, notka: { type: 'string', description: 'co warto wiedzieć lub zabrać, np. z historii rozmów; pusty tekst jeśli nic' } }, required: ['godzina', 'tytul'] } },
       maile: { type: 'array', description: 'Tylko maile, które wymagają odpowiedzi agentki, od najpilniejszego. Pomiń newslettery, powiadomienia automatyczne, faktury bez pytania.', items: { type: 'object', properties: {
-        watek: { type: 'string', description: 'identyfikator wątku z listy' }, od: { type: 'string' }, temat: { type: 'string' }, dlaczego: { type: 'string', description: 'jedno zdanie: czego dotyczy i czego oczekuje nadawca' } }, required: ['watek', 'od', 'temat', 'dlaczego'] } },
+        watek: { type: 'string', description: 'identyfikator wątku z listy' }, od: { type: 'string', description: 'imię i nazwisko nadawcy, a przy firmie także jej nazwa. Gdy w nagłówku jest tylko adres e-mail, ustal nadawcę z podpisu na końcu maila (pole podpis). Nigdy nie wpisuj tu adresu e-mail, chyba że naprawdę nie da się ustalić nadawcy.' }, temat: { type: 'string' }, dlaczego: { type: 'string', description: 'jedno zdanie: czego dotyczy i czego oczekuje nadawca' } }, required: ['watek', 'od', 'temat', 'dlaczego'] } },
       kontakty: { type: 'array', description: 'Osoby do kontaktu dziś: zadania i alerty z rozmów, obiecane oddzwonienia, follow-upy po prezentacjach.', items: { type: 'object', properties: {
         kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string' } }, required: ['kto', 'sprawa'] } },
       jutro: { type: 'array', description: 'Co przygotować dziś na jutro (dokumenty, klucze, wydruki, umowy, sprzęt) na podstawie jutrzejszego kalendarza.', items: { type: 'string' } },
@@ -30,6 +30,7 @@ Zasady:
 - Zwracaj się do agentki po imieniu, w drugiej osobie, w formie żeńskiej ("masz", "przygotuj", "odezwij się").
 - Konkretnie i rzeczowo, bez superlatyw, bez angielskich wtrąceń, bez wykrzykników. Zamiast półpauz używaj zwykłego łącznika.
 - Tekst "mowa" jest czytany przez syntezator w samochodzie: krótkie zdania, najważniejsze na początku, maksymalnie 3 maile i 3 kontakty wymienione z nazwiska, resztę podsumuj liczbą.
+- Nadawców maili przedstawiaj imieniem i nazwiskiem albo nazwą firmy, ustalonymi z nagłówka lub z podpisu na końcu maila. Nie czytaj na głos adresów e-mail.
 - Nie wymyślaj faktów. Jeśli czegoś nie ma w danych, pomiń. Jeśli źródło danych jest niedostępne, powiedz o tym jednym zdaniem.
 - Na końcu "mowa" dodaj jedno zdanie: "Powiedz, na który mail odpisać, albo co dodać do kalendarza."`;
 }
