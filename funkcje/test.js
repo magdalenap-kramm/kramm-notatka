@@ -42,9 +42,9 @@ const opcje = { sekret: 'S', klucz: 'K' };
   // brief: bierze tylko istniejące wątki i numeruje
   claudeOdp = c => { assert.ok(!c.tool_choice && c.system.includes('zapisz_brief')); const dane = JSON.parse(c.messages[0].content.split('\n').slice(1).join('\n'));
     assert.strictEqual(dane.maile_bez_odpowiedzi.length, 1, 'wątek z odpowiedzią pominięty'); assert.ok(dane.maile_bez_odpowiedzi[0].podpis.includes('ABC Sp. z o.o.')); assert.strictEqual(dane.kalendarz_jutro.length, 2);
-    return { nazwa: 'zapisz_brief', dane: { mowa: 'Dzień dobry Magda.', dzis: [], maile: [{ watek: 't1', od: 'Jan Kowalski', temat: 'Mieszkanie Jeżyce', dlaczego: 'pyta o dostępność' }, { watek: 'zmyslony', od: 'X', temat: 'Y', dlaczego: 'Z' }], kontakty: [], jutro: ['Klucze'], punkty: ['Sprawdzić Otodom'] } }; };
+    return { nazwa: 'zapisz_brief', dane: { mowa: 'Dzień dobry Magda.', dzis: [], maile: [{ id: 'm1', od: 'Jan Kowalski', temat: 'Mieszkanie Jeżyce', dlaczego: 'pyta o dostępność' }, { id: 'M9', od: 'X', temat: 'Y', dlaczego: 'Z' }], kontakty: [], jutro: ['Klucze'], punkty: ['Sprawdzić Otodom'] } }; };
   const b = await brief.przygotuj(agentka, opcje);
-  assert.strictEqual(b.maile.length, 1); assert.strictEqual(b.maile[0].nr, 1); assert.strictEqual(b.maile[0].odEmail, 'jan@x.pl'); assert.strictEqual(b.arkusz, 'ark1');
+  assert.strictEqual(b.maile.length, 1); assert.strictEqual(b.maile[0].nr, 1); assert.strictEqual(b.maile[0].watek, 't1'); assert.strictEqual(b.maile[0].odEmail, 'jan@x.pl'); assert.strictEqual(b.arkusz, 'ark1');
 
   // kalendarz: propozycja -> potwierdzenie -> zapis
   claudeOdp = () => ({ nazwa: 'kalendarz_dodaj', dane: { rodzaj: 'wydarzenie', tytul: 'Prezentacja', start: jutro + 'T11:00', miejsce: 'Głogowska 40' } });

@@ -12,8 +12,8 @@ const NARZEDZIE_BRIEF = {
       mowa: { type: 'string', description: 'Tekst do przeczytania na głos (60-90 sekund). Naturalna polszczyzna, bez list i znaków specjalnych, godziny słownie zrozumiałe dla lektora (np. "o jedenastej trzydzieści").' },
       dzis: { type: 'array', items: { type: 'object', properties: {
         godzina: { type: 'string' }, tytul: { type: 'string' }, miejsce: { type: 'string' }, notka: { type: 'string', description: 'co warto wiedzieć lub zabrać, np. z historii rozmów; pusty tekst jeśli nic' } }, required: ['godzina', 'tytul'] } },
-      maile: { type: 'array', description: 'Tylko maile, które wymagają odpowiedzi agentki, od najpilniejszego. Pomiń newslettery, powiadomienia automatyczne, faktury bez pytania.', items: { type: 'object', properties: {
-        watek: { type: 'string', description: 'identyfikator wątku z listy' }, od: { type: 'string', description: 'imię i nazwisko nadawcy, a przy firmie także jej nazwa. Gdy w nagłówku jest tylko adres e-mail, ustal nadawcę z podpisu na końcu maila (pole podpis). Nigdy nie wpisuj tu adresu e-mail, chyba że naprawdę nie da się ustalić nadawcy.' }, temat: { type: 'string' }, dlaczego: { type: 'string', description: 'jedno zdanie: czego dotyczy i czego oczekuje nadawca' } }, required: ['watek', 'od', 'temat', 'dlaczego'] } },
+      maile: { type: 'array', description: 'Maile, na które agentka powinna odpowiedzieć, od najpilniejszego. Uwzględnij każdy mail od konkretnej osoby lub firmy, który zawiera pytanie, prośbę albo sprawę do załatwienia; w razie wątpliwości uwzględnij. Pomiń tylko newslettery, reklamy i automatyczne powiadomienia systemów.', items: { type: 'object', properties: {
+        id: { type: 'string', description: 'krótki identyfikator maila z listy, np. M3' }, od: { type: 'string', description: 'imię i nazwisko nadawcy, a przy firmie także jej nazwa. Gdy w nagłówku jest tylko adres e-mail, ustal nadawcę z podpisu na końcu maila (pole podpis). Nigdy nie wpisuj tu adresu e-mail, chyba że naprawdę nie da się ustalić nadawcy.' }, temat: { type: 'string' }, dlaczego: { type: 'string', description: 'jedno zdanie: czego dotyczy i czego oczekuje nadawca' } }, required: ['id', 'od', 'temat', 'dlaczego'] } },
       kontakty: { type: 'array', description: 'Osoby do kontaktu dziś: zadania i alerty z rozmów, obiecane oddzwonienia, follow-upy po prezentacjach.', items: { type: 'object', properties: {
         kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string' } }, required: ['kto', 'sprawa'] } },
       jutro: { type: 'array', description: 'Co przygotować dziś na jutro (dokumenty, klucze, wydruki, umowy, sprzęt) na podstawie jutrzejszego kalendarza.', items: { type: 'string' } },
@@ -54,7 +54,7 @@ async function przygotuj(agentka, { sekret, klucz }) {
   const tresc = {
     kalendarz_dzis: dane.wydarzenia.filter(e => (e.start || '').startsWith(dzis)),
     kalendarz_jutro: dane.wydarzenia.filter(e => (e.start || '').startsWith(jutro)),
-    maile_bez_odpowiedzi: dane.maile,
+    maile_bez_odpowiedzi: dane.maile.map((m, i) => ({ id: 'M' + (i + 1), od: m.od, adres: m.odEmail, temat: m.temat, data: m.data, fragment: m.fragment, podpis: m.podpis, nieprzeczytany: m.nieprzeczytany, oznaczony_jako_wazny: m.wazny, masowy: m.masowy })),
     ostatnie_rozmowy_z_notatki: dane.rozmowy,
     punkty_codzienne_agentki: agentka.punkty || [],
     niedostepne_zrodla: dane.braki
@@ -65,8 +65,10 @@ async function przygotuj(agentka, { sekret, klucz }) {
   if (!n) throw new Error('Nie udało się przygotować briefu');
   const b = n.dane;
   // tylko wątki, które naprawdę istnieją; uzupełnij adres nadawcy
-  const wg = Object.fromEntries(dane.maile.map(m => [m.watek, m]));
-  b.maile = (b.maile || []).filter(m => wg[m.watek]).map((m, i) => ({ ...m, nr: i + 1, odEmail: wg[m.watek].odEmail }));
+  const wg = Object.fromEntries(dane.maile.map((m, i) => ['M' + (i + 1), m]));
+  b.maile = (b.maile || []).map(m => ({ m, z: wg[String(m.id || '').trim().toUpperCase()] })).filter(x => x.z)
+    .map((x, i) => ({ nr: i + 1, watek: x.z.watek, od: x.m.od || x.z.od, odEmail: x.z.odEmail, temat: x.m.temat || x.z.temat, dlaczego: x.m.dlaczego || '' }));
+  b.liczbaMaili = dane.maile.length;
   return { ...b, data: dzis, utworzono: new Date().toISOString(), arkusz: dane.arkusz || null, braki: dane.braki };
 }
 

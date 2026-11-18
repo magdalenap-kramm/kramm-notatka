@@ -83,7 +83,7 @@ function adresEmail(t) { const m = String(t).match(/<([^>]+)>/); return (m ? m[1
 function nazwaNadawcy(t) { const m = String(t).match(/^\s*"?([^"<]+?)"?\s*</); return m ? m[1].trim() : adresEmail(t); }
 
 // wątki z ostatnich dni, na które agentka jeszcze nie odpisała
-async function watkiDoOdpowiedzi(api, mojEmail, dni = 3, ile = 25) {
+async function watkiDoOdpowiedzi(api, mojEmail, dni = 7, ile = 25) {
   const q = `in:inbox newer_than:${dni}d -category:promotions -category:social -category:forums -from:me`;
   const lista = await api('https://gmail.googleapis.com/gmail/v1/users/me/threads?' + new URLSearchParams({ q, maxResults: String(ile) }));
   const wynik = [];
