@@ -30,6 +30,8 @@ const NARZEDZIA = [
     input_schema: { type: 'object', properties: { tekst: { type: 'string' } }, required: ['tekst'] } },
   { name: 'punkt_usun', description: 'Usuwa punkt z codziennego sprawdzania.',
     input_schema: { type: 'object', properties: { tekst: { type: 'string' } }, required: ['tekst'] } },
+  { name: 'arkusz_dodaj', description: 'Dodaje arkusz Google z Dysku (np. z leadami) do codziennego pilnowania w briefie. Agentka podaje nazwę arkusza.',
+    input_schema: { type: 'object', properties: { nazwa: { type: 'string', description: 'nazwa lub fragment nazwy arkusza' } }, required: ['nazwa'] } },
   { name: 'godzina_briefu', description: 'Zmienia godzinę porannego briefu.',
     input_schema: { type: 'object', properties: { godzina: { type: 'string', description: 'HH:MM' } }, required: ['godzina'] } },
   { name: 'odpowiedz', description: 'Krótka odpowiedź słowna: dopytanie, gdy brakuje danych (np. godziny), albo informacja, że czegoś nie umiesz.',
@@ -105,7 +107,7 @@ async function napiszOdpowiedz({ agentka, w, polecenie, poprzedni, klucz }) {
     system: `Piszesz odpowiedź na maila w imieniu agentki ${agentka.imie} z KRAMM Nieruchomości (Poznań). Forma żeńska ("przesłałam", "jestem dostępna").
 Ton: uprzejmy, rzeczowy, krótki. Bez superlatyw, bez angielskich wtrąceń, zwykły łącznik zamiast półpauzy. Zwracaj się "Pani"/"Panie" lub tak, jak nadawca zwraca się w wątku.
 Nie obiecuj niczego i nie podawaj faktów (ceny, terminy, adresy), których nie ma w poleceniu agentki ani w wątku.
-Zakończ podpisem:\nPozdrawiam serdecznie,\n${agentka.podpis || agentka.imie}\nKRAMM Nieruchomości`,
+Zakończ słowami:\nPozdrawiam serdecznie,\n${agentka.imie}\nPełna stopka z danymi kontaktowymi zostanie dodana automatycznie, nie dopisuj jej.`,
     narzedzia: [{ name: 'szkic', description: 'Treść maila (bez tematu).', input_schema: { type: 'object', properties: { tresc: { type: 'string' } }, required: ['tresc'] } }],
     wymusNarzedzie: 'szkic',
     wiadomosci: [{ role: 'user', content: `Wątek:\n${tekstWatku}\n\nPolecenie agentki: ${polecenie}${poprzedni ? `\n\nPoprzedni szkic do poprawienia:\n${poprzedni}` : ''}` }] });
@@ -139,6 +141,10 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz }) {
       if (ocz.typ === 'kalendarz') {
         await g.dodajWydarzenie(await google(), ocz.dane);
         return { mow: 'Dodane do kalendarza.', noweOczekujace: null, ekran: { typ: 'ok', tekst: 'Dodane do kalendarza' } };
+      }
+      if (ocz.typ === 'arkusz') {
+        const arkusze = [...(agentka.arkusze || []).filter(a => a.id !== ocz.arkusz.id), { id: ocz.arkusz.id, nazwa: ocz.arkusz.nazwa }].slice(-5);
+        return { mow: `Dodane. Będę pilnować arkusza ${ocz.arkusz.nazwa} w porannym briefie.`, noweOczekujace: null, zapisz: { arkusze }, ekran: { typ: 'ok', tekst: 'Arkusz dodany' } };
       }
       if (ocz.typ === 'mail') {
         await g.wyslijMail(await google(), ocz.szkic);
@@ -198,6 +204,14 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz }) {
       const punkty = (agentka.punkty || []).filter(p => !s.some(x => czysc(p).includes(x.slice(0, 5))));
       if (punkty.length === (agentka.punkty || []).length) return { mow: 'Nie znalazłam takiego punktu.' };
       return { mow: 'Usunięte z codziennego sprawdzania.', zapisz: { punkty }, noweOczekujace: null };
+    }
+    case 'arkusz_dodaj': {
+      const lista = await g.szukajArkuszy(await google(), d.nazwa);
+      if (!lista.length) return { mow: `Nie znalazłam na Dysku arkusza o nazwie ${d.nazwa}. Powiedz inną nazwę albo dodaj go w ustawieniach.`, oczekuje: true };
+      const a = lista[0];
+      const inne = lista.slice(1, 3).map(x => x.nazwa);
+      return { mow: `Znalazłam arkusz ${a.nazwa}.${inne.length ? ' Są też: ' + inne.join(', ') + '.' : ''} Dodać ${a.nazwa} do pilnowania?`, oczekuje: true,
+        noweOczekujace: { typ: 'arkusz', arkusz: a }, ekran: { typ: 'lista', pozycje: lista.slice(0, 5).map(x => ({ godzina: '', tytul: x.nazwa, miejsce: '' })) } };
     }
     case 'godzina_briefu': {
       const h = czas.doPieciu(d.godzina);

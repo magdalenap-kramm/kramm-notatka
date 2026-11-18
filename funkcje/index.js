@@ -59,7 +59,8 @@ async function zrobBrief(email) {
   const a = (await ref.get()).data();
   const b = await brief.przygotuj(a, { sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
   await ref.collection('briefy').doc(b.data).set(b);
-  await ref.update({ ostatniBrief: b.data, ...(b.arkusz && !a.arkuszNotatki ? { arkuszNotatki: b.arkusz } : {}), polaczenie: 'ok' });
+  const arkusze = (a.arkusze || []).map(x => b.stanArkuszy && b.stanArkuszy[x.id] !== undefined ? { ...x, wiersze: b.stanArkuszy[x.id] } : x);
+  await ref.update({ ostatniBrief: b.data, arkusze, ...(b.arkusz && !a.arkuszNotatki ? { arkuszNotatki: b.arkusz } : {}), polaczenie: 'ok' });
   return b;
 }
 async function dzisiejszyBrief(email) {
@@ -90,7 +91,9 @@ async function kto(req) {
 }
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
-    podpis: a.podpis || '', powiadomienia: (a.push || []).length, polaczenie: a.polaczenie || 'ok' };
+    powiadomienia: (a.push || []).length, polaczenie: a.polaczenie || 'ok',
+    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })),
+    brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
 
 // ---------- API dla aplikacji ----------
@@ -116,7 +119,6 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         const zm = {};
         if (body.godzina !== undefined) { const h = czas.doPieciu(body.godzina); if (!h) return res.status(400).json({ blad: 'Zła godzina' }); zm.godzina = h; }
         if (body.dniRobocze !== undefined) zm.dniRobocze = !!body.dniRobocze;
-        if (body.podpis !== undefined) zm.podpis = String(body.podpis).slice(0, 200);
         if (Array.isArray(body.punkty)) zm.punkty = body.punkty.map(p => String(p).trim()).filter(Boolean).slice(0, 15);
         await ref.update(zm);
         return res.json({ profil: profil({ ...a, ...zm }) });
@@ -128,6 +130,21 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         await ref.update({ push });
         if (body.test) await wyslijPush(email, { tytul: 'Asystentka KRAMM', tresc: 'Powiadomienia działają. Rano przyjdzie tu Twój brief.', url: './' });
         return res.json({ ok: true, powiadomienia: push.length });
+      }
+      case 'arkusze_szukaj': {
+        const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
+        return res.json({ wyniki: await g.szukajArkuszy(api, String(body.fraza || '').slice(0, 100)) });
+      }
+      case 'arkusze_dodaj': {
+        if (!body.id || !body.nazwa) return res.status(400).json({ blad: 'Brak arkusza' });
+        const arkusze = [...(a.arkusze || []).filter(x => x.id !== body.id), { id: String(body.id), nazwa: String(body.nazwa).slice(0, 120) }].slice(-5);
+        await ref.update({ arkusze });
+        return res.json({ profil: profil({ ...a, arkusze }) });
+      }
+      case 'arkusze_usun': {
+        const arkusze = (a.arkusze || []).filter(x => x.id !== body.id);
+        await ref.update({ arkusze });
+        return res.json({ profil: profil({ ...a, arkusze }) });
       }
       case 'brief': {
         const b = !body.odswiez && await dzisiejszyBrief(email);

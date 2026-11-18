@@ -95,6 +95,7 @@
     <div class="agentka"><div id="foto" class="foto">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="pod" id="dzisiaj"></div></div></div>
     <div class="mic-wrap" id="micWrap"><div class="fale"><i></i><i></i><i></i></div>
       <button class="mic" id="btnMic" aria-label="Mów"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span id="napisMic">Mów</span></button></div>
+    <div id="banerZgod" class="karta ukryty"><p class="info" style="margin:0 0 4px">Asystentka potrzebuje nowej zgody, żeby widzieć arkusze z Dysku. Zaloguj się jeszcze raz i zaznacz wszystkie zgody.</p><button class="glowny" id="btnZgody">Zaloguj ponownie</button></div>
     <div id="odp">Dotknij i powiedz, czego potrzebujesz.</div>
     <div id="slyszy"></div>
     <div id="karta"></div>
@@ -114,6 +115,7 @@
         <li>„Co mam dziś po południu?”</li>
         <li>„Dodaj do codziennego sprawdzania: nowe ogłoszenia na Otodomie”</li>
         <li>„Brief codziennie o siódmej”</li>
+        <li>„Dodaj arkusz leady do pilnowania”</li>
       </ul>
       <p class="info">Na każde dodanie i wysłanie asystentka pyta o potwierdzenie. Odpowiedz „tak”, „nie” albo powiedz, co zmienić.</p>
     </div>
@@ -125,7 +127,6 @@
       <h3>Poranny brief</h3>
       <label for="godzina">Godzina</label><input type="time" id="godzina" step="300">
       <div class="przel"><input type="checkbox" id="dniRobocze"><label for="dniRobocze" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Tylko w dni robocze</label></div>
-      <label for="podpis">Podpis w mailach</label><input type="text" id="podpis" placeholder="np. Magdalena Pyrc">
       <button class="glowny" id="btnZapiszUst">Zapisz</button>
     </div>
     <div class="karta">
@@ -138,6 +139,14 @@
       <div id="punkty"></div>
       <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="nowyPunkt" placeholder="np. Sprawdzić nowe leady"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnDodajPunkt">Dodaj</button></div>
       <p class="info">Możesz też powiedzieć: „dodaj do codziennego sprawdzania...”.</p>
+    </div>
+    <div class="karta">
+      <h3>Arkusze do pilnowania</h3>
+      <p class="info">Arkusze z Dysku, np. z leadami. W porannym briefie dostaniesz nowe wpisy i sprawy do załatwienia.</p>
+      <div id="arkusze"></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="szukajArkusza" placeholder="Nazwa arkusza, np. leady"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnSzukajArkusza">Szukaj</button></div>
+      <div id="wynikiArkuszy"></div>
+      <p class="info">Możesz też powiedzieć: „dodaj arkusz leady do pilnowania”.</p>
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
@@ -218,8 +227,27 @@ function pokazProfil() {
   $('#dzisiaj').textContent = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }) + (profil.godzina ? ` · brief o ${profil.godzina}` : '');
   const src = ZDJECIA[profil.email] || profil.foto;
   if (src && !$('#foto img')) { const img = new Image(); img.className = 'foto'; img.referrerPolicy = 'no-referrer'; img.onload = () => { $('#foto').replaceWith(img); img.id = 'foto'; }; img.src = src; }
-  $('#godzina').value = profil.godzina || '07:30'; $('#dniRobocze').checked = profil.dniRobocze; $('#podpis').value = profil.podpis || '';
-  rysujPunkty(); stanPush();
+  $('#godzina').value = profil.godzina || '07:30'; $('#dniRobocze').checked = profil.dniRobocze;
+  rysujPunkty(); rysujArkusze(); stanPush();
+  $('#banerZgod').classList.toggle('ukryty', !profil.brakZgod);
+}
+function rysujArkusze() {
+  const l = (profil && profil.arkusze) || [];
+  $('#arkusze').innerHTML = l.length ? l.map(a => `<div class="punkt"><span>${esc(a.nazwa)}</span><button data-usunark="${esc(a.id)}" aria-label="Usuń">×</button></div>`).join('') : '<div class="pusto">Brak arkuszy.</div>';
+  document.querySelectorAll('[data-usunark]').forEach(b => b.onclick = async () => { try { profil = (await api('arkusze_usun', { id: b.dataset.usunark })).profil; rysujArkusze(); } catch (e) { $('#komunikat').textContent = e.message; } });
+}
+async function szukajArkusza() {
+  const f = $('#szukajArkusza').value.trim();
+  $('#wynikiArkuszy').innerHTML = '<div class="pusto">Szukam...</div>';
+  try {
+    const { wyniki } = await api('arkusze_szukaj', { fraza: f });
+    $('#wynikiArkuszy').innerHTML = wyniki.length ? wyniki.map((a, i) => `<div class="punkt"><span>${esc(a.nazwa)}</span><button data-dodajark="${i}" aria-label="Dodaj" style="width:auto;padding:0 12px;border-radius:14px">Dodaj</button></div>`).join('') : '<div class="pusto">Nic nie znalazłam. Spróbuj innej nazwy.</div>';
+    document.querySelectorAll('[data-dodajark]').forEach(b => b.onclick = async () => {
+      const a = wyniki[+b.dataset.dodajark];
+      try { profil = (await api('arkusze_dodaj', { id: a.id, nazwa: a.nazwa })).profil; rysujArkusze(); $('#wynikiArkuszy').innerHTML = ''; $('#szukajArkusza').value = ''; $('#komunikat').textContent = `Dodany: ${a.nazwa}`; }
+      catch (e) { $('#komunikat').textContent = e.message; }
+    });
+  } catch (e) { $('#wynikiArkuszy').innerHTML = `<div class="pusto">${esc(e.message)}${profil && profil.brakZgod ? ' Zaloguj się ponownie (przycisk na głównym ekranie).' : ''}</div>`; }
 }
 function sekcja(tytul, poz, pusty, ile) {
   return `<div class="karta"><h3>${tytul}${ile ? `<small>${ile}</small>` : ''}</h3>${poz.length ? poz.join('') : `<div class="pusto">${pusty}</div>`}</div>`;
@@ -232,6 +260,7 @@ function rysujBrief() {
     sekcja('Dziś', (b.dzis || []).map(d => `<div class="poz"><b>${esc(d.godzina)}</b> ${esc(d.tytul)}${d.miejsce ? `<div class="opis">${esc(d.miejsce)}</div>` : ''}${d.notka ? `<div class="opis">${esc(d.notka)}</div>` : ''}</div>`), 'Nic w kalendarzu.') +
     sekcja('Maile do odpowiedzi', (b.maile || []).map(m => `<div class="poz klik" data-mail="${m.nr}"><span class="nr">${m.nr}</span><b>${esc(m.od)}</b> · ${esc(m.temat)}<div class="opis">${esc(m.dlaczego)}</div></div>`), 'Wszystko odpisane.', (b.maile || []).length ? 'dotknij, żeby odsłuchać' : '') +
     sekcja('Do kontaktu', (b.kontakty || []).map(k => `<div class="poz"><b>${esc(k.kto)}</b>${tel(k.numer)}<div class="opis">${esc(k.sprawa)}</div></div>`), 'Nikt nie czeka na kontakt.') +
+    ((b.arkusze || []).length ? sekcja('Z arkuszy', b.arkusze.map(a => `<div class="poz">${a.nowy ? '<span class="nr">●</span>' : ''}<b>${esc(a.kto)}</b>${tel(a.numer)}<div class="opis">${esc(a.arkusz)} · ${esc(a.sprawa)}</div></div>`), '') : '') +
     sekcja('Przygotuj na jutro', (b.jutro || []).map(j => `<div class="poz">${esc(j)}</div>`), 'Nic do przygotowania.') +
     ((b.punkty || []).length ? sekcja('Twoje punkty', b.punkty.map(p => `<div class="poz">${esc(p)}</div>`), '') : '') +
     ((b.braki || []).length ? `<p class="info">Niedostępne: ${esc(b.braki.join('; '))}</p>` : '');
@@ -400,8 +429,11 @@ $('#btnOdswiez').onclick = () => odsluchajBrief(true);
 $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; };
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;
+$('#btnSzukajArkusza').onclick = szukajArkusza;
+$('#szukajArkusza').onkeydown = e => { if (e.key === 'Enter') szukajArkusza(); };
+$('#btnZgody').onclick = () => zaloguj().catch(e => { $('#odp').textContent = e.message; });
 $('#btnZapiszUst').onclick = async () => {
-  try { profil = (await api('ustawienia', { godzina: $('#godzina').value, dniRobocze: $('#dniRobocze').checked, podpis: $('#podpis').value })).profil; pokazProfil(); $('#komunikat').textContent = `Zapisane. Brief o ${profil.godzina}.`; }
+  try { profil = (await api('ustawienia', { godzina: $('#godzina').value, dniRobocze: $('#dniRobocze').checked})).profil; pokazProfil(); $('#komunikat').textContent = `Zapisane. Brief o ${profil.godzina}.`; }
   catch (e) { $('#komunikat').textContent = e.message; }
 };
 $('#btnDodajPunkt').onclick = () => { const t = $('#nowyPunkt').value.trim(); if (t) { $('#nowyPunkt').value = ''; zapiszPunkty([...((profil && profil.punkty) || []), t]); } };

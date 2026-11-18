@@ -15,11 +15,13 @@ const NARZEDZIE_BRIEF = {
         id: { type: 'string', description: 'krótki identyfikator maila z listy, np. M3' }, od: { type: 'string', description: 'imię i nazwisko nadawcy, a przy firmie także jej nazwa. Gdy w nagłówku jest tylko adres e-mail, ustal nadawcę z podpisu na końcu maila (pole podpis). Nigdy nie wpisuj tu adresu e-mail, chyba że naprawdę nie da się ustalić nadawcy.' }, temat: { type: 'string' }, dlaczego: { type: 'string', description: 'jedno zdanie: czego dotyczy i czego oczekuje nadawca' } }, required: ['id', 'od', 'temat', 'dlaczego'] } },
       kontakty: { type: 'array', description: 'Osoby do kontaktu dziś: zadania i alerty z rozmów, obiecane oddzwonienia, follow-upy po prezentacjach.', items: { type: 'object', properties: {
         kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string' } }, required: ['kto', 'sprawa'] } },
+      arkusze: { type: 'array', description: 'Nowe wpisy i sprawy wymagające działania z arkuszy pilnowanych przez agentkę (np. leady): każdy nowy wiersz od ostatniego briefu oraz wiersze, których status lub notatka wskazuje na potrzebę kontaktu albo działania.', items: { type: 'object', properties: {
+        arkusz: { type: 'string' }, kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string', description: 'czego dotyczy i co zrobić' }, nowy: { type: 'boolean' } }, required: ['arkusz', 'kto', 'sprawa'] } },
       jutro: { type: 'array', description: 'Co przygotować dziś na jutro (dokumenty, klucze, wydruki, umowy, sprzęt) na podstawie jutrzejszego kalendarza.', items: { type: 'string' } },
       punkty: { type: 'array', description: 'Własne punkty codziennego sprawdzania agentki, przepisane bez zmian.', items: { type: 'string' } },
       mowa: { type: 'string', description: 'Tekst do przeczytania na głos (60-90 sekund). Naturalna polszczyzna, bez list i znaków specjalnych, godziny słownie zrozumiałe dla lektora (np. "o jedenastej trzydzieści").' }
     },
-    required: ['dzis', 'maile', 'kontakty', 'jutro', 'punkty', 'mowa']
+    required: ['dzis', 'maile', 'kontakty', 'arkusze', 'jutro', 'punkty', 'mowa']
   }
 };
 
@@ -32,7 +34,7 @@ Zasady:
 - Tekst "mowa" jest czytany przez syntezator w samochodzie: krótkie zdania, najważniejsze na początku, maksymalnie 3 maile i 3 kontakty wymienione z nazwiska, resztę podsumuj liczbą.
 - Nadawców maili przedstawiaj imieniem i nazwiskiem albo nazwą firmy, ustalonymi z nagłówka lub z podpisu na końcu maila. Nie czytaj na głos adresów e-mail.
 - Nie wymyślaj faktów. Jeśli czegoś nie ma w danych, pomiń. Jeśli źródło danych jest niedostępne, powiedz o tym jednym zdaniem.
-- Najpierw wypełnij listy dzis, maile, kontakty, jutro i punkty. Każda osoba, mail i sprawa wymieniona w "mowa" musi też być na odpowiedniej liście.
+- Najpierw wypełnij listy dzis, maile, kontakty, arkusze, jutro i punkty. W "mowa" powiedz, ile nowych wpisów jest w arkuszach, i wymień najważniejsze. Każda osoba, mail i sprawa wymieniona w "mowa" musi też być na odpowiedniej liście.
 - Na końcu "mowa" dodaj jedno zdanie: "Powiedz, na który mail odpisać, albo co dodać do kalendarza."`;
 }
 
@@ -45,7 +47,10 @@ async function zbierzDane(agentka, sekret) {
     g.wydarzenia(api, dzis, jutro).then(w => { dane.wydarzenia = w; }).catch(e => { if (e.kod) throw e; dane.braki.push('kalendarz: ' + e.message); dane.wydarzenia = []; }),
     g.watkiDoOdpowiedzi(api, agentka.email).then(m => { dane.maile = m; }).catch(e => { if (e.kod) throw e; dane.braki.push('poczta: ' + e.message); dane.maile = []; }),
     g.arkuszNotatki(api, agentka.arkuszNotatki).then(async id => { dane.arkusz = id; dane.rozmowy = await g.rozmowy(api, id); })
-      .catch(e => { if (e.kod) throw e; dane.braki.push('arkusz rozmów: ' + e.message); dane.rozmowy = []; })
+      .catch(e => { if (e.kod) throw e; dane.braki.push('arkusz rozmów: ' + e.message); dane.rozmowy = []; }),
+    Promise.all((agentka.arkusze || []).slice(0, 5).map(a => g.odczytajArkusz(api, a.id).then(r => ({ ...r, id: a.id, znane: a.wiersze }))
+      .catch(e => { if (e.kod) throw e; dane.braki.push(`arkusz ${a.nazwa}: ${e.message}`); return null; })))
+      .then(l => { dane.arkusze = l.filter(Boolean); })
   ]);
   return { api, dane, dzis, jutro };
 }
@@ -58,6 +63,10 @@ async function przygotuj(agentka, { sekret, klucz }) {
     maile_bez_odpowiedzi: dane.maile.map((m, i) => ({ id: 'M' + (i + 1), od: m.od, adres: m.odEmail, temat: m.temat, data: m.data, fragment: m.fragment, podpis: m.podpis, nieprzeczytany: m.nieprzeczytany, oznaczony_jako_wazny: m.wazny, masowy: m.masowy })),
     ostatnie_rozmowy_z_notatki: dane.rozmowy,
     punkty_codzienne_agentki: agentka.punkty || [],
+    arkusze_pilnowane: (dane.arkusze || []).map(a => {
+      const znane = typeof a.znane === 'number' ? Math.min(a.znane, a.wiersze.length) : a.wiersze.length;
+      return { nazwa: a.nazwa, naglowek: a.naglowek, nowe_wiersze_od_ostatniego_briefu: a.wiersze.slice(znane).slice(-30), ostatnie_wiersze: a.wiersze.slice(Math.max(0, znane - 15), znane) };
+    }),
     niedostepne_zrodla: dane.braki
   };
   const odp = await claude.zapytaj({ klucz, model: claude.MODEL_TEKSTY, system: system(agentka), narzedzia: [NARZEDZIE_BRIEF], wymusNarzedzie: 'zapisz_brief', maxTokenow: 8000,
@@ -70,7 +79,8 @@ async function przygotuj(agentka, { sekret, klucz }) {
   b.maile = (b.maile || []).map(m => ({ m, z: wg[String(m.id || '').trim().toUpperCase()] })).filter(x => x.z)
     .map((x, i) => ({ nr: i + 1, watek: x.z.watek, od: x.m.od || x.z.od, odEmail: x.z.odEmail, temat: x.m.temat || x.z.temat, dlaczego: x.m.dlaczego || '' }));
   b.liczbaMaili = dane.maile.length;
-  for (const k of ['dzis', 'kontakty', 'jutro', 'punkty']) if (!Array.isArray(b[k])) b[k] = [];
+  for (const k of ['dzis', 'kontakty', 'arkusze', 'jutro', 'punkty']) if (!Array.isArray(b[k])) b[k] = [];
+  b.stanArkuszy = Object.fromEntries((dane.arkusze || []).map(a => [a.id, a.wiersze.length]));
   if (!b.punkty.length && (agentka.punkty || []).length) b.punkty = agentka.punkty;
   if (!b.maile.length) {   // model nie oddał listy - pokaż maile od ludzi (bez masowych)
     b.maile = dane.maile.filter(m => !m.masowy).slice(0, 8)

@@ -7,7 +7,9 @@ const ZAKRESY = [
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/drive.file'
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.metadata.readonly',
+  'https://www.googleapis.com/auth/spreadsheets.readonly'
 ];
 
 class BladPolaczenia extends Error { constructor(m) { super(m); this.kod = 'polacz'; } }
@@ -130,14 +132,52 @@ async function watek(api, id) {
   return { id, wiadomosci: msgs };
 }
 function zakodujNaglowek(t) { return /^[\x20-\x7e]*$/.test(t) ? t : '=?UTF-8?B?' + Buffer.from(t, 'utf8').toString('base64') + '?='; }
-function zbudujMail({ do: adresat, temat, tresc, odpowiedzNa, referencje }) {
-  const linie = [`To: ${adresat}`, `Subject: ${zakodujNaglowek(temat)}`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64'];
+const escHtml = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const htmlNaTekst = h => String(h || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|tr)>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\n{3,}/g, '\n\n').trim();
+const b64linie = t => Buffer.from(t, 'utf8').toString('base64').replace(/.{76}/g, '$&\r\n');
+// stopka = podpis ustawiony w Gmailu (HTML); dokładamy ją do maili wysyłanych przez asystentkę
+function zbudujMail({ do: adresat, temat, tresc, odpowiedzNa, referencje, stopka }) {
+  const linie = [`To: ${adresat}`, `Subject: ${zakodujNaglowek(temat)}`, 'MIME-Version: 1.0'];
   if (odpowiedzNa) { linie.push(`In-Reply-To: ${odpowiedzNa}`); linie.push(`References: ${[referencje, odpowiedzNa].filter(Boolean).join(' ')}`); }
-  const body = Buffer.from(tresc, 'utf8').toString('base64').replace(/.{76}/g, '$&\r\n');
-  return Buffer.from(linie.join('\r\n') + '\r\n\r\n' + body, 'utf8').toString('base64url');
+  let cialo;
+  if (stopka) {
+    const g = 'kramm_' + Date.now().toString(36);
+    const tekst = tresc + '\n\n' + htmlNaTekst(stopka);
+    const html = `<div dir="ltr">${escHtml(tresc).replace(/\n/g, '<br>')}</div><br><div class="gmail_signature">${stopka}</div>`;
+    linie.push(`Content-Type: multipart/alternative; boundary="${g}"`);
+    cialo = [`--${g}`, 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', b64linie(tekst),
+      `--${g}`, 'Content-Type: text/html; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', b64linie(html), `--${g}--`].join('\r\n');
+  } else {
+    linie.push('Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64');
+    cialo = b64linie(tresc);
+  }
+  return Buffer.from(linie.join('\r\n') + '\r\n\r\n' + cialo, 'utf8').toString('base64url');
+}
+async function stopkaGmail(api) {
+  try {
+    const j = await api('https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs');
+    const a = (j.sendAs || []).find(x => x.isDefault) || (j.sendAs || []).find(x => x.isPrimary);
+    return (a && a.signature) || '';
+  } catch (e) { return ''; }
 }
 async function wyslijMail(api, szkic) {
-  return api('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', body: JSON.stringify({ raw: zbudujMail(szkic), threadId: szkic.watek || undefined }) });
+  const stopka = await stopkaGmail(api);
+  return api('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', body: JSON.stringify({ raw: zbudujMail({ ...szkic, stopka }), threadId: szkic.watek || undefined }) });
+}
+
+// ---------- Arkusze z leadami (wybrane przez agentkę) ----------
+async function szukajArkuszy(api, fraza) {
+  const f = String(fraza || '').replace(/'/g, "\\'").trim();
+  const q = encodeURIComponent(`mimeType='application/vnd.google-apps.spreadsheet' and trashed=false${f ? ` and name contains '${f}'` : ''}`);
+  const j = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=10&includeItemsFromAllDrives=true&supportsAllDrives=true&corpora=allDrives&fields=files(id,name,modifiedTime)`);
+  return (j.files || []).map(x => ({ id: x.id, nazwa: x.name, zmieniony: x.modifiedTime }));
+}
+async function odczytajArkusz(api, id) {
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=properties.title,sheets.properties.title`);
+  const zakladka = meta.sheets && meta.sheets[0] ? meta.sheets[0].properties.title : 'Arkusz1';
+  const j = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${zakladka}'!A1:Z`)}`);
+  const w = j.values || [];
+  return { nazwa: meta.properties.title, naglowek: w[0] || [], wiersze: w.slice(1).filter(r => r.some(c => String(c).trim())) };
 }
 
 // ---------- Arkusz z Notatki KRAMM ("Rozmowy - imię") ----------
@@ -156,4 +196,4 @@ async function rozmowy(api, idArkusza, ile = 40) {
 }
 
 module.exports = { CLIENT_ID, ZAKRESY, BladPolaczenia, wymienKod, tokenDostepu, klient, wydarzenia, dodajWydarzenie,
-  watkiDoOdpowiedzi, watek, wyslijMail, zbudujMail, arkuszNotatki, rozmowy, adresEmail, nazwaNadawcy, bezCytatu };
+  watkiDoOdpowiedzi, watek, wyslijMail, zbudujMail, stopkaGmail, szukajArkuszy, odczytajArkusz, arkuszNotatki, rozmowy, adresEmail, nazwaNadawcy, bezCytatu };

@@ -102,5 +102,24 @@ const opcje = { sekret: 'S', klucz: 'K' };
   // budowa maila: polskie znaki w temacie i treści
   const raw2 = Buffer.from(g.zbudujMail({ do: 'a@b.pl', temat: 'Zażółć', tresc: 'gęślą jaźń' }), 'base64url').toString();
   assert.ok(raw2.includes('=?UTF-8?B?') && !raw2.includes('Zażółć'));
+  // stopka z Gmaila w mailu HTML
+  const raw3 = Buffer.from(g.zbudujMail({ do: 'a@b.pl', temat: 'T', tresc: 'Dzień dobry\nok', stopka: '<b>KRAMM Nieruchomości</b><br>tel. 570' }), 'base64url').toString();
+  assert.ok(raw3.includes('multipart/alternative') && raw3.includes('text/html'));
+  const czesci = raw3.split(/\r\n\r\n/).slice(1).map(c => { try { return Buffer.from(c.split('\r\n--')[0].replace(/\r\n/g, ''), 'base64').toString(); } catch (e) { return ''; } }).join(' ');
+  assert.ok(czesci.includes('KRAMM Nieruchomości') && czesci.includes('<br>'));
+
+  // arkusz z leadami: tylko nowe wiersze od ostatniego briefu
+  const stareFetch = global.fetch;
+  global.fetch = async (u, op) => {
+    if (String(u).includes('spreadsheets/L1?fields')) return { ok: true, status: 200, json: async () => ({ properties: { title: 'Leady' }, sheets: [{ properties: { title: 'Leady' } }] }) };
+    if (String(u).includes('spreadsheets/L1/values')) return { ok: true, status: 200, json: async () => ({ values: [['Data', 'Imię', 'Telefon'], ['1.11', 'Stary', '1'], ['17.11', 'Nowy Lead', '600']] }) };
+    return stareFetch(u, op);
+  };
+  claudeOdp = c => { const d = JSON.parse(c.messages[0].content.split('\n').slice(1).join('\n'));
+    assert.deepStrictEqual(d.arkusze_pilnowane[0].nowe_wiersze_od_ostatniego_briefu, [['17.11', 'Nowy Lead', '600']]);
+    return { nazwa: 'zapisz_brief', dane: { mowa: 'x', dzis: [], maile: [], kontakty: [], arkusze: [{ arkusz: 'Leady', kto: 'Nowy Lead', sprawa: 'oddzwonić', nowy: true }], jutro: [], punkty: [] } }; };
+  const b2 = await brief.przygotuj({ ...agentka, arkusze: [{ id: 'L1', nazwa: 'Leady', wiersze: 1 }] }, opcje);
+  assert.strictEqual(b2.arkusze.length, 1); assert.strictEqual(b2.stanArkuszy.L1, 2);
+  global.fetch = stareFetch;
   console.log('Wszystkie testy przeszły.');
 })().catch(e => { console.error(e); process.exit(1); });
