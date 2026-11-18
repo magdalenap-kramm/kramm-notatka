@@ -293,6 +293,7 @@ function sluchaj() {
     r.onerror = e => { blad = e.error || 'błąd'; };
     r.onend = () => setTimeout(zakoncz, 50);
     const t = setInterval(() => { if ((wynik.trim() && Date.now() - ostatni > 1600) || Date.now() - pocz > 12000) { try { r.stop(); } catch (e) {} setTimeout(zakoncz, 1200); } }, 250);
+    setTimeout(() => { try { r.abort(); } catch (e) {} zakoncz(); }, 15000);
     try { r.start(); } catch (e) { blad = 'start'; zakoncz(); }
   });
 }
@@ -329,8 +330,13 @@ async function rozmowa(tekstStartowy) {
 }
 
 // ---------- brief ----------
+function zatrzymajWszystko() {
+  przerwij = true; speechSynthesis.cancel();
+  try { rozp && rozp.abort(); } catch (e) {}
+  trwa = false; stan('');
+}
 async function odsluchajBrief(odswiez) {
-  if (trwa) { przerwij = true; speechSynthesis.cancel(); return; }
+  if (trwa) zatrzymajWszystko();
   try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
   $('#btnBrief').classList.remove('pulsuje');
   if (!brief || odswiez) {
