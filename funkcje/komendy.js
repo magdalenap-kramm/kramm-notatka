@@ -28,7 +28,8 @@ const NARZEDZIA = [
       tytul: { type: 'string', description: 'krótki tytuł, np. "Prezentacja mieszkania - Pani Nowak"' },
       start: { type: 'string', description: 'czas warszawski w formacie YYYY-MM-DDTHH:MM; gdy nie podano godziny zadania, przyjmij 09:00' },
       minut: { type: 'integer', description: 'czas trwania w minutach, jeśli podany' },
-      miejsce: { type: 'string' }, opis: { type: 'string' } }, required: ['rodzaj', 'tytul', 'start'] } },
+      miejsce: { type: 'string' }, opis: { type: 'string' },
+      goscie: { type: 'array', items: { type: 'string' }, description: 'adresy email osób do zaproszenia: dziewczyny z KRAMM z listy zespołu (dobierz po imieniu), nadawcy maili z briefu albo adres podyktowany przez agentkę ("jan kropka kowalski małpa gmail kropka com" = jan.kowalski@gmail.com)' } }, required: ['rodzaj', 'tytul', 'start'] } },
   { name: 'kalendarz_sprawdz', description: 'Sprawdza, co agentka ma w kalendarzu w danym okresie.',
     input_schema: { type: 'object', properties: { od: { type: 'string', description: 'YYYY-MM-DD' }, do: { type: 'string', description: 'YYYY-MM-DD' },
       pora: { type: 'string', enum: ['caly', 'rano', 'popoludnie', 'wieczor'] } }, required: ['od', 'do'] } },
@@ -48,15 +49,21 @@ const NARZEDZIA = [
     input_schema: { type: 'object', properties: { tekst: { type: 'string' } }, required: ['tekst'] } }
 ];
 
+const KATALOG_KRAMM = [
+  ['Dominika Sadowska-Nowak', 'dominika@kramm.pl'], ['Żanna', 'zanna@kramm.pl'], ['Wiktoria', 'wiktoria@kramm.pl'], ['Barbara', 'barbara@kramm.pl'],
+  ['Magdalena Halicka-Gołębiowska', 'magdalena@kramm.pl'], ['Sonia Kuźma', 'sonia@kramm.pl'], ['Magdalena Kaczmarek', 'magdalena.k@kramm.pl'],
+  ['Magdalena Pyrc', 'magdalena.p@kramm.pl'], ['Magda Horyza (zarządzanie najmem)', 'zarzadzanie@kramm.pl']
+];
 function systemKomend(agentka, brief, ostatni, zespol) {
   const lista = (zespol || []).filter(x => x.email !== agentka.email).map(x => `${x.nazwa || x.imie} (${x.email})`).join(', ') || '(nikt jeszcze nie korzysta)';
+  const katalog = KATALOG_KRAMM.filter(([, e]) => e !== agentka.email && !(zespol || []).some(x => x.email === e)).map(([n, e]) => `${n} (${e})`).join(', ');
   const maile = (brief && brief.maile || []).map(m => `${m.nr}. od ${m.od} (${m.odEmail}): ${m.temat}`).join('\n') || '(brak)';
   return `Jesteś głosową asystentką agentki nieruchomości ${agentka.imie || ''} z KRAMM Nieruchomości. Agentka mówi do telefonu, często w samochodzie.
 Teraz: ${czas.terazOpis()}.
 Zawsze wybierz dokładnie jedno narzędzie. Daty względne ("jutro", "w piątek", "za tydzień") zamień na konkretne daty względem dzisiaj; "w piątek" to najbliższy przyszły piątek.
 Jeśli w poleceniu dodania do kalendarza brakuje dnia, dopytaj narzędziem "odpowiedz". Jeśli brakuje godziny wydarzenia lub przypomnienia, dopytaj; dla zadania przyjmij 09:00.
 Odpowiedzi w narzędziu "odpowiedz" mają 1-2 krótkie zdania, w formie żeńskiej, bez list.
-Dziewczyny z KRAMM w sieci (do wiadomości i zadań): ${lista}. Jeśli imię pasuje do kilku osób, dopytaj narzędziem "odpowiedz".
+Dziewczyny z KRAMM w sieci (do wiadomości i zadań): ${lista}. Pozostałe adresy KRAMM (tylko do zapraszania na wydarzenia): ${katalog}. Jeśli imię pasuje do kilku osób, dopytaj narzędziem "odpowiedz". Nie zgaduj adresów spoza tych list i maili z briefu - gdy nie znasz adresu, dopytaj.
 Maile z porannego briefu:
 ${maile}
 ${ostatni ? `\nOstatnio czytany mail: numer ${ostatni}. Jeśli agentka mówi "odpisz", "odpowiedz mu/jej" bez wskazania maila, chodzi o ten mail.` : ''}`;
@@ -152,7 +159,7 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [
     if (TAK.test(t) && t.split(/\s+/).length <= 4 && !/\b(ale|tylko|zmień|popraw|nie|dopisz)\b/.test(t)) {
       if (ocz.typ === 'kalendarz') {
         await g.dodajWydarzenie(await google(), ocz.dane);
-        return { mow: 'Dodane do kalendarza.', noweOczekujace: null, ekran: { typ: 'ok', tekst: 'Dodane do kalendarza' } };
+        return { mow: (ocz.dane.goscie || []).length ? 'Dodane do kalendarza, zaproszenia wysłane.' : 'Dodane do kalendarza.', noweOczekujace: null, ekran: { typ: 'ok', tekst: 'Dodane do kalendarza' } };
       }
       if (ocz.typ === 'wiadomosc') {
         return { mow: ocz.zadanie ? `Zadanie wrzucone ${ocz.komu}.` : `Wysłane do ${ocz.komu}.`, noweOczekujace: null, wyslijWiadomosc: ocz, ekran: { typ: 'ok', tekst: ocz.zadanie ? 'Zadanie wysłane' : 'Wiadomość wysłana' } };
@@ -190,8 +197,12 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [
     case 'kalendarz_dodaj': {
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(d.start || '')) return { mow: 'Na kiedy to ustawić?', oczekuje: true };
       const nazwa = { wydarzenie: 'wydarzenie', przypomnienie: 'przypomnienie', zadanie: 'zadanie' }[d.rodzaj] || 'wydarzenie';
-      return { mow: `Dodaję ${nazwa}: ${d.tytul}, ${czas.mowionaData(d.start)}${d.miejsce ? ', ' + d.miejsce : ''}. Potwierdzasz?`, oczekuje: true,
-        noweOczekujace: { typ: 'kalendarz', dane: d }, ekran: { typ: 'kalendarz', ...d, kiedy: czas.mowionaData(d.start) } };
+      const goscie = (d.goscie || []).filter(x => /@/.test(x));
+      const znane = [...KATALOG_KRAMM.map(([n, e]) => ({ n, e })), ...zespol.map(x => ({ n: x.nazwa || x.imie, e: x.email }))];
+      const nazwyGosci = goscie.map(e => (znane.find(x => x.e === e.toLowerCase()) || {}).n || e);
+      d.goscie = goscie;
+      return { mow: `Dodaję ${nazwa}: ${d.tytul}, ${czas.mowionaData(d.start)}${d.miejsce ? ', ' + d.miejsce : ''}${goscie.length ? '. Zaproszę: ' + nazwyGosci.join(', ') : ''}. Potwierdzasz?`, oczekuje: true,
+        noweOczekujace: { typ: 'kalendarz', dane: d }, ekran: { typ: 'kalendarz', ...d, goscie: nazwyGosci, kiedy: czas.mowionaData(d.start) } };
     }
     case 'kalendarz_sprawdz': {
       const od = d.od || czas.dzien(), doDnia = d.do || od;

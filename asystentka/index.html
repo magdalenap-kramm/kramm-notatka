@@ -345,7 +345,7 @@ function rysujKarte(e) {
   const k = $('#karta');
   if (!e) { k.innerHTML = ''; return; }
   if (e.typ === 'szkic') k.innerHTML = `<div class="karta"><h3>Odpowiedź<small>do ${esc(e.do)}</small></h3><div class="opis" style="font-size:13px;color:var(--szary)">${esc(e.temat)}</div><div class="szkic">${esc(e.tresc)}</div><div class="przyciski"><button data-odp="wyślij">Wyślij</button><button class="jasny" data-odp="anuluj">Anuluj</button></div></div>`;
-  else if (e.typ === 'kalendarz') k.innerHTML = `<div class="karta"><h3>${esc({ wydarzenie: 'Wydarzenie', przypomnienie: 'Przypomnienie', zadanie: 'Zadanie' }[e.rodzaj] || 'Kalendarz')}</h3><div class="poz"><b>${esc(e.tytul)}</b><div class="opis">${esc(e.kiedy)}${e.miejsce ? ', ' + esc(e.miejsce) : ''}</div></div><div class="przyciski"><button data-odp="tak">Dodaj</button><button class="jasny" data-odp="anuluj">Anuluj</button></div></div>`;
+  else if (e.typ === 'kalendarz') k.innerHTML = `<div class="karta"><h3>${esc({ wydarzenie: 'Wydarzenie', przypomnienie: 'Przypomnienie', zadanie: 'Zadanie' }[e.rodzaj] || 'Kalendarz')}</h3><div class="poz"><b>${esc(e.tytul)}</b><div class="opis">${esc(e.kiedy)}${e.miejsce ? ', ' + esc(e.miejsce) : ''}</div>${(e.goscie || []).length ? `<div class="opis">Goście: ${esc(e.goscie.join(', '))}</div>` : ''}</div><div class="przyciski"><button data-odp="tak">${(e.goscie || []).length ? 'Dodaj i zaproś' : 'Dodaj'}</button><button class="jasny" data-odp="anuluj">Anuluj</button></div></div>`;
   else if (e.typ === 'mail') k.innerHTML = `<div class="karta"><h3>${esc(e.od)}</h3><div class="opis" style="font-size:13px;color:var(--szary)">${esc(e.temat)}</div><div class="szkic">${esc(e.tresc)}</div></div>`;
   else if (e.typ === 'lista') k.innerHTML = `<div class="karta"><h3>Kalendarz</h3>${e.pozycje.length ? e.pozycje.map(p => `<div class="poz"><b>${esc(p.godzina)}</b> ${esc(p.tytul)}${p.miejsce ? `<div class="opis">${esc(p.miejsce)}</div>` : ''}</div>`).join('') : '<div class="pusto">Pusto.</div>'}</div>`;
   else if (e.typ === 'ok') k.innerHTML = `<div class="karta" style="text-align:center;color:var(--granat)">✓ ${esc(e.tekst)}</div>`;
@@ -363,8 +363,18 @@ function glos() {
 if ('speechSynthesis' in window) speechSynthesis.getVoices();
 let przerwij = false;
 function zdania(t) {   // krótkie kawałki: długi tekst bywa ucinany przez syntezator
-  const out = []; let biez = '';
-  String(t).replace(/\s+/g, ' ').split(/(?<=[.!?:;])\s+/).forEach(z => { if ((biez + ' ' + z).length > 220 && biez) { out.push(biez); biez = z; } else biez = (biez + ' ' + z).trim(); });
+  const MAX = 140, out = []; let biez = '';
+  const kawalki = [];
+  String(t).replace(/\s+/g, ' ').split(/(?<=[.!?:;])\s+/).forEach(z => {
+    if (z.length <= MAX) { kawalki.push(z); return; }
+    let r = '';                                   // za długie zdanie: tniemy po przecinkach, a w ostateczności po słowach
+    z.split(/(?<=[,–-])\s+|\s+(?=i |oraz |a )/).forEach(c => {
+      if (c.length > MAX) { c.split(' ').forEach(sl => { if ((r + ' ' + sl).length > MAX && r) { kawalki.push(r); r = sl; } else r = (r + ' ' + sl).trim(); }); }
+      else if ((r + ' ' + c).length > MAX && r) { kawalki.push(r); r = c; } else r = (r + ' ' + c).trim();
+    });
+    if (r) kawalki.push(r);
+  });
+  kawalki.forEach(z => { if ((biez + ' ' + z).length > MAX && biez) { out.push(biez); biez = z; } else biez = (biez + ' ' + z).trim(); });
   if (biez) out.push(biez); return out;
 }
 function mowFragment(t) {
@@ -373,7 +383,7 @@ function mowFragment(t) {
     const g = glos(); if (g) u.voice = g;
     let k = false; const koniec = () => { if (!k) { k = true; res(); } };
     u.onend = koniec; u.onerror = koniec; speechSynthesis.speak(u);
-    setTimeout(koniec, 3000 + t.length * 110);
+    setTimeout(koniec, 8000 + t.length * 160);
   });
 }
 async function powiedz(t) {

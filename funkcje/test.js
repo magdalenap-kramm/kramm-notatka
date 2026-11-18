@@ -110,6 +110,16 @@ const opcje = { sekret: 'S', klucz: 'K' };
   w = await komendy.obsluz({ agentka, tekst: 'na jutro wysłać umowę', stan: {}, ...opcje });
   assert.deepStrictEqual(w.noweZadanie, { dzien: '2026-11-19', tekst: 'Wysłać umowę' });
 
+  // zaproszenie gości do wydarzenia
+  let wyslaneWyd = null; const f0 = global.fetch;
+  global.fetch = async (u, op) => { if (String(u).includes('calendars/primary/events') && op && op.method === 'POST') { wyslaneWyd = { u: String(u), b: JSON.parse(op.body) }; return { ok: true, status: 200, json: async () => ({ id: 'e1' }) }; } return f0(u, op); };
+  claudeOdp = c => { assert.ok(c.system.includes('zanna@kramm.pl')); return { nazwa: 'kalendarz_dodaj', dane: { rodzaj: 'wydarzenie', tytul: 'Spotkanie', start: '2026-11-20T10:00', goscie: ['zanna@kramm.pl', 'jan.kowalski@gmail.com'] } }; };
+  w = await komendy.obsluz({ agentka, tekst: 'spotkanie w piątek o 10 z Żanną i jan kropka kowalski małpa gmail', stan: {}, ...opcje });
+  assert.ok(/Zaproszę: Żanna, jan.kowalski@gmail.com/.test(w.mow), w.mow);
+  w = await komendy.obsluz({ agentka, tekst: 'tak', stan: { oczekujace: w.noweOczekujace }, ...opcje });
+  assert.ok(wyslaneWyd.u.includes('sendUpdates=all') && wyslaneWyd.b.attendees.length === 2, JSON.stringify(wyslaneWyd));
+  global.fetch = f0;
+
   // stopka z Gmaila w mailu HTML
   const raw3 = Buffer.from(g.zbudujMail({ do: 'a@b.pl', temat: 'T', tresc: 'Dzień dobry\nok', stopka: '<b>KRAMM Nieruchomości</b><br>tel. 570' }), 'base64url').toString();
   assert.ok(raw3.includes('multipart/alternative') && raw3.includes('text/html'));

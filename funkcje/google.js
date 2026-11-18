@@ -72,13 +72,15 @@ async function wydarzenia(api, odDnia, doDnia) {
   return (j.items || []).filter(e => e.status !== 'cancelled').map(uproscWydarzenie);
 }
 // rodzaj: wydarzenie | przypomnienie | zadanie; start: 'YYYY-MM-DDTHH:MM' (czas warszawski)
-async function dodajWydarzenie(api, { rodzaj, tytul, start, minut, miejsce, opis }) {
+async function dodajWydarzenie(api, { rodzaj, tytul, start, minut, miejsce, opis, goscie }) {
   const dl = minut || (rodzaj === 'wydarzenie' ? 60 : 15);
   const s = czas.lokalnyNaDate(start), k = new Date(s.getTime() + dl * 60000);
   const lok = d => `${czas.dzien(d)}T${czas.godzina(d)}:00`;
   const przed = rodzaj === 'wydarzenie' ? [{ method: 'popup', minutes: 30 }, { method: 'popup', minutes: 0 }] : [{ method: 'popup', minutes: 0 }];
   const prefiks = rodzaj === 'zadanie' ? 'Zadanie: ' : rodzaj === 'przypomnienie' ? 'Przypomnienie: ' : '';
-  return api('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify({
+  const lista = (goscie || []).map(x => String(x).trim().toLowerCase()).filter(x => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(x));
+  return api('https://www.googleapis.com/calendar/v3/calendars/primary/events' + (lista.length ? '?sendUpdates=all' : ''), { method: 'POST', body: JSON.stringify({
+    ...(lista.length ? { attendees: lista.map(email => ({ email })) } : {}),
     summary: prefiks + tytul, location: miejsce || undefined, description: (opis ? opis + '\n\n' : '') + 'Dodane głosem w Asystentce KRAMM',
     start: { dateTime: lok(s), timeZone: czas.STREFA }, end: { dateTime: lok(k), timeZone: czas.STREFA },
     reminders: { useDefault: false, overrides: przed }
