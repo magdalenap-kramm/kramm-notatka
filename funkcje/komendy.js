@@ -52,7 +52,7 @@ Punkty codzienne agentki: ${(agentka.punkty || []).join('; ') || '(brak)'}${osta
 
 // ---------- pomocnicze ----------
 const krotkiTekst = t => String(t || '').replace(/\s+/g, ' ').trim();
-function bezPodpisu(t) { return String(t).split(/\n\s*(Pozdrawiam|Z poważaniem|Serdecznie pozdrawiam)/i)[0].trim(); }
+function bezPodpisu(t) { return String(t).split(/\n\s*(Pozdrawiam|Z poważaniem|Serdecznie pozdrawiam|Z wyrazami szacunku|Łączę pozdrowienia|Miłego dnia|Dziękuję i pozdrawiam)/i)[0].trim(); }
 const bezPl = t => czysc(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
 const POMIN = new Set(['mail', 'maila', 'mailu', 'maile', 'przeczytaj', 'odpisz', 'odpowiedz', 'pana', 'pani', 'panu', 'temat', 'tego', 'jego', 'jej', 'numer', 'wiadomosc']);
 function wybierzMail(brief, { nr, opis, ostatni } = {}) {
@@ -107,12 +107,12 @@ async function napiszOdpowiedz({ agentka, w, polecenie, poprzedni, klucz }) {
     system: `Piszesz odpowiedź na maila w imieniu agentki ${agentka.imie} z KRAMM Nieruchomości (Poznań). Forma żeńska ("przesłałam", "jestem dostępna").
 Ton: uprzejmy, rzeczowy, krótki. Bez superlatyw, bez angielskich wtrąceń, zwykły łącznik zamiast półpauzy. Zwracaj się "Pani"/"Panie" lub tak, jak nadawca zwraca się w wątku.
 Nie obiecuj niczego i nie podawaj faktów (ceny, terminy, adresy), których nie ma w poleceniu agentki ani w wątku.
-Zakończ słowami:\nPozdrawiam serdecznie,\n${agentka.imie}\nPełna stopka z danymi kontaktowymi zostanie dodana automatycznie, nie dopisuj jej.`,
+Zakończ na ostatnim zdaniu treści. Nie dopisuj pozdrowienia, imienia ani podpisu - stopka z pozdrowieniem jest dodawana automatycznie.`,
     narzedzia: [{ name: 'szkic', description: 'Treść maila (bez tematu).', input_schema: { type: 'object', properties: { tresc: { type: 'string' } }, required: ['tresc'] } }],
     wymusNarzedzie: 'szkic',
     wiadomosci: [{ role: 'user', content: `Wątek:\n${tekstWatku}\n\nPolecenie agentki: ${polecenie}${poprzedni ? `\n\nPoprzedni szkic do poprawienia:\n${poprzedni}` : ''}` }] });
   const n = claude.narzedzie(odp);
-  return n ? String(n.dane.tresc).replace(/—|–/g, '-') : '';
+  return n ? bezPodpisu(String(n.dane.tresc).replace(/—|–/g, '-')) : '';
 }
 async function przygotujMail({ agentka, api, brief, nr, opis, ostatni, polecenie, klucz }) {
   const m = wybierzMail(brief, { nr, opis, ostatni });
