@@ -144,8 +144,9 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
           b = await zrobBrief(email);
           return res.json({ mow: b.mowa, oczekuje: false, brief: b });
         }
-        const w = await komendy.obsluz({ agentka: a, tekst, stan: { oczekujace: ocz, rozmowa: roz, brief: b }, sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
-        const zapisy = [stanRef.doc('rozmowa').set({ czas: Date.now(), wpisy: [...roz, { rola: 'agentka', tekst }, { rola: 'asystentka', tekst: w.mow }].slice(-10) })];
+        const w = await komendy.obsluz({ agentka: a, tekst, stan: { oczekujace: ocz, rozmowa: roz, brief: b, ostatniMail: rozD.exists && Date.now() - (rozD.data().czas || 0) < 15 * 60000 ? rozD.data().ostatniMail || null : null }, sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
+        const ostatniMail = w.wybranyMail || (rozD.exists && rozD.data().ostatniMail) || null;
+        const zapisy = [stanRef.doc('rozmowa').set({ czas: Date.now(), ostatniMail, wpisy: [...roz, { rola: 'agentka', tekst }, { rola: 'asystentka', tekst: w.mow }].slice(-10) })];
         if (w.noweOczekujace === null) zapisy.push(stanRef.doc('oczekujace').set({ typ: null }));
         else if (w.noweOczekujace) zapisy.push(stanRef.doc('oczekujace').set({ ...w.noweOczekujace, czas: Date.now() }));
         if (w.zapisz) zapisy.push(ref.update(w.zapisz));

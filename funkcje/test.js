@@ -77,6 +77,14 @@ const opcje = { sekret: 'S', klucz: 'K' };
   const raw = Buffer.from(send.raw, 'base64url').toString();
   assert.ok(raw.includes('To: Jan Kowalski <jan@x.pl>') && raw.includes('In-Reply-To: <abc@x.pl>') && raw.includes('=?UTF-8?B?')); assert.strictEqual(send.threadId, 't1');
 
+  // dopasowanie po odmienionym nazwisku i po ostatnio czytanym mailu
+  assert.strictEqual(komendy.wybierzMail({ maile: [{ nr: 1, od: 'Jan Kowalski', odEmail: 'jan@x.pl', temat: 'A', dlaczego: '' }, { nr: 2, od: 'Żaneta Łącka', odEmail: 'z@x.pl', temat: 'B', dlaczego: '' }] }, { opis: 'przeczytaj maila od Żanety Łąckiej' }).nr, 2);
+  assert.strictEqual(komendy.wybierzMail({ maile: [{ nr: 1, od: 'Jan Kowalski', odEmail: 'j', temat: 'A', dlaczego: '' }, { nr: 2, od: 'Ola', odEmail: 'o', temat: 'B', dlaczego: '' }] }, { opis: 'Kowalskiemu' }).nr, 1);
+  assert.strictEqual(komendy.wybierzMail({ maile: [{ nr: 1, od: 'A' }, { nr: 2, od: 'B' }] }, { ostatni: 2 }).nr, 2);
+  claudeOdp = () => ({ nazwa: 'mail_przeczytaj', dane: { opis: 'Kowalskiego' } });
+  w = await komendy.obsluz({ agentka, tekst: 'przeczytaj maila od Jana Kowalskiego', stan: { brief: b }, ...opcje });
+  assert.strictEqual(w.wybranyMail, 1); assert.ok(/Co mam odpisać/.test(w.mow));
+
   // sprawdzenie kalendarza
   claudeOdp = () => ({ nazwa: 'kalendarz_sprawdz', dane: { od: jutro, do: jutro, pora: 'popoludnie' } });
   w = await komendy.obsluz({ agentka, tekst: 'co mam jutro po południu', stan: { brief: b }, ...opcje });
