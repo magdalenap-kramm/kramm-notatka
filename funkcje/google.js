@@ -97,25 +97,28 @@ async function watkiDoOdpowiedzi(api, mojEmail, dni = 7, ile = 25) {
   const q = `in:inbox newer_than:${dni}d -category:promotions -category:social -category:forums -from:me`;
   const lista = await api('https://gmail.googleapis.com/gmail/v1/users/me/threads?' + new URLSearchParams({ q, maxResults: String(ile) }));
   const wynik = [];
-  for (const t of (lista.threads || [])) {
+  let pelnych = 0;
+  const jeden = async (t, nr) => {
     const w = await api(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe`);
-    const msgs = w.messages || []; if (!msgs.length) continue;
+    const msgs = w.messages || []; if (!msgs.length) return;
     const ost = msgs[msgs.length - 1];
     const od = naglowek(ost, 'From');
-    if ((ost.labelIds || []).includes('SENT') || adresEmail(od) === mojEmail) continue;      // już odpisała
+    if ((ost.labelIds || []).includes('SENT') || adresEmail(od) === mojEmail) return;      // już odpisała
     // końcówka treści (podpis) - pozwala ustalić, kto pisze, gdy w nagłówku jest tylko adres
     let podpis = '';
     const masowy = !!naglowek(ost, 'List-Unsubscribe');
-    if (!masowy && wynik.filter(x => x.podpis).length < 12) try {
+    if (!masowy && pelnych++ < 12) try {
       const pelna = await api(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${ost.id}?format=full`);
       const tresc = bezCytatu(tekstCzesci(pelna.payload)).replace(/\n{2,}/g, '\n').trim();
       podpis = tresc.slice(-500);
     } catch (e) { /* bez podpisu */ }
-    wynik.push({ watek: t.id, od: nazwaNadawcy(od), podpis, odEmail: adresEmail(od), temat: naglowek(ost, 'Subject') || '(bez tematu)',
+    wynik[nr] = ({ watek: t.id, od: nazwaNadawcy(od), podpis, odEmail: adresEmail(od), temat: naglowek(ost, 'Subject') || '(bez tematu)',
       data: naglowek(ost, 'Date'), fragment: (ost.snippet || '').slice(0, 300), nieprzeczytany: (ost.labelIds || []).includes('UNREAD'),
       wazny: (ost.labelIds || []).includes('IMPORTANT'), masowy, wiadomosci: msgs.length });
-  }
-  return wynik;
+  };
+  const watki = lista.threads || [];
+  for (let i = 0; i < watki.length; i += 4) await Promise.all(watki.slice(i, i + 4).map((t, j) => jeden(t, i + j)));   // po 4 naraz - szybciej, a w limicie Gmaila
+  return wynik.filter(Boolean);
 }
 function tekstCzesci(p) {
   if (!p) return '';

@@ -143,7 +143,7 @@ function profil(a) {
 }
 
 // ---------- API dla aplikacji ----------
-exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/magdalenap-kramm\.github\.io$/, /^http:\/\/localhost(:\d+)?$/], timeoutSeconds: 120, memory: '512MiB' }, async (req, res) => {
+exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/magdalenap-kramm\.github\.io$/, /^http:\/\/localhost(:\d+)?$/], timeoutSeconds: 300, memory: '512MiB' }, async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ blad: 'Tylko POST' });
   const body = req.body || {};
   try {
