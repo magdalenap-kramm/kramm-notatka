@@ -75,6 +75,18 @@
   footer { text-align:center; padding:14px 0 calc(16px + env(safe-area-inset-bottom)); color:var(--granat); }
   footer .podpis { font-family:"Arlanda", "Cormorant Garamond", serif; font-size:30px; line-height:1; opacity:.85; }
   footer small { font-family:"Cormorant Garamond", serif; font-style:italic; font-size:16px; margin-right:6px; opacity:.8; }
+  .dni { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+  .dni button { border:0; background:var(--roz-j); color:var(--granat); width:36px; height:36px; border-radius:50%; font-size:20px; flex:none; }
+  .dni b { font-family:"Cormorant Garamond", serif; font-size:21px; color:var(--granat); text-align:center; flex:1; }
+  .zad { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-top:1px solid #f0e6e1; font-size:15px; line-height:1.4; }
+  .zad input { width:22px; height:22px; accent-color:var(--granat); flex:none; margin-top:1px; }
+  .zad span { flex:1; } .zad.zrob span { text-decoration:line-through; color:#a59fae; }
+  .zad .od { display:block; font-size:12px; color:var(--szary); }
+  .zad button { border:0; background:none; color:#b9aeb6; font-size:20px; padding:0 4px; }
+  .wyd { padding:7px 0; border-top:1px dashed #efe3dd; font-size:14px; color:#6f6878; }
+  .wiad { padding:10px 0; border-top:1px solid #f0e6e1; font-size:15px; line-height:1.45; }
+  .wiad .akcje { display:flex; gap:8px; margin-top:6px; } .wiad .akcje button { flex:1; padding:8px; border-radius:999px; border:1px solid var(--roz); background:#fff; color:var(--granat); font-family:inherit; font-size:13px; }
+  select { width:100%; padding:12px 14px; font-size:16px; border:1px solid #eadfd8; border-radius:14px; background:#fffdfb; font-family:inherit; color:var(--tekst); }
 </style>
 </head>
 <body>
@@ -100,6 +112,20 @@
     <div id="slyszy"></div>
     <div id="karta"></div>
 
+    <div id="wiadomosci"></div>
+    <div class="karta" id="kartaZadan">
+      <div class="dni"><button id="dzienWstecz" aria-label="Poprzedni dzień">‹</button><b id="dzienNapis">Dziś</b><button id="dzienDalej" aria-label="Następny dzień">›</button></div>
+      <div id="listaZadan"><div class="pusto">Ładuję...</div></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="noweZadanie" placeholder="Dopisz zadanie"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnDodajZadanie">Dodaj</button></div>
+    </div>
+    <div class="karta">
+      <h3>Napisz do dziewczyn</h3>
+      <select id="doKogo"><option value="">Do kogo?</option></select>
+      <textarea id="trescWiad" rows="2" placeholder="Wiadomość albo zadanie" style="margin-top:8px"></textarea>
+      <div class="przel"><input type="checkbox" id="jakoZadanie"><label for="jakoZadanie" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Wrzuć jako zadanie na dzień</label><input type="date" id="dzienZadania" style="width:auto;padding:6px;border:1px solid #eadfd8;border-radius:10px"></div>
+      <button class="glowny" id="btnWyslijWiad">Wyślij</button>
+      <p class="info">Albo głosem: „napisz do Żanny, że klucze są w biurze”, „wrzuć Paulinie na piątek telefon do Nowaka”.</p>
+    </div>
     <button class="glowny" id="btnBrief">Odsłuchaj brief</button>
     <div id="brief"></div>
     <button class="drugi" id="btnOdswiez">Przygotuj brief od nowa</button>
@@ -115,6 +141,8 @@
         <li>„Co mam dziś po południu?”</li>
         <li>„Brief codziennie o siódmej”</li>
         <li>„Dodaj arkusz leady do pilnowania”</li>
+        <li>„Na jutro zadzwonić do Pani Nowak”, „co mam w czwartek?”</li>
+        <li>„Napisz do Żanny...”, „wrzuć Paulinie zadanie na piątek...”, „przeczytaj wiadomości”</li>
       </ul>
       <p class="info">Na każde dodanie i wysłanie asystentka pyta o potwierdzenie. Odpowiedz „tak”, „nie” albo powiedz, co zmienić.</p>
     </div>
@@ -242,6 +270,61 @@ async function szukajArkusza() {
     });
   } catch (e) { $('#wynikiArkuszy').innerHTML = `<div class="pusto">${esc(e.message)}${profil && profil.brakZgod ? ' Zaloguj się ponownie (przycisk na głównym ekranie).' : ''}</div>`; }
 }
+// ---------- zadania na dni ----------
+let dzienZad = null;
+const dzisISO = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Warsaw' }).format(new Date());
+const plusDni = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+function nazwaDnia(d) {
+  const dz = dzisISO();
+  const t = new Date(d + 'T12:00:00Z').toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+  return d === dz ? 'Dziś, ' + t.split(', ')[1] : d === plusDni(dz, 1) ? 'Jutro, ' + t.split(', ')[1] : d === plusDni(dz, -1) ? 'Wczoraj, ' + t.split(', ')[1] : t;
+}
+async function ladujZadania(d) {
+  dzienZad = d || dzienZad || dzisISO();
+  $('#dzienNapis').textContent = nazwaDnia(dzienZad);
+  try {
+    const r = await api('zadania', { dzien: dzienZad });
+    if (r.dzien !== dzienZad) return;
+    const poz = z => `<div class="zad${z.zrobione ? ' zrob' : ''}"><input type="checkbox" data-zid="${esc(z.id)}" ${z.zrobione ? 'checked' : ''}><span>${esc(z.tekst)}${z.od ? `<i class="od">od ${esc(z.od)}</i>` : ''}${z.zalegle ? `<i class="od">zaległe z ${esc(nazwaDnia(z.dzien))}</i>` : ''}</span><button data-zusun="${esc(z.id)}" aria-label="Usuń">×</button></div>`;
+    const lista = [...(r.zalegle || []).map(z => ({ ...z, zalegle: true })), ...r.zadania];
+    $('#listaZadan').innerHTML = (lista.length ? lista.map(poz).join('') : '<div class="pusto">Brak zadań na ten dzień.</div>') +
+      (r.wydarzenia || []).map(e => `<div class="wyd">${e.godzina ? `<b>${esc(e.godzina)}</b> ` : ''}${esc(e.tytul)}${e.miejsce ? ' · ' + esc(e.miejsce) : ''}</div>`).join('');
+    document.querySelectorAll('[data-zid]').forEach(c => c.onchange = async () => { c.closest('.zad').classList.toggle('zrob', c.checked); await api('zadanie_zmien', { id: c.dataset.zid, zrobione: c.checked }).catch(() => {}); });
+    document.querySelectorAll('[data-zusun]').forEach(b => b.onclick = async () => { await api('zadanie_usun', { id: b.dataset.zusun }).catch(() => {}); ladujZadania(); });
+  } catch (e) { $('#listaZadan').innerHTML = `<div class="pusto">${esc(e.message)}</div>`; }
+}
+async function dodajZadanie() {
+  const t = $('#noweZadanie').value.trim(); if (!t) return;
+  $('#noweZadanie').value = '';
+  try { await api('zadanie_dodaj', { dzien: dzienZad || dzisISO(), tekst: t }); ladujZadania(); } catch (e) { $('#odp').textContent = e.message; }
+}
+// ---------- wiadomości od dziewczyn ----------
+async function ladujWiadomosci() {
+  try {
+    const r = await api('wiadomosci');
+    const sel = $('#doKogo'), wyb = sel.value;
+    sel.innerHTML = '<option value="">Do kogo?</option>' + r.zespol.map(x => `<option value="${esc(x.email)}">${esc(x.nazwa || x.imie || x.email)}</option>`).join('');
+    sel.value = wyb;
+    const nowe = r.wiadomosci.filter(w => !w.przeczytana);
+    $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
+      <div class="akcje">${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań na dziś</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}<button data-wok="${esc(w.id)}">Przeczytane</button></div></div>`).join('')}</div>` : '';
+    const zn = id => nowe.find(w => w.id === id);
+    document.querySelectorAll('[data-wok]').forEach(b => b.onclick = async () => { await api('wiadomosc_przeczytana', { id: b.dataset.wok }).catch(() => {}); ladujWiadomosci(); });
+    const doZad = (id, d) => api('zadanie_dodaj', { dzien: d, tekst: zn(id).tekst, od: zn(id).odImie, wiadomosc: id }).then(() => { ladujWiadomosci(); ladujZadania(d); }).catch(e => { $('#odp').textContent = e.message; });
+    document.querySelectorAll('[data-wzad]').forEach(b => b.onclick = () => doZad(b.dataset.wzad, dzisISO()));
+    document.querySelectorAll('[data-wjutro]').forEach(b => b.onclick = () => doZad(b.dataset.wjutro, plusDni(dzisISO(), 1)));
+  } catch (e) { /* bez wiadomości */ }
+}
+async function wyslijWiadomosc() {
+  const doKogo = $('#doKogo').value, tekst = $('#trescWiad').value.trim();
+  if (!doKogo || !tekst) { $('#odp').textContent = 'Wybierz, do kogo, i wpisz treść.'; return; }
+  const zadanie = $('#jakoZadanie').checked;
+  try {
+    await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
+    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false;
+    $('#odp').textContent = zadanie ? 'Zadanie wysłane.' : 'Wiadomość wysłana.';
+  } catch (e) { $('#odp').textContent = e.message; }
+}
 function sekcja(tytul, poz, pusty, ile) {
   return `<div class="karta"><h3>${tytul}${ile ? `<small>${ile}</small>` : ''}</h3>${poz.length ? poz.join('') : `<div class="pusto">${pusty}</div>`}</div>`;
 }
@@ -342,6 +425,7 @@ async function rozmowa(tekstStartowy) {
       $('#odp').textContent = w.mow;
       rysujKarte(w.ekran);
       if (w.brief) { brief = w.brief; rysujBrief(); }
+      ladujZadania(); ladujWiadomosci();
       if (w.profil) { profil = w.profil; pokazProfil(); }
       await powiedz(w.mow);
       if (!w.oczekuje || przerwij) break;
@@ -404,8 +488,8 @@ async function start() {
   pokaz('#ekranGlowny');
   try {
     const r = await api('ja');
-    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief();
-    if (r.oczekujace && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
+    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci();
+    if (r.oczekujace && ['mail', 'kalendarz'].includes(r.oczekujace.typ) && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
       rysujKarte(r.oczekujace.typ === 'mail' ? { typ: 'szkic', do: r.oczekujace.od, temat: r.oczekujace.szkic.temat, tresc: r.oczekujace.szkic.tresc } : { typ: 'kalendarz', ...r.oczekujace.dane, kiedy: r.oczekujace.dane.start.replace('T', ' ') });
       $('#odp').textContent = 'Czeka na Twoje potwierdzenie.';
     }
@@ -418,6 +502,13 @@ $('#btnZaloguj').onclick = () => zaloguj().catch(e => { $('#komunikatStart').tex
 $('#btnMic').onclick = () => rozmowa();
 $('#btnBrief').onclick = () => odsluchajBrief(false);
 $('#btnOdswiez').onclick = () => odsluchajBrief(true);
+$('#dzienWstecz').onclick = () => ladujZadania(plusDni(dzienZad, -1));
+$('#dzienDalej').onclick = () => ladujZadania(plusDni(dzienZad, 1));
+$('#btnDodajZadanie').onclick = dodajZadanie;
+$('#noweZadanie').onkeydown = e => { if (e.key === 'Enter') dodajZadanie(); };
+$('#btnWyslijWiad').onclick = wyslijWiadomosc;
+$('#dzienZadania').value = dzisISO();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
 $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; };
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;

@@ -33,6 +33,8 @@ Zasady:
 - Tekst "mowa" jest czytany przez syntezator w samochodzie: krótkie zdania, najważniejsze na początku, maksymalnie 3 maile i 3 kontakty wymienione z nazwiska, resztę podsumuj liczbą.
 - Nadawców maili przedstawiaj imieniem i nazwiskiem albo nazwą firmy, ustalonymi z nagłówka lub z podpisu na końcu maila. Nie czytaj na głos adresów e-mail.
 - Nie wymyślaj faktów. Jeśli czegoś nie ma w danych, pomiń. Jeśli źródło danych jest niedostępne, powiedz o tym jednym zdaniem.
+- Nieprzeczytane wiadomości od dziewczyn z KRAMM wymień w "mowa" (kto i czego dotyczy); sprawy do zrobienia z nich dodaj do "dzis".
+- Zadania z listy agentki na dziś i zaległe umieść w "dzis" (zaległe z dopiskiem "zaległe"), zadania na jutro w "jutro".
 - Najpierw wypełnij listy dzis, maile, kontakty, arkusze i jutro. W "mowa" powiedz, ile nowych wpisów jest w arkuszach, i wymień najważniejsze. Każda osoba, mail i sprawa wymieniona w "mowa" musi też być na odpowiedniej liście.
 - Na końcu "mowa" dodaj jedno zdanie: "Powiedz, na który mail odpisać, albo co dodać do kalendarza."`;
 }
@@ -61,6 +63,8 @@ async function przygotuj(agentka, { sekret, klucz }) {
     kalendarz_jutro: dane.wydarzenia.filter(e => (e.start || '').startsWith(jutro)),
     maile_bez_odpowiedzi: dane.maile.map((m, i) => ({ id: 'M' + (i + 1), od: m.od, adres: m.odEmail, temat: m.temat, data: m.data, fragment: m.fragment, podpis: m.podpis, nieprzeczytany: m.nieprzeczytany, oznaczony_jako_wazny: m.wazny, masowy: m.masowy })),
     ostatnie_rozmowy_z_notatki: dane.rozmowy,
+    wiadomosci_od_dziewczyn_z_kramm: agentka.wiadomosciOdDziewczyn || [],
+    zadania_z_listy_agentki: agentka.zadania || { dzis: [], jutro: [], zalegle: [] },
     arkusze_pilnowane: (dane.arkusze || []).map(a => {
       const znane = typeof a.znane === 'number' ? Math.min(a.znane, a.wiersze.length) : a.wiersze.length;
       return { nazwa: a.nazwa, naglowek: a.naglowek, nowe_wiersze_od_ostatniego_briefu: a.wiersze.slice(znane).slice(-30), ostatnie_wiersze: a.wiersze.slice(Math.max(0, znane - 15), znane) };

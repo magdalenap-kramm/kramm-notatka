@@ -36,7 +36,7 @@ function doPieciu(hhmm) {
 }
 // 'piątek 21 listopada o 11:00' (lokalny tekst 'YYYY-MM-DDTHH:MM' albo Date)
 function mowionaData(x, zGodzina = true) {
-  const d = typeof x === 'string' ? lokalnyNaDate(x) : x;
+  const d = typeof x === 'string' ? lokalnyNaDate(x.length === 10 ? x + 'T12:00' : x) : x;
   const t = new Intl.DateTimeFormat('pl-PL', { timeZone: STREFA, weekday: 'long', day: 'numeric', month: 'long' }).format(d);
   const dzis = dzien(), ten = dzien(d);
   let opis = t;

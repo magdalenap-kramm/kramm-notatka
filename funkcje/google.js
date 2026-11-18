@@ -24,7 +24,7 @@ async function wymienKod(kod, adresPowrotu, sekret) {
   if (!r.ok) throw new Error('Google: ' + (j.error_description || j.error || r.status));
   const dane = JSON.parse(Buffer.from(j.id_token.split('.')[1], 'base64url').toString());
   return { refresh: j.refresh_token || null, dostep: j.access_token, zakres: j.scope || '', email: (dane.email || '').toLowerCase(), weryfikacja: !!dane.email_verified,
-    domena: dane.hd || '', imie: dane.given_name || (dane.name || '').split(' ')[0] || '', foto: dane.picture || '' };
+    domena: dane.hd || '', imie: dane.given_name || (dane.name || '').split(' ')[0] || '', nazwa: dane.name || '', foto: dane.picture || '' };
 }
 
 const pamiec = new Map();   // email -> { token, do }

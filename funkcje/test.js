@@ -99,6 +99,17 @@ const opcje = { sekret: 'S', klucz: 'K' };
   // budowa maila: polskie znaki w temacie i treści
   const raw2 = Buffer.from(g.zbudujMail({ do: 'a@b.pl', temat: 'Zażółć', tresc: 'gęślą jaźń' }), 'base64url').toString();
   assert.ok(raw2.includes('=?UTF-8?B?') && !raw2.includes('Zażółć'));
+  // wiadomości i zadania między dziewczynami
+  const zesp = [{ email: 'magdalena.p@kramm.pl', imie: 'Magdalena' }, { email: 'zanna@kramm.pl', imie: 'Żanna', nazwa: 'Żanna Test' }];
+  claudeOdp = c => { assert.ok(c.system.includes('zanna@kramm.pl')); return { nazwa: 'zadanie_dla', dane: { do: 'zanna@kramm.pl', tekst: 'Zadzwonić do Nowaka', dzien: '2026-11-20' } }; };
+  w = await komendy.obsluz({ agentka, tekst: 'wrzuć Żannie na piątek telefon do Nowaka', stan: {}, zespol: zesp, ...opcje });
+  assert.strictEqual(w.noweOczekujace.typ, 'wiadomosc'); assert.ok(w.noweOczekujace.zadanie);
+  w = await komendy.obsluz({ agentka, tekst: 'tak', stan: { oczekujace: w.noweOczekujace }, zespol: zesp, ...opcje });
+  assert.strictEqual(w.wyslijWiadomosc.do, 'zanna@kramm.pl'); assert.strictEqual(w.wyslijWiadomosc.dzien, '2026-11-20');
+  claudeOdp = () => ({ nazwa: 'zadanie_dodaj', dane: { tekst: 'Wysłać umowę', dzien: '2026-11-19' } });
+  w = await komendy.obsluz({ agentka, tekst: 'na jutro wysłać umowę', stan: {}, ...opcje });
+  assert.deepStrictEqual(w.noweZadanie, { dzien: '2026-11-19', tekst: 'Wysłać umowę' });
+
   // stopka z Gmaila w mailu HTML
   const raw3 = Buffer.from(g.zbudujMail({ do: 'a@b.pl', temat: 'T', tresc: 'Dzień dobry\nok', stopka: '<b>KRAMM Nieruchomości</b><br>tel. 570' }), 'base64url').toString();
   assert.ok(raw3.includes('multipart/alternative') && raw3.includes('text/html'));

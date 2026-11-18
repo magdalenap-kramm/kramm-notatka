@@ -8,7 +8,21 @@ const NIE = /^(nie|anuluj|stop|zostaw|rezygnuj|odwołaj|nic|skasuj|usuń to)\b/i
 const czysc = t => String(t || '').trim().toLowerCase().replace(/[.,!?]+$/g, '');
 
 const NARZEDZIA = [
-  { name: 'kalendarz_dodaj', description: 'Dodaje do Kalendarza Google wydarzenie (spotkanie, prezentacja), przypomnienie (alert) albo zadanie.',
+  { name: 'zadanie_dodaj', description: 'Dopisuje zadanie do listy zadań agentki na dany dzień (np. "na jutro zadzwonić do Nowaka", "w piątek wysłać umowę"). Używaj dla zadań bez konkretnej godziny.',
+    input_schema: { type: 'object', properties: { tekst: { type: 'string', description: 'treść zadania, krótko, w trybie bezokolicznikowym' },
+      dzien: { type: 'string', description: 'YYYY-MM-DD; "dziś" = dzisiejsza data, dzień tygodnia = najbliższy taki dzień od jutra' } }, required: ['tekst', 'dzien'] } },
+  { name: 'wiadomosc_wyslij', description: 'Wysyła krótką wiadomość do innej dziewczyny z KRAMM (do jej Asystentki, z powiadomieniem na telefon).',
+    input_schema: { type: 'object', properties: { do: { type: 'string', description: 'email adresatki z listy zespołu; dobierz po imieniu w dowolnej odmianie (Żanna, Żannie, do Żanny)' },
+      tekst: { type: 'string', description: 'treść wiadomości słowami agentki' } }, required: ['do', 'tekst'] } },
+  { name: 'zadanie_dla', description: 'Wrzuca zadanie na listę zadań innej dziewczyny z KRAMM na dany dzień ("dodaj Żannie na piątek...", "wrzuć Paulinie zadanie...").',
+    input_schema: { type: 'object', properties: { do: { type: 'string', description: 'email adresatki z listy zespołu' }, tekst: { type: 'string' },
+      dzien: { type: 'string', description: 'YYYY-MM-DD; gdy nie podano dnia - dzisiaj' } }, required: ['do', 'tekst', 'dzien'] } },
+  { name: 'wiadomosci_czytaj', description: 'Czyta nieprzeczytane wiadomości od dziewczyn z KRAMM.', input_schema: { type: 'object', properties: {} } },
+  { name: 'wiadomosc_do_zadan', description: 'Dodaje ostatnio przeczytaną wiadomość od dziewczyny do listy zadań agentki na dany dzień ("dodaj to do zadań na jutro").',
+    input_schema: { type: 'object', properties: { dzien: { type: 'string', description: 'YYYY-MM-DD, domyślnie dziś' }, tekst: { type: 'string', description: 'treść zadania, gdy agentka ją zmienia' } }, required: ['dzien'] } },
+  { name: 'zadania_sprawdz', description: 'Czyta listę zadań i kalendarz na dany dzień ("co mam do zrobienia jutro", "co mam w czwartek").',
+    input_schema: { type: 'object', properties: { dzien: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['dzien'] } },
+  { name: 'kalendarz_dodaj', description: 'Dodaje do Kalendarza Google wydarzenie (spotkanie, prezentacja), przypomnienie (alert z godziną) albo zadanie z konkretną godziną.',
     input_schema: { type: 'object', properties: {
       rodzaj: { type: 'string', enum: ['wydarzenie', 'przypomnienie', 'zadanie'] },
       tytul: { type: 'string', description: 'krótki tytuł, np. "Prezentacja mieszkania - Pani Nowak"' },
@@ -34,13 +48,15 @@ const NARZEDZIA = [
     input_schema: { type: 'object', properties: { tekst: { type: 'string' } }, required: ['tekst'] } }
 ];
 
-function systemKomend(agentka, brief, ostatni) {
+function systemKomend(agentka, brief, ostatni, zespol) {
+  const lista = (zespol || []).filter(x => x.email !== agentka.email).map(x => `${x.nazwa || x.imie} (${x.email})`).join(', ') || '(nikt jeszcze nie korzysta)';
   const maile = (brief && brief.maile || []).map(m => `${m.nr}. od ${m.od} (${m.odEmail}): ${m.temat}`).join('\n') || '(brak)';
   return `Jesteś głosową asystentką agentki nieruchomości ${agentka.imie || ''} z KRAMM Nieruchomości. Agentka mówi do telefonu, często w samochodzie.
 Teraz: ${czas.terazOpis()}.
 Zawsze wybierz dokładnie jedno narzędzie. Daty względne ("jutro", "w piątek", "za tydzień") zamień na konkretne daty względem dzisiaj; "w piątek" to najbliższy przyszły piątek.
 Jeśli w poleceniu dodania do kalendarza brakuje dnia, dopytaj narzędziem "odpowiedz". Jeśli brakuje godziny wydarzenia lub przypomnienia, dopytaj; dla zadania przyjmij 09:00.
 Odpowiedzi w narzędziu "odpowiedz" mają 1-2 krótkie zdania, w formie żeńskiej, bez list.
+Dziewczyny z KRAMM w sieci (do wiadomości i zadań): ${lista}. Jeśli imię pasuje do kilku osób, dopytaj narzędziem "odpowiedz".
 Maile z porannego briefu:
 ${maile}
 ${ostatni ? `\nOstatnio czytany mail: numer ${ostatni}. Jeśli agentka mówi "odpisz", "odpowiedz mu/jej" bez wskazania maila, chodzi o ten mail.` : ''}`;
@@ -124,7 +140,7 @@ async function przygotujMail({ agentka, api, brief, nr, opis, ostatni, polecenie
 
 // ---------- główna funkcja ----------
 // stan: { oczekujace, rozmowa: [{rola, tekst}], brief }
-async function obsluz({ agentka, tekst, stan, sekret, klucz }) {
+async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [], wiadomosci }) {
   const t = czysc(tekst);
   if (!t) return { mow: 'Nie usłyszałam. Powtórz, proszę.', oczekuje: true };
   const ocz = stan.oczekujace;
@@ -137,6 +153,9 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz }) {
       if (ocz.typ === 'kalendarz') {
         await g.dodajWydarzenie(await google(), ocz.dane);
         return { mow: 'Dodane do kalendarza.', noweOczekujace: null, ekran: { typ: 'ok', tekst: 'Dodane do kalendarza' } };
+      }
+      if (ocz.typ === 'wiadomosc') {
+        return { mow: ocz.zadanie ? `Zadanie wrzucone ${ocz.komu}.` : `Wysłane do ${ocz.komu}.`, noweOczekujace: null, wyslijWiadomosc: ocz, ekran: { typ: 'ok', tekst: ocz.zadanie ? 'Zadanie wysłane' : 'Wiadomość wysłana' } };
       }
       if (ocz.typ === 'arkusz') {
         const arkusze = [...(agentka.arkusze || []).filter(a => a.id !== ocz.arkusz.id), { id: ocz.arkusz.id, nazwa: ocz.arkusz.nazwa }].slice(-5);
@@ -163,7 +182,7 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz }) {
   const kontekst = ocz && ocz.typ === 'kalendarz' ? `\n(Czekasz na potwierdzenie: ${ocz.dane.rodzaj} "${ocz.dane.tytul}" ${ocz.dane.start}. Jeśli agentka coś poprawia, użyj kalendarz_dodaj z poprawionymi danymi.)` : '';
   const wiad = [...historia, { role: 'user', content: tekst + kontekst }];
   while (wiad.length && wiad[0].role !== 'user') wiad.shift();
-  const odp = await claude.zapytaj({ klucz, model: claude.MODEL_KOMENDY, system: systemKomend(agentka, stan.brief, stan.ostatniMail), narzedzia: NARZEDZIA, wiadomosci: wiad, maxTokenow: 600 });
+  const odp = await claude.zapytaj({ klucz, model: claude.MODEL_KOMENDY, system: systemKomend(agentka, stan.brief, stan.ostatniMail, zespol), narzedzia: NARZEDZIA, wiadomosci: wiad, maxTokenow: 600 });
   const n = claude.narzedzie(odp) || { nazwa: 'odpowiedz', dane: { tekst: claude.tekst(odp) || 'Nie zrozumiałam. Powtórz, proszę.' } };
   const d = n.dane;
 
@@ -188,6 +207,48 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz }) {
       const ost = [...w.wiadomosci].reverse().find(x => !x.wyslana) || w.wiadomosci[w.wiadomosci.length - 1];
       return { mow: `Mail od ${m.od}, temat: ${ost.temat}. ${krotkiTekst(ost.tekst).slice(0, 1200)}. Co mam odpisać?`, oczekuje: true, noweOczekujace: null,
         ekran: { typ: 'mail', od: m.od, temat: ost.temat, tresc: ost.tekst }, wybranyMail: m.nr };
+    }
+    case 'zadanie_dodaj': {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d.dzien || '')) return { mow: 'Na który dzień to dopisać?', oczekuje: true };
+      const tx = krotkiTekst(d.tekst).replace(/—|–/g, '-');
+      return { mow: `Dopisane na ${czas.mowionaData(d.dzien, false)}: ${tx}.`, noweOczekujace: null, noweZadanie: { dzien: d.dzien, tekst: tx },
+        ekran: { typ: 'ok', tekst: `Zadanie na ${czas.mowionaData(d.dzien, false)}` } };
+    }
+    case 'wiadomosc_wyslij':
+    case 'zadanie_dla': {
+      const kto = zespol.find(x => x.email === String(d.do || '').toLowerCase()) || zespol.find(x => bezPl(x.imie).length > 2 && bezPl(d.do || '').includes(bezPl(x.imie).slice(0, 4)));
+      if (!kto) return { mow: `Nie znalazłam ${d.do} wśród dziewczyn korzystających z Asystentki. Do kogo wysłać?`, oczekuje: true };
+      const tx = krotkiTekst(d.tekst).replace(/—|–/g, '-');
+      const zadanie = n.nazwa === 'zadanie_dla';
+      const dz = zadanie ? (/^\d{4}-\d{2}-\d{2}$/.test(d.dzien || '') ? d.dzien : czas.dzien()) : null;
+      const komu = kto.nazwa || kto.imie;
+      return { mow: zadanie ? `Zadanie dla ${komu} na ${czas.mowionaData(dz, false)}: ${tx}. Wysłać?` : `Wiadomość do ${komu}: ${tx}. Wysłać?`, oczekuje: true,
+        noweOczekujace: { typ: 'wiadomosc', do: kto.email, komu, tekst: tx, zadanie, dzien: dz },
+        ekran: { typ: 'lista', pozycje: [{ godzina: zadanie ? 'zadanie' : 'do', tytul: komu, miejsce: tx }] } };
+    }
+    case 'wiadomosci_czytaj': {
+      const l = wiadomosci ? await wiadomosci() : [];
+      if (!l.length) return { mow: 'Nie masz nowych wiadomości od dziewczyn.', noweOczekujace: null };
+      return { mow: l.map(w => `${w.odImie}: ${w.tekst}`).join('. ') + '. Dodać coś do zadań?', oczekuje: true, noweOczekujace: null, przeczytane: l.map(w => w.id),
+        ostatniaWiadomosc: l[l.length - 1], ekran: { typ: 'lista', pozycje: l.map(w => ({ godzina: w.odImie, tytul: w.tekst, miejsce: '' })) } };
+    }
+    case 'wiadomosc_do_zadan': {
+      const ow = stan.ostatniaWiadomosc;
+      if (!ow && !d.tekst) return { mow: 'Którą wiadomość dodać do zadań?', oczekuje: true };
+      const dz = /^\d{4}-\d{2}-\d{2}$/.test(d.dzien || '') ? d.dzien : czas.dzien();
+      const tx = krotkiTekst(d.tekst || ow.tekst);
+      return { mow: `Dopisane na ${czas.mowionaData(dz, false)}: ${tx}.`, noweOczekujace: null, noweZadanie: { dzien: dz, tekst: tx, ...(ow ? { od: ow.odImie } : {}) } };
+    }
+    case 'zadania_sprawdz': {
+      const dz = /^\d{4}-\d{2}-\d{2}$/.test(d.dzien || '') ? d.dzien : czas.dzien();
+      const [lista, wyd] = await Promise.all([zadania ? zadania(dz) : [], g.wydarzenia(await google(), dz, dz).catch(() => [])]);
+      const otwarte = lista.filter(z => !z.zrobione);
+      const kiedy = czas.mowionaData(dz, false);
+      const czesci = [];
+      czesci.push(otwarte.length ? `Zadania na ${kiedy}: ${otwarte.map(z => z.tekst).join('; ')}.` : `Na ${kiedy} nie masz zadań na liście.`);
+      if (wyd.length) czesci.push(opisWydarzen(wyd, dz, dz));
+      return { mow: czesci.join(' '), noweOczekujace: null, ekran: { typ: 'lista', pozycje: [...otwarte.map(z => ({ godzina: '☐', tytul: z.tekst, miejsce: '' })),
+        ...wyd.map(e => ({ godzina: e.caly ? 'cały dzień' : e.start.slice(11, 16), tytul: e.tytul, miejsce: e.miejsce }))] } };
     }
     case 'brief_czytaj':
       return { mow: czytajBrief(stan.brief, d.sekcja), oczekuje: false, noweOczekujace: null };

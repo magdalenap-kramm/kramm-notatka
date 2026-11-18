@@ -54,9 +54,41 @@ function podsumowanie(b) {
   if (k) cz.push(`${k} ${l(k, 'osoba', 'osoby', 'osób')} do kontaktu`);
   return (cz.join(', ') || 'Spokojny dzień') + '. Dotknij, żeby odsłuchać.';
 }
+async function zadaniaDnia(email, dzien) {
+  const q = await agentkaRef(email).collection('zadania').where('dzien', '==', dzien).get();
+  return q.docs.map(x => ({ id: x.id, ...x.data() })).sort((x, y) => (x.utworzono || 0) - (y.utworzono || 0));
+}
+async function zalegle(email) {
+  const dzis = czas.dzien();
+  const q = await agentkaRef(email).collection('zadania').where('zrobione', '==', false).get();
+  return q.docs.map(x => ({ id: x.id, ...x.data() })).filter(z => z.dzien < dzis).sort((x, y) => x.dzien < y.dzien ? -1 : 1);
+}
+async function zespol() {
+  const q = await db.collection('agentki').get();
+  return q.docs.map(x => ({ email: x.id, imie: x.data().imie || '', nazwa: x.data().nazwa || '' }));
+}
+async function noweWiadomosci(email) {
+  const q = await agentkaRef(email).collection('wiadomosci').where('przeczytana', '==', false).get();
+  return q.docs.map(x => ({ id: x.id, ...x.data() })).sort((a, b) => a.czas - b.czas);
+}
+async function wyslijDoAgentki(nadawca, w) {
+  const adresatka = agentkaRef(w.do);
+  const odImie = nadawca.nazwa || nadawca.imie;
+  if (w.zadanie) {
+    await adresatka.collection('zadania').add({ dzien: w.dzien, tekst: w.tekst, zrobione: false, utworzono: Date.now(), od: odImie });
+    await adresatka.collection('wiadomosci').add({ od: nadawca.email, odImie, tekst: `Nowe zadanie na ${czas.mowionaData(w.dzien, false)}: ${w.tekst}`, czas: Date.now(), przeczytana: false, zadanie: true });
+  } else {
+    await adresatka.collection('wiadomosci').add({ od: nadawca.email, odImie, tekst: w.tekst, czas: Date.now(), przeczytana: false });
+  }
+  await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1' }).catch(() => {});
+}
 async function zrobBrief(email) {
   const ref = agentkaRef(email);
   const a = (await ref.get()).data();
+  const dzis = czas.dzien();
+  const [zd, zj, zz] = await Promise.all([zadaniaDnia(email, dzis), zadaniaDnia(email, czas.dodajDni(dzis, 1)), zalegle(email)]).catch(() => [[], [], []]);
+  a.wiadomosciOdDziewczyn = (await noweWiadomosci(email).catch(() => [])).map(w => `${w.odImie}: ${w.tekst}`);
+  a.zadania = { dzis: zd.filter(z => !z.zrobione).map(z => z.tekst), jutro: zj.filter(z => !z.zrobione).map(z => z.tekst), zalegle: zz.map(z => `${z.tekst} (z ${z.dzien})`) };
   const b = await brief.przygotuj(a, { sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
   await ref.collection('briefy').doc(b.data).set(b);
   const arkusze = (a.arkusze || []).map(x => b.stanArkuszy && b.stanArkuszy[x.id] !== undefined ? { ...x, wiersze: b.stanArkuszy[x.id] } : x);
@@ -77,7 +109,7 @@ async function polacz({ kod, powrot }) {
   const refresh = t.refresh || (byla && byla.refresh);
   if (!refresh) throw Object.assign(new Error('Google nie przekazał stałego dostępu. Zaloguj się jeszcze raz i zaznacz wszystkie zgody.'), { status: 400 });
   const brakZgod = g.ZAKRESY.filter(z => z.startsWith('https') && !t.zakres.includes(z));
-  await ref.set({ email: t.email, imie: t.imie, foto: t.foto, refresh, zakres: t.zakres, polaczenie: 'ok',
+  await ref.set({ email: t.email, imie: t.imie, nazwa: t.nazwa || '', foto: t.foto, refresh, zakres: t.zakres, polaczenie: 'ok',
     ...(byla ? {} : { godzina: DOMYSLNA_GODZINA, dniRobocze: true, punkty: [], push: [], utworzona: new Date().toISOString() }) }, { merge: true });
   const sesja = crypto.randomBytes(32).toString('base64url');
   await db.collection('sesje').doc(hash(sesja)).set({ email: t.email, utworzono: new Date().toISOString() });
@@ -146,6 +178,46 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         await ref.update({ arkusze });
         return res.json({ profil: profil({ ...a, arkusze }) });
       }
+      case 'zadania': {
+        const dzien = /^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien();
+        const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
+        const [zadania, wydarzenia, zal] = await Promise.all([zadaniaDnia(email, dzien), g.wydarzenia(api, dzien, dzien).catch(() => []), dzien === czas.dzien() ? zalegle(email) : []]);
+        return res.json({ dzien, zadania, zalegle: zal, wydarzenia: wydarzenia.map(e => ({ godzina: e.caly ? '' : e.start.slice(11, 16), tytul: e.tytul, miejsce: e.miejsce })) });
+      }
+      case 'wiadomosci': {
+        const q = await ref.collection('wiadomosci').orderBy('czas', 'desc').limit(20).get();
+        return res.json({ wiadomosci: q.docs.map(x => ({ id: x.id, ...x.data() })), zespol: (await zespol()).filter(x => x.email !== email) });
+      }
+      case 'wiadomosc_przeczytana': {
+        await ref.collection('wiadomosci').doc(String(body.id)).update({ przeczytana: true });
+        return res.json({ ok: true });
+      }
+      case 'wiadomosc_wyslij': {
+        const tekst = String(body.tekst || '').trim().slice(0, 500);
+        const zesp = await zespol();
+        if (!tekst || !zesp.some(x => x.email === body.do)) return res.status(400).json({ blad: 'Wybierz adresatkę i wpisz treść' });
+        const zadanie = !!body.zadanie;
+        await wyslijDoAgentki(a, { do: body.do, tekst, zadanie, dzien: zadanie ? (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien()) : null });
+        return res.json({ ok: true });
+      }
+      case 'zadanie_dodaj': {
+        const tekst = String(body.tekst || '').trim().slice(0, 300);
+        if (!tekst || !/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '')) return res.status(400).json({ blad: 'Brak treści lub dnia' });
+        const d = await ref.collection('zadania').add({ dzien: body.dzien, tekst, zrobione: false, utworzono: Date.now(), ...(body.od ? { od: String(body.od).slice(0, 80) } : {}) });
+        if (body.wiadomosc) await ref.collection('wiadomosci').doc(String(body.wiadomosc)).update({ przeczytana: true }).catch(() => {});
+        return res.json({ id: d.id });
+      }
+      case 'zadanie_zmien': {
+        const zm = {};
+        if (body.zrobione !== undefined) zm.zrobione = !!body.zrobione;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '')) zm.dzien = body.dzien;
+        await ref.collection('zadania').doc(String(body.id)).update(zm);
+        return res.json({ ok: true });
+      }
+      case 'zadanie_usun': {
+        await ref.collection('zadania').doc(String(body.id)).delete();
+        return res.json({ ok: true });
+      }
       case 'brief': {
         const b = !body.odswiez && await dzisiejszyBrief(email);
         return res.json({ brief: b || await zrobBrief(email) });
@@ -161,12 +233,16 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
           b = await zrobBrief(email);
           return res.json({ mow: b.mowa, oczekuje: false, brief: b });
         }
-        const w = await komendy.obsluz({ agentka: a, tekst, stan: { oczekujace: ocz, rozmowa: roz, brief: b, ostatniMail: rozD.exists && Date.now() - (rozD.data().czas || 0) < 15 * 60000 ? rozD.data().ostatniMail || null : null }, sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
+        const w = await komendy.obsluz({ agentka: a, tekst, zadania: dz => zadaniaDnia(email, dz), zespol: await zespol(), wiadomosci: () => noweWiadomosci(email), stan: { oczekujace: ocz, rozmowa: roz, brief: b, ostatniaWiadomosc: rozD.exists && Date.now() - (rozD.data().czas || 0) < 15 * 60000 ? rozD.data().ostatniaWiadomosc || null : null, ostatniMail: rozD.exists && Date.now() - (rozD.data().czas || 0) < 15 * 60000 ? rozD.data().ostatniMail || null : null }, sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
         const ostatniMail = w.wybranyMail || (rozD.exists && rozD.data().ostatniMail) || null;
-        const zapisy = [stanRef.doc('rozmowa').set({ czas: Date.now(), ostatniMail, wpisy: [...roz, { rola: 'agentka', tekst }, { rola: 'asystentka', tekst: w.mow }].slice(-10) })];
+        const ostatniaWiadomosc = w.ostatniaWiadomosc || (rozD.exists && rozD.data().ostatniaWiadomosc) || null;
+        const zapisy = [stanRef.doc('rozmowa').set({ czas: Date.now(), ostatniMail, ostatniaWiadomosc, wpisy: [...roz, { rola: 'agentka', tekst }, { rola: 'asystentka', tekst: w.mow }].slice(-10) })];
         if (w.noweOczekujace === null) zapisy.push(stanRef.doc('oczekujace').set({ typ: null }));
         else if (w.noweOczekujace) zapisy.push(stanRef.doc('oczekujace').set({ ...w.noweOczekujace, czas: Date.now() }));
         if (w.zapisz) zapisy.push(ref.update(w.zapisz));
+        if (w.wyslijWiadomosc) zapisy.push(wyslijDoAgentki(a, w.wyslijWiadomosc));
+        (w.przeczytane || []).forEach(id => zapisy.push(ref.collection('wiadomosci').doc(id).update({ przeczytana: true })));
+        if (w.noweZadanie) zapisy.push(ref.collection('zadania').add({ ...w.noweZadanie, zrobione: false, utworzono: Date.now() }));
         if (w.wyslanyWatek && b) {
           b.maile = (b.maile || []).filter(m => m.watek !== w.wyslanyWatek).map((m, i) => ({ ...m, nr: i + 1 }));
           zapisy.push(ref.collection('briefy').doc(b.data).update({ maile: b.maile }));
