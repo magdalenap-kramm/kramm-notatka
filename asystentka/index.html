@@ -113,7 +113,6 @@
         <li>„Przypomnij mi jutro o 9 zadzwonić do Pani Nowak”</li>
         <li>„Zadanie na środę: wydrukować umowę dla Bielników”</li>
         <li>„Co mam dziś po południu?”</li>
-        <li>„Dodaj do codziennego sprawdzania: nowe ogłoszenia na Otodomie”</li>
         <li>„Brief codziennie o siódmej”</li>
         <li>„Dodaj arkusz leady do pilnowania”</li>
       </ul>
@@ -133,12 +132,6 @@
       <h3>Powiadomienia</h3>
       <p class="info" id="pushInfo"></p>
       <button class="glowny" id="btnPush">Włącz powiadomienia</button>
-    </div>
-    <div class="karta">
-      <h3>Codzienne sprawdzanie</h3>
-      <div id="punkty"></div>
-      <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="nowyPunkt" placeholder="np. Sprawdzić nowe leady"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnDodajPunkt">Dodaj</button></div>
-      <p class="info">Możesz też powiedzieć: „dodaj do codziennego sprawdzania...”.</p>
     </div>
     <div class="karta">
       <h3>Arkusze do pilnowania</h3>
@@ -228,7 +221,7 @@ function pokazProfil() {
   const src = ZDJECIA[profil.email] || profil.foto;
   if (src && !$('#foto img')) { const img = new Image(); img.className = 'foto'; img.referrerPolicy = 'no-referrer'; img.onload = () => { $('#foto').replaceWith(img); img.id = 'foto'; }; img.src = src; }
   $('#godzina').value = profil.godzina || '07:30'; $('#dniRobocze').checked = profil.dniRobocze;
-  rysujPunkty(); rysujArkusze(); stanPush();
+  rysujArkusze(); stanPush();
   $('#banerZgod').classList.toggle('ukryty', !profil.brakZgod);
 }
 function rysujArkusze() {
@@ -262,7 +255,6 @@ function rysujBrief() {
     sekcja('Do kontaktu', (b.kontakty || []).map(k => `<div class="poz"><b>${esc(k.kto)}</b>${tel(k.numer)}<div class="opis">${esc(k.sprawa)}</div></div>`), 'Nikt nie czeka na kontakt.') +
     ((b.arkusze || []).length ? sekcja('Z arkuszy', b.arkusze.map(a => `<div class="poz">${a.nowy ? '<span class="nr">●</span>' : ''}<b>${esc(a.kto)}</b>${tel(a.numer)}<div class="opis">${esc(a.arkusz)} · ${esc(a.sprawa)}</div></div>`), '') : '') +
     sekcja('Przygotuj na jutro', (b.jutro || []).map(j => `<div class="poz">${esc(j)}</div>`), 'Nic do przygotowania.') +
-    ((b.punkty || []).length ? sekcja('Twoje punkty', b.punkty.map(p => `<div class="poz">${esc(p)}</div>`), '') : '') +
     ((b.braki || []).length ? `<p class="info">Niedostępne: ${esc(b.braki.join('; '))}</p>` : '');
   document.querySelectorAll('[data-mail]').forEach(el => el.onclick = () => rozmowa(`przeczytaj mail numer ${el.dataset.mail}`));
 }
@@ -436,7 +428,6 @@ $('#btnZapiszUst').onclick = async () => {
   try { profil = (await api('ustawienia', { godzina: $('#godzina').value, dniRobocze: $('#dniRobocze').checked})).profil; pokazProfil(); $('#komunikat').textContent = `Zapisane. Brief o ${profil.godzina}.`; }
   catch (e) { $('#komunikat').textContent = e.message; }
 };
-$('#btnDodajPunkt').onclick = () => { const t = $('#nowyPunkt').value.trim(); if (t) { $('#nowyPunkt').value = ''; zapiszPunkty([...((profil && profil.punkty) || []), t]); } };
 $('#btnWyloguj').onclick = async () => { try { await api('wyloguj'); } catch (e) {} localStorage.removeItem('asyst_sesja'); sesja = null; pokaz('#ekranStart'); };
 document.addEventListener('visibilitychange', () => { if (document.hidden && trwa) { przerwij = true; speechSynthesis.cancel(); try { rozp && rozp.abort(); } catch (e) {} } });
 

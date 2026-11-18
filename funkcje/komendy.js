@@ -25,11 +25,7 @@ const NARZEDZIA = [
   { name: 'mail_przeczytaj', description: 'Czyta na głos treść maila z listy.',
     input_schema: { type: 'object', properties: { nr: { type: 'integer', description: 'numer maila z listy z briefu; gdy agentka podaje nadawcę (w dowolnej odmianie) albo temat, dobierz numer z listy' }, opis: { type: 'string', description: 'nadawca lub temat, gdy nie da się dobrać numeru' } } } },
   { name: 'brief_czytaj', description: 'Czyta poranny brief albo jego część.',
-    input_schema: { type: 'object', properties: { sekcja: { type: 'string', enum: ['wszystko', 'dzis', 'maile', 'kontakty', 'jutro', 'punkty'] } }, required: ['sekcja'] } },
-  { name: 'punkt_dodaj', description: 'Dodaje stały punkt do codziennego porannego sprawdzania, np. "sprawdzić nowe ogłoszenia na Otodomie".',
-    input_schema: { type: 'object', properties: { tekst: { type: 'string' } }, required: ['tekst'] } },
-  { name: 'punkt_usun', description: 'Usuwa punkt z codziennego sprawdzania.',
-    input_schema: { type: 'object', properties: { tekst: { type: 'string' } }, required: ['tekst'] } },
+    input_schema: { type: 'object', properties: { sekcja: { type: 'string', enum: ['wszystko', 'dzis', 'maile', 'kontakty', 'jutro'] } }, required: ['sekcja'] } },
   { name: 'arkusz_dodaj', description: 'Dodaje arkusz Google z Dysku (np. z leadami) do codziennego pilnowania w briefie. Agentka podaje nazwę arkusza.',
     input_schema: { type: 'object', properties: { nazwa: { type: 'string', description: 'nazwa lub fragment nazwy arkusza' } }, required: ['nazwa'] } },
   { name: 'godzina_briefu', description: 'Zmienia godzinę porannego briefu.',
@@ -47,7 +43,7 @@ Jeśli w poleceniu dodania do kalendarza brakuje dnia, dopytaj narzędziem "odpo
 Odpowiedzi w narzędziu "odpowiedz" mają 1-2 krótkie zdania, w formie żeńskiej, bez list.
 Maile z porannego briefu:
 ${maile}
-Punkty codzienne agentki: ${(agentka.punkty || []).join('; ') || '(brak)'}${ostatni ? `\nOstatnio czytany mail: numer ${ostatni}. Jeśli agentka mówi "odpisz", "odpowiedz mu/jej" bez wskazania maila, chodzi o ten mail.` : ''}`;
+${ostatni ? `\nOstatnio czytany mail: numer ${ostatni}. Jeśli agentka mówi "odpisz", "odpowiedz mu/jej" bez wskazania maila, chodzi o ten mail.` : ''}`;
 }
 
 // ---------- pomocnicze ----------

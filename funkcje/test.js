@@ -91,10 +91,7 @@ const opcje = { sekret: 'S', klucz: 'K' };
   w = await komendy.obsluz({ agentka, tekst: 'co mam jutro po południu', stan: { brief: b }, ...opcje });
   assert.ok(/jedną pozycję/.test(w.mow) && /14:00 Prezentacja Głogowska/.test(w.mow), w.mow);
 
-  // punkty i godzina
-  claudeOdp = () => ({ nazwa: 'punkt_dodaj', dane: { tekst: 'Sprawdzić grupę na Facebooku' } });
-  w = await komendy.obsluz({ agentka, tekst: 'dodaj codziennie sprawdzanie grupy', stan: {}, ...opcje });
-  assert.deepStrictEqual(w.zapisz.punkty, ['Sprawdzić Otodom', 'Sprawdzić grupę na Facebooku']);
+  // godzina
   claudeOdp = () => ({ nazwa: 'godzina_briefu', dane: { godzina: '6:52' } });
   w = await komendy.obsluz({ agentka, tekst: 'brief o 6:52', stan: {}, ...opcje });
   assert.strictEqual(w.zapisz.godzina, '06:50');
