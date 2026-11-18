@@ -44,8 +44,14 @@ async function tokenDostepu(agentka, sekret) {
 
 function klient(token) {
   return async function api(url, opcje = {}) {
-    const r = await fetch(url, { ...opcje, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...(opcje.headers || {}) } });
-    const j = await r.json().catch(() => ({}));
+    let r, j;
+    for (let proba = 0; ; proba++) {
+      r = await fetch(url, { ...opcje, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...(opcje.headers || {}) } });
+      j = await r.json().catch(() => ({}));
+      const limit = r.status === 429 || ((r.status === 403 || r.status === 503) && /quota|rate|limit/i.test(JSON.stringify(j)));
+      if (!limit || proba >= 4) break;
+      await new Promise(ok => setTimeout(ok, 1500 * 2 ** proba));   // limit Gmaila - odczekaj i ponów
+    }
     if (r.status === 401) throw new BladPolaczenia('Google odrzucił dostęp');
     if (!r.ok) throw new Error((j.error && j.error.message) || ('Google ' + r.status));
     return j;
@@ -97,14 +103,15 @@ async function watkiDoOdpowiedzi(api, mojEmail, dni = 7, ile = 25) {
     if ((ost.labelIds || []).includes('SENT') || adresEmail(od) === mojEmail) continue;      // już odpisała
     // końcówka treści (podpis) - pozwala ustalić, kto pisze, gdy w nagłówku jest tylko adres
     let podpis = '';
-    try {
+    const masowy = !!naglowek(ost, 'List-Unsubscribe');
+    if (!masowy && wynik.filter(x => x.podpis).length < 12) try {
       const pelna = await api(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${ost.id}?format=full`);
       const tresc = bezCytatu(tekstCzesci(pelna.payload)).replace(/\n{2,}/g, '\n').trim();
       podpis = tresc.slice(-500);
     } catch (e) { /* bez podpisu */ }
     wynik.push({ watek: t.id, od: nazwaNadawcy(od), podpis, odEmail: adresEmail(od), temat: naglowek(ost, 'Subject') || '(bez tematu)',
       data: naglowek(ost, 'Date'), fragment: (ost.snippet || '').slice(0, 300), nieprzeczytany: (ost.labelIds || []).includes('UNREAD'),
-      wazny: (ost.labelIds || []).includes('IMPORTANT'), masowy: !!naglowek(ost, 'List-Unsubscribe'), wiadomosci: msgs.length });
+      wazny: (ost.labelIds || []).includes('IMPORTANT'), masowy, wiadomosci: msgs.length });
   }
   return wynik;
 }
