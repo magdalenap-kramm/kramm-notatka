@@ -39,7 +39,7 @@ const opcje = { sekret: 'S', klucz: 'K' };
   assert.ok(czas.mowionaData(jutro + 'T11:00').startsWith('jutro o 11:00'));
 
   // brief: bierze tylko istniejące wątki i numeruje
-  claudeOdp = c => { assert.strictEqual(c.tool_choice.name, 'zapisz_brief'); const dane = JSON.parse(c.messages[0].content.split('\n').slice(1).join('\n'));
+  claudeOdp = c => { assert.ok(!c.tool_choice && c.system.includes('zapisz_brief')); const dane = JSON.parse(c.messages[0].content.split('\n').slice(1).join('\n'));
     assert.strictEqual(dane.maile_bez_odpowiedzi.length, 1, 'wątek z odpowiedzią pominięty'); assert.strictEqual(dane.kalendarz_jutro.length, 2);
     return { nazwa: 'zapisz_brief', dane: { mowa: 'Dzień dobry Magda.', dzis: [], maile: [{ watek: 't1', od: 'Jan Kowalski', temat: 'Mieszkanie Jeżyce', dlaczego: 'pyta o dostępność' }, { watek: 'zmyslony', od: 'X', temat: 'Y', dlaczego: 'Z' }], kontakty: [], jutro: ['Klucze'], punkty: ['Sprawdzić Otodom'] } }; };
   const b = await brief.przygotuj(agentka, opcje);
@@ -63,7 +63,7 @@ const opcje = { sekret: 'S', klucz: 'K' };
   assert.strictEqual(w.noweOczekujace, null);
 
   // mail: szkic -> poprawka -> wysłanie
-  claudeOdp = c => c.tool_choice && c.tool_choice.name === 'szkic'
+  claudeOdp = c => c.system.includes('"szkic"')
     ? { nazwa: 'szkic', dane: { tresc: 'Dzień dobry,\nmieszkanie jest dostępne — zapraszam na prezentację.\n\nPozdrawiam serdecznie,\nMagda\nKRAMM Nieruchomości' } }
     : { nazwa: 'mail_odpowiedz', dane: { opis: 'Kowalski', polecenie: 'że jest dostępne, zaproś na prezentację' } };
   w = await komendy.obsluz({ agentka, tekst: 'odpisz Kowalskiemu że jest dostępne', stan: { brief: b }, ...opcje });

@@ -2,11 +2,7 @@
 const MODEL_TEKSTY = 'claude-sonnet-5-5';   // brief i odpowiedzi na maile
 const MODEL_KOMENDY = 'claude-haiku-5-5';   // szybkie rozpoznanie polecenia głosowego
 
-async function zapytaj({ klucz, model, system, wiadomosci, narzedzia, wymusNarzedzie, maxTokenow = 2000 }) {
-  const cialo = { model, max_tokens: maxTokenow, system, messages: wiadomosci };
-  if (narzedzia) cialo.tools = narzedzia;
-  if (wymusNarzedzie) cialo.tool_choice = { type: 'tool', name: wymusNarzedzie };
-  else if (narzedzia) cialo.tool_choice = { type: 'any' };
+async function wyslij(klucz, cialo) {
   let ost;
   for (let proba = 0; proba < 3; proba++) {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -19,6 +15,21 @@ async function zapytaj({ klucz, model, system, wiadomosci, narzedzia, wymusNarze
     await new Promise(z => setTimeout(z, 1500 * (proba + 1)));
   }
   throw ost;
+}
+// Model nie przyjmuje wymuszonego tool_choice, więc prosimy o narzędzie w treści
+// i w razie potrzeby ponawiamy raz z przypomnieniem.
+async function zapytaj({ klucz, model, system, wiadomosci, narzedzia, wymusNarzedzie, maxTokenow = 2000 }) {
+  const sys = wymusNarzedzie ? `${system}\n\nOdpowiedz wyłącznie wywołaniem narzędzia "${wymusNarzedzie}".`
+    : narzedzia ? `${system}\n\nZawsze odpowiadaj wywołaniem jednego z narzędzi.` : system;
+  const cialo = { model, max_tokens: maxTokenow, system: sys, messages: wiadomosci };
+  if (narzedzia) cialo.tools = narzedzia;
+  let j = await wyslij(klucz, cialo);
+  const ok = x => (x.content || []).some(c => c.type === 'tool_use' && (!wymusNarzedzie || c.name === wymusNarzedzie));
+  if (wymusNarzedzie && !ok(j)) {
+    j = await wyslij(klucz, { ...cialo, messages: [...wiadomosci, { role: 'assistant', content: tekst(j) || '...' },
+      { role: 'user', content: `Użyj teraz narzędzia "${wymusNarzedzie}".` }] });
+  }
+  return j;
 }
 // pierwsze wywołanie narzędzia z odpowiedzi: { nazwa, dane }
 function narzedzie(odp) {
