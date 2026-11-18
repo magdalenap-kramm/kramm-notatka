@@ -9,7 +9,6 @@ const NARZEDZIE_BRIEF = {
   input_schema: {
     type: 'object',
     properties: {
-      mowa: { type: 'string', description: 'Tekst do przeczytania na głos (60-90 sekund). Naturalna polszczyzna, bez list i znaków specjalnych, godziny słownie zrozumiałe dla lektora (np. "o jedenastej trzydzieści").' },
       dzis: { type: 'array', items: { type: 'object', properties: {
         godzina: { type: 'string' }, tytul: { type: 'string' }, miejsce: { type: 'string' }, notka: { type: 'string', description: 'co warto wiedzieć lub zabrać, np. z historii rozmów; pusty tekst jeśli nic' } }, required: ['godzina', 'tytul'] } },
       maile: { type: 'array', description: 'Maile, na które agentka powinna odpowiedzieć, od najpilniejszego. Uwzględnij każdy mail od konkretnej osoby lub firmy, który zawiera pytanie, prośbę albo sprawę do załatwienia; w razie wątpliwości uwzględnij. Pomiń tylko newslettery, reklamy i automatyczne powiadomienia systemów.', items: { type: 'object', properties: {
@@ -17,9 +16,10 @@ const NARZEDZIE_BRIEF = {
       kontakty: { type: 'array', description: 'Osoby do kontaktu dziś: zadania i alerty z rozmów, obiecane oddzwonienia, follow-upy po prezentacjach.', items: { type: 'object', properties: {
         kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string' } }, required: ['kto', 'sprawa'] } },
       jutro: { type: 'array', description: 'Co przygotować dziś na jutro (dokumenty, klucze, wydruki, umowy, sprzęt) na podstawie jutrzejszego kalendarza.', items: { type: 'string' } },
-      punkty: { type: 'array', description: 'Własne punkty codziennego sprawdzania agentki, przepisane bez zmian.', items: { type: 'string' } }
+      punkty: { type: 'array', description: 'Własne punkty codziennego sprawdzania agentki, przepisane bez zmian.', items: { type: 'string' } },
+      mowa: { type: 'string', description: 'Tekst do przeczytania na głos (60-90 sekund). Naturalna polszczyzna, bez list i znaków specjalnych, godziny słownie zrozumiałe dla lektora (np. "o jedenastej trzydzieści").' }
     },
-    required: ['mowa', 'dzis', 'maile', 'kontakty', 'jutro', 'punkty']
+    required: ['dzis', 'maile', 'kontakty', 'jutro', 'punkty', 'mowa']
   }
 };
 
@@ -32,6 +32,7 @@ Zasady:
 - Tekst "mowa" jest czytany przez syntezator w samochodzie: krótkie zdania, najważniejsze na początku, maksymalnie 3 maile i 3 kontakty wymienione z nazwiska, resztę podsumuj liczbą.
 - Nadawców maili przedstawiaj imieniem i nazwiskiem albo nazwą firmy, ustalonymi z nagłówka lub z podpisu na końcu maila. Nie czytaj na głos adresów e-mail.
 - Nie wymyślaj faktów. Jeśli czegoś nie ma w danych, pomiń. Jeśli źródło danych jest niedostępne, powiedz o tym jednym zdaniem.
+- Najpierw wypełnij listy dzis, maile, kontakty, jutro i punkty. Każda osoba, mail i sprawa wymieniona w "mowa" musi też być na odpowiedniej liście.
 - Na końcu "mowa" dodaj jedno zdanie: "Powiedz, na który mail odpisać, albo co dodać do kalendarza."`;
 }
 
@@ -59,7 +60,7 @@ async function przygotuj(agentka, { sekret, klucz }) {
     punkty_codzienne_agentki: agentka.punkty || [],
     niedostepne_zrodla: dane.braki
   };
-  const odp = await claude.zapytaj({ klucz, model: claude.MODEL_TEKSTY, system: system(agentka), narzedzia: [NARZEDZIE_BRIEF], wymusNarzedzie: 'zapisz_brief', maxTokenow: 3000,
+  const odp = await claude.zapytaj({ klucz, model: claude.MODEL_TEKSTY, system: system(agentka), narzedzia: [NARZEDZIE_BRIEF], wymusNarzedzie: 'zapisz_brief', maxTokenow: 8000,
     wiadomosci: [{ role: 'user', content: 'Dane na dziś (JSON):\n' + JSON.stringify(tresc) }] });
   const n = claude.narzedzie(odp);
   if (!n) throw new Error('Nie udało się przygotować briefu');
@@ -69,6 +70,12 @@ async function przygotuj(agentka, { sekret, klucz }) {
   b.maile = (b.maile || []).map(m => ({ m, z: wg[String(m.id || '').trim().toUpperCase()] })).filter(x => x.z)
     .map((x, i) => ({ nr: i + 1, watek: x.z.watek, od: x.m.od || x.z.od, odEmail: x.z.odEmail, temat: x.m.temat || x.z.temat, dlaczego: x.m.dlaczego || '' }));
   b.liczbaMaili = dane.maile.length;
+  for (const k of ['dzis', 'kontakty', 'jutro', 'punkty']) if (!Array.isArray(b[k])) b[k] = [];
+  if (!b.punkty.length && (agentka.punkty || []).length) b.punkty = agentka.punkty;
+  if (!b.maile.length) {   // model nie oddał listy - pokaż maile od ludzi (bez masowych)
+    b.maile = dane.maile.filter(m => !m.masowy).slice(0, 8)
+      .map((m, i) => ({ nr: i + 1, watek: m.watek, od: m.od, odEmail: m.odEmail, temat: m.temat, dlaczego: m.fragment.slice(0, 160) }));
+  }
   return { ...b, data: dzis, utworzono: new Date().toISOString(), arkusz: dane.arkusz || null, braki: dane.braki };
 }
 
