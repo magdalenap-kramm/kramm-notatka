@@ -125,6 +125,7 @@
       <textarea id="trescWiad" rows="2" placeholder="Wiadomość albo zadanie" style="margin-top:8px"></textarea>
       <div class="przel"><input type="checkbox" id="jakoZadanie"><label for="jakoZadanie" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Wrzuć jako zadanie na dzień</label><input type="date" id="dzienZadania" style="width:auto;padding:6px;border:1px solid #eadfd8;border-radius:10px"></div>
       <button class="glowny" id="btnWyslijWiad">Wyślij</button>
+      <div id="wyslane"></div>
       <p class="info">Albo głosem: „napisz do Żanny, że klucze są w biurze”, „wrzuć Paulinie na piątek telefon do Nowaka”.</p>
     </div>
     <div id="brief"></div>
@@ -307,9 +308,12 @@ async function ladujWiadomosci() {
     sel.value = wyb;
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
-      <div class="akcje">${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań na dziś</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}<button data-wok="${esc(w.id)}">Przeczytane</button></div></div>`).join('')}</div>` : '';
+      <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div></div>`).join('')}</div>` : '';
+    const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'] };
+    $('#wyslane').innerHTML = (r.wyslane || []).length ? '<label>Wysłane</label>' + r.wyslane.map(w => { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
+      return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div class="opis" style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div></div></div>`; }).join('') : '';
     const zn = id => nowe.find(w => w.id === id);
-    document.querySelectorAll('[data-wok]').forEach(b => b.onclick = async () => { await api('wiadomosc_przeczytana', { id: b.dataset.wok }).catch(() => {}); ladujWiadomosci(); });
+    document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => { b.disabled = true; await api('wiadomosc_przeczytana', { id: b.dataset.wid, odpowiedz: b.dataset.wodp }).catch(() => {}); ladujWiadomosci(); });
     const doZad = (id, d) => api('zadanie_dodaj', { dzien: d, tekst: zn(id).tekst, od: zn(id).odImie, wiadomosc: id }).then(() => { ladujWiadomosci(); ladujZadania(d); }).catch(e => { $('#odp').textContent = e.message; });
     document.querySelectorAll('[data-wzad]').forEach(b => b.onclick = () => doZad(b.dataset.wzad, dzisISO()));
     document.querySelectorAll('[data-wjutro]').forEach(b => b.onclick = () => doZad(b.dataset.wjutro, plusDni(dzisISO(), 1)));
@@ -321,7 +325,7 @@ async function wyslijWiadomosc() {
   const zadanie = $('#jakoZadanie').checked;
   try {
     await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
-    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false;
+    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; ladujWiadomosci();
     $('#odp').textContent = zadanie ? 'Zadanie wysłane.' : 'Wiadomość wysłana.';
   } catch (e) { $('#odp').textContent = e.message; }
 }

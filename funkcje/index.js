@@ -74,13 +74,27 @@ async function noweWiadomosci(email) {
 async function wyslijDoAgentki(nadawca, w) {
   const adresatka = agentkaRef(w.do);
   const odImie = nadawca.nazwa || nadawca.imie;
-  if (w.zadanie) {
-    await adresatka.collection('zadania').add({ dzien: w.dzien, tekst: w.tekst, zrobione: false, utworzono: Date.now(), od: odImie });
-    await adresatka.collection('wiadomosci').add({ od: nadawca.email, odImie, tekst: `Nowe zadanie na ${czas.mowionaData(w.dzien, false)}: ${w.tekst}`, czas: Date.now(), przeczytana: false, zadanie: true });
-  } else {
-    await adresatka.collection('wiadomosci').add({ od: nadawca.email, odImie, tekst: w.tekst, czas: Date.now(), przeczytana: false });
-  }
+  const teraz = Date.now();
+  if (w.zadanie) await adresatka.collection('zadania').add({ dzien: w.dzien, tekst: w.tekst, zrobione: false, utworzono: teraz, od: odImie });
+  const tekst = w.zadanie ? `Nowe zadanie na ${czas.mowionaData(w.dzien, false)}: ${w.tekst}` : w.tekst;
+  const doc = adresatka.collection('wiadomosci').doc();
+  const odbiorca = (await adresatka.get()).data() || {};
+  await Promise.all([
+    doc.set({ od: nadawca.email, odImie, tekst, czas: teraz, przeczytana: false, ...(w.zadanie ? { zadanie: true } : {}) }),
+    agentkaRef(nadawca.email).collection('wyslane').doc(doc.id).set({ do: w.do, doImie: odbiorca.nazwa || odbiorca.imie || w.do, tekst, czas: teraz, stan: 'nowa', odpowiedz: null })
+  ]);
   await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1' }).catch(() => {});
+}
+// odbiorczyni przeczytała / odpowiedziała OK albo Nie - zmiana widoczna u nadawczyni
+async function oznaczWiadomosc(odbiorczyni, id, odpowiedz) {
+  const ref = agentkaRef(odbiorczyni.email).collection('wiadomosci').doc(String(id));
+  const w = (await ref.get()).data();
+  if (!w) return;
+  await ref.update({ przeczytana: true, ...(odpowiedz ? { odpowiedz } : {}) });
+  if (w.od) {
+    await agentkaRef(w.od).collection('wyslane').doc(String(id)).update({ stan: 'przeczytana', czytano: Date.now(), ...(odpowiedz ? { odpowiedz } : {}) }).catch(() => {});
+    if (odpowiedz) await wyslijPush(w.od, { tytul: `${odbiorczyni.nazwa || odbiorczyni.imie}: ${odpowiedz === 'ok' ? 'OK' : 'Nie'}`, tresc: w.tekst.slice(0, 140), url: './' }).catch(() => {});
+  }
 }
 async function zrobBrief(email) {
   const ref = agentkaRef(email);
@@ -185,11 +199,11 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         return res.json({ dzien, zadania, zalegle: zal, wydarzenia: wydarzenia.map(e => ({ godzina: e.caly ? '' : e.start.slice(11, 16), tytul: e.tytul, miejsce: e.miejsce })) });
       }
       case 'wiadomosci': {
-        const q = await ref.collection('wiadomosci').orderBy('czas', 'desc').limit(20).get();
-        return res.json({ wiadomosci: q.docs.map(x => ({ id: x.id, ...x.data() })), zespol: (await zespol()).filter(x => x.email !== email) });
+        const [q, wy] = await Promise.all([ref.collection('wiadomosci').orderBy('czas', 'desc').limit(20).get(), ref.collection('wyslane').orderBy('czas', 'desc').limit(8).get()]);
+        return res.json({ wiadomosci: q.docs.map(x => ({ id: x.id, ...x.data() })), wyslane: wy.docs.map(x => ({ id: x.id, ...x.data() })), zespol: (await zespol()).filter(x => x.email !== email) });
       }
       case 'wiadomosc_przeczytana': {
-        await ref.collection('wiadomosci').doc(String(body.id)).update({ przeczytana: true });
+        await oznaczWiadomosc(a, body.id, ['ok', 'nie'].includes(body.odpowiedz) ? body.odpowiedz : null);
         return res.json({ ok: true });
       }
       case 'wiadomosc_wyslij': {
@@ -204,7 +218,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         const tekst = String(body.tekst || '').trim().slice(0, 300);
         if (!tekst || !/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '')) return res.status(400).json({ blad: 'Brak treści lub dnia' });
         const d = await ref.collection('zadania').add({ dzien: body.dzien, tekst, zrobione: false, utworzono: Date.now(), ...(body.od ? { od: String(body.od).slice(0, 80) } : {}) });
-        if (body.wiadomosc) await ref.collection('wiadomosci').doc(String(body.wiadomosc)).update({ przeczytana: true }).catch(() => {});
+        if (body.wiadomosc) await oznaczWiadomosc(a, body.wiadomosc, 'ok').catch(() => {});
         return res.json({ id: d.id });
       }
       case 'zadanie_zmien': {
@@ -241,7 +255,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         else if (w.noweOczekujace) zapisy.push(stanRef.doc('oczekujace').set({ ...w.noweOczekujace, czas: Date.now() }));
         if (w.zapisz) zapisy.push(ref.update(w.zapisz));
         if (w.wyslijWiadomosc) zapisy.push(wyslijDoAgentki(a, w.wyslijWiadomosc));
-        (w.przeczytane || []).forEach(id => zapisy.push(ref.collection('wiadomosci').doc(id).update({ przeczytana: true })));
+        (w.przeczytane || []).forEach(id => zapisy.push(oznaczWiadomosc(a, id)));
         if (w.noweZadanie) zapisy.push(ref.collection('zadania').add({ ...w.noweZadanie, zrobione: false, utworzono: Date.now() }));
         if (w.wyslanyWatek && b) {
           b.maile = (b.maile || []).filter(m => m.watek !== w.wyslanyWatek).map((m, i) => ({ ...m, nr: i + 1 }));
