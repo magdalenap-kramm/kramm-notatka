@@ -49,8 +49,8 @@ function klient(token) {
       r = await fetch(url, { ...opcje, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...(opcje.headers || {}) } });
       j = await r.json().catch(() => ({}));
       const limit = r.status === 429 || ((r.status === 403 || r.status === 503) && /quota|rate|limit/i.test(JSON.stringify(j)));
-      if (!limit || proba >= 4) break;
-      await new Promise(ok => setTimeout(ok, 1500 * 2 ** proba));   // limit Gmaila - odczekaj i ponów
+      if (!limit || proba >= (/total query cost|per minute/i.test(JSON.stringify(j)) ? 2 : 4)) break;
+      await new Promise(ok => setTimeout(ok, /total query cost|per minute/i.test(JSON.stringify(j)) ? 20000 : 1500 * 2 ** proba));   // limit Gmaila - odczekaj i ponów
     }
     if (r.status === 401) throw new BladPolaczenia('Google odrzucił dostęp');
     if (!r.ok) throw new Error((j.error && j.error.message) || ('Google ' + r.status));
@@ -94,8 +94,11 @@ function nazwaNadawcy(t) { const m = String(t).match(/^\s*"?([^"<]+?)"?\s*</); r
 
 // wątki z ostatnich dni, na które agentka jeszcze nie odpisała
 async function watkiDoOdpowiedzi(api, mojEmail, dni = 7, ile = 25) {
-  const q = `in:inbox newer_than:${dni}d -category:promotions -category:social -category:forums -from:me`;
-  const lista = await api('https://gmail.googleapis.com/gmail/v1/users/me/threads?' + new URLSearchParams({ q, maxResults: String(ile) }));
+  // bez wyszukiwania (q): wyszukiwarka Gmaila liczy się do limitu "Total Query Cost" (6000/min) i szybko go wyczerpuje.
+  // Bierzemy najnowsze wątki ze skrzynki odbiorczej i filtrujemy u siebie.
+  const p = new URLSearchParams({ maxResults: String(ile * 2) }); p.append('labelIds', 'INBOX');
+  const lista = await api('https://gmail.googleapis.com/gmail/v1/users/me/threads?' + p);
+  const granica = Date.now() - dni * 864e5;
   const wynik = [];
   let pelnych = 0;
   const jeden = async (t, nr) => {
@@ -104,6 +107,8 @@ async function watkiDoOdpowiedzi(api, mojEmail, dni = 7, ile = 25) {
     const ost = msgs[msgs.length - 1];
     const od = naglowek(ost, 'From');
     if ((ost.labelIds || []).includes('SENT') || adresEmail(od) === mojEmail) return;      // już odpisała
+    if ((ost.labelIds || []).some(l => ['CATEGORY_PROMOTIONS', 'CATEGORY_SOCIAL', 'CATEGORY_FORUMS', 'SPAM', 'TRASH'].includes(l))) return;
+    if (+ost.internalDate && +ost.internalDate < granica) return;
     // końcówka treści (podpis) - pozwala ustalić, kto pisze, gdy w nagłówku jest tylko adres
     let podpis = '';
     const masowy = !!naglowek(ost, 'List-Unsubscribe');
@@ -116,9 +121,9 @@ async function watkiDoOdpowiedzi(api, mojEmail, dni = 7, ile = 25) {
       data: naglowek(ost, 'Date'), fragment: (ost.snippet || '').slice(0, 300), nieprzeczytany: (ost.labelIds || []).includes('UNREAD'),
       wazny: (ost.labelIds || []).includes('IMPORTANT'), masowy, wiadomosci: msgs.length });
   };
-  const watki = lista.threads || [];
+  const watki = (lista.threads || []).slice(0, ile * 2);
   for (let i = 0; i < watki.length; i += 4) await Promise.all(watki.slice(i, i + 4).map((t, j) => jeden(t, i + j)));   // po 4 naraz - szybciej, a w limicie Gmaila
-  return wynik.filter(Boolean);
+  return wynik.filter(Boolean).slice(0, ile);
 }
 function tekstCzesci(p) {
   if (!p) return '';

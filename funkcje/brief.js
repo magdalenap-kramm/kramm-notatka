@@ -46,7 +46,7 @@ async function zbierzDane(agentka, sekret) {
   const dane = { braki: [] };
   await Promise.all([
     g.wydarzenia(api, dzis, jutro).then(w => { dane.wydarzenia = w; }).catch(e => { if (e.kod) throw e; dane.braki.push('kalendarz: ' + e.message); dane.wydarzenia = []; }),
-    g.watkiDoOdpowiedzi(api, agentka.email).then(m => { dane.maile = m; }).catch(e => { if (e.kod) throw e; dane.braki.push('poczta: ' + e.message); dane.maile = []; }),
+    g.watkiDoOdpowiedzi(api, agentka.email).then(m => { dane.maile = m; }).catch(e => { if (e.kod) throw e; dane.braki.push('poczta: ' + (/quota|rate limit/i.test(e.message) ? 'Gmail chwilowo ograniczył odczyt, przygotuj brief od nowa za minutę' : e.message)); dane.maile = []; }),
     g.arkuszNotatki(api, agentka.arkuszNotatki).then(async id => { dane.arkusz = id; dane.rozmowy = await g.rozmowy(api, id); })
       .catch(e => { if (e.kod) throw e; dane.braki.push('arkusz rozmów: ' + e.message); dane.rozmowy = []; }),
     Promise.all((agentka.arkusze || []).slice(0, 5).map(a => g.odczytajArkusz(api, a.id).then(r => ({ ...r, id: a.id, znane: a.wiersze }))
