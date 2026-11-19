@@ -87,6 +87,11 @@
   .wiad { padding:10px 0; border-top:1px solid #f0e6e1; font-size:15px; line-height:1.45; }
   .wiad .akcje { display:flex; gap:8px; margin-top:6px; } .wiad .akcje button { flex:1; padding:8px; border-radius:999px; border:1px solid var(--roz); background:#fff; color:var(--granat); font-family:inherit; font-size:13px; }
   select { width:100%; padding:12px 14px; font-size:16px; border:1px solid #eadfd8; border-radius:14px; background:#fffdfb; font-family:inherit; color:var(--tekst); }
+  .arkusz { position:fixed; left:0; right:0; bottom:0; z-index:50; background:#fffdfb; border-radius:24px 24px 0 0; box-shadow:0 -8px 30px rgba(28,31,107,.25); padding:22px 20px calc(22px + env(safe-area-inset-bottom)); text-align:center; }
+  .arkusz img { width:72px; height:72px; border-radius:18px; margin-bottom:8px; }
+  .arkusz h3 { font-family:"Cormorant Garamond", serif; font-size:24px; color:var(--granat); margin:0 0 6px; }
+  .arkusz p { font-size:15px; color:#5e5868; margin:0 0 14px; line-height:1.45; }
+  .zaslona { position:fixed; inset:0; z-index:49; background:rgba(28,31,107,.35); }
 </style>
 </head>
 <body>
@@ -107,7 +112,6 @@
     <div class="agentka"><div id="foto" class="foto">K</div><div><div class="powitanie" id="powitanie">Dzień dobry</div><div class="pod" id="dzisiaj"></div></div></div>
     <div class="mic-wrap" id="micWrap"><div class="fale"><i></i><i></i><i></i></div>
       <button class="mic" id="btnMic" aria-label="Mów"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span id="napisMic">Mów</span></button></div>
-    <div id="banerInstalacji" class="karta ukryty"><p class="info" style="margin:0 0 6px" id="instalInfo">Dodaj Asystentkę na pulpit telefonu, żeby otwierać ją jednym dotknięciem i dostawać powiadomienia.</p><button class="glowny" id="btnInstaluj">Dodaj na pulpit</button><button class="jasny" style="margin-top:6px;width:100%;padding:8px;border-radius:999px;border:0" id="btnInstalPozniej">Później</button></div>
     <div id="banerZgod" class="karta ukryty"><p class="info" style="margin:0 0 4px">Asystentka potrzebuje nowej zgody, żeby widzieć arkusze z Dysku. Zaloguj się jeszcze raz i zaznacz wszystkie zgody.</p><button class="glowny" id="btnZgody">Zaloguj ponownie</button></div>
     <div id="odp">Dotknij i powiedz, czego potrzebujesz.</div>
     <div id="slyszy"></div>
@@ -186,6 +190,20 @@
 </main>
 <footer><div class="podpis"><small>by</small>Magdalena Pyrc</div></footer>
 
+<div id="zaslona" class="zaslona ukryty"></div>
+<div id="banerInstalacji" class="arkusz ukryty">
+  <img src="ikona-192.png" alt="">
+  <h3>Asystentka KRAMM na pulpicie</h3>
+  <p id="instalInfo">Dodaj ikonę na pulpit telefonu. Otworzysz Asystentkę jednym dotknięciem i dostaniesz powiadomienia.</p>
+  <button class="glowny" id="btnInstaluj">Dodaj ikonę</button>
+  <button class="jasny" style="margin-top:8px;width:100%;padding:10px;border-radius:999px;border:0" id="btnInstalPozniej">Później</button>
+</div>
+<div id="banerAplikacji" class="arkusz ukryty">
+  <img src="ikona-192.png" alt="">
+  <h3>Otwórz w przeglądarce</h3>
+  <p id="aplikacjaInfo">Ten link otworzył się w Messengerze. Tu nie da się zalogować ani dodać ikony na pulpit.</p>
+  <a class="glowny" id="btnChrome" style="display:block;text-decoration:none;text-align:center">Otwórz w Chrome</a>
+</div>
 <script>
 const $ = s => document.querySelector(s);
 const API = 'https://europe-central2-calm-metric-514918-h8.cloudfunctions.net/api';
@@ -255,7 +273,6 @@ function pokazProfil() {
   $('#godzina').value = profil.godzina || '07:30'; $('#dniRobocze').checked = profil.dniRobocze;
   rysujArkusze(); stanPush();
   $('#banerZgod').classList.toggle('ukryty', !profil.brakZgod);
-  pokazInstalacje();
 }
 function rysujArkusze() {
   const l = (profil && profil.arkusze) || [];
@@ -483,26 +500,47 @@ async function zapiszPunkty(punkty) { try { profil = (await api('ustawienia', { 
 // ---------- kafelek na pulpicie ----------
 let prosbaInstalacji = null;
 const iPhone = /iphone|ipad/i.test(navigator.userAgent);
-function pokazInstalacje() {
-  let pozniej = 0; try { pozniej = +localStorage.getItem('instalPozniej') || 0; } catch (e) {}
-  const pokaz = !zainstalowana() && Date.now() - pozniej > 3 * 864e5 && (prosbaInstalacji || iPhone);
-  $('#banerInstalacji').classList.toggle('ukryty', !pokaz);
-  if (iPhone) { $('#instalInfo').textContent = 'Dodaj Asystentkę na ekran początkowy: dotknij „Udostępnij” na dole Safari, potem „Do ekranu początkowego”.'; $('#btnInstaluj').classList.add('ukryty'); }
+// przeglądarka wbudowana w Messengera, Facebooka, Instagrama, WhatsAppa itp. - tam nie da się zalogować ani zainstalować
+const wAplikacji = /FBAN|FBAV|FB_IAB|Messenger|Instagram|WhatsApp|Line\/|; wv\)|GSA\//i.test(navigator.userAgent);
+function arkusz(id, pokaz) { $('#' + id).classList.toggle('ukryty', !pokaz); $('#zaslona').classList.toggle('ukryty', !document.querySelector('.arkusz:not(.ukryty)')); }
+if (wAplikacji && !zainstalowanaTeraz()) {
+  const adres = location.href.replace(/^https:\/\//, '');
+  if (iPhone) {
+    $('#aplikacjaInfo').innerHTML = 'Ten link otworzył się w aplikacji, w której nie da się zalogować ani dodać ikony. Dotknij <b>⋯</b> w rogu i wybierz <b>Otwórz w Safari</b> (albo „Otwórz w przeglądarce”).';
+    $('#btnChrome').classList.add('ukryty');
+  } else {
+    $('#btnChrome').href = `intent://${adres}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(location.href)};end`;
+    $('#aplikacjaInfo').innerHTML = 'Ten link otworzył się w aplikacji, w której nie da się zalogować ani dodać ikony. Dotknij przycisku niżej. Jeśli nie zadziała: <b>⋯</b> w rogu -> <b>Otwórz w przeglądarce</b>.';
+  }
+  arkusz('banerAplikacji', true);
 }
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); prosbaInstalacji = e; if (profil) pokazInstalacje(); });
-window.addEventListener('appinstalled', () => { prosbaInstalacji = null; $('#banerInstalacji').classList.add('ukryty'); });
+function zainstalowanaTeraz() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone; }
+function pokazInstalacje(sila) {
+  if (wAplikacji || zainstalowanaTeraz()) return;
+  let pozniej = 0; try { pozniej = +localStorage.getItem('instalPozniej') || 0; } catch (e) {}
+  if (!sila && Date.now() - pozniej < 864e5) return;
+  if (!prosbaInstalacji && !iPhone && !sila) return;
+  if (iPhone) { $('#instalInfo').innerHTML = 'Dotknij <b>Udostępnij</b> (kwadrat ze strzałką na dole Safari), potem <b>Do ekranu początkowego</b> i <b>Dodaj</b>.'; $('#btnInstaluj').classList.add('ukryty'); }
+  else if (!prosbaInstalacji) { $('#instalInfo').innerHTML = 'Dotknij <b>⋮</b> w prawym górnym rogu Chrome, potem <b>Dodaj do ekranu głównego</b> albo <b>Zainstaluj aplikację</b>.'; $('#btnInstaluj').classList.add('ukryty'); }
+  else { $('#instalInfo').textContent = 'Dodaj ikonę na pulpit telefonu. Otworzysz Asystentkę jednym dotknięciem i dostaniesz powiadomienia.'; $('#btnInstaluj').classList.remove('ukryty'); }
+  arkusz('banerInstalacji', true);
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); prosbaInstalacji = e; pokazInstalacje(); });
+window.addEventListener('appinstalled', () => { prosbaInstalacji = null; arkusz('banerInstalacji', false); });
+if (iPhone) setTimeout(() => pokazInstalacje(), 1500);
 $('#btnInstaluj').onclick = async () => {
   if (!prosbaInstalacji) return;
   prosbaInstalacji.prompt();
   const { outcome } = await prosbaInstalacji.userChoice.catch(() => ({}));
   prosbaInstalacji = null;
-  $('#banerInstalacji').classList.add('ukryty');
+  arkusz('banerInstalacji', false);
   if (outcome !== 'accepted') try { localStorage.setItem('instalPozniej', Date.now()); } catch (e) {}
 };
-$('#btnInstalPozniej').onclick = () => { try { localStorage.setItem('instalPozniej', Date.now()); } catch (e) {} $('#banerInstalacji').classList.add('ukryty'); };
+$('#btnInstalPozniej').onclick = () => { try { localStorage.setItem('instalPozniej', Date.now()); } catch (e) {} arkusz('banerInstalacji', false); };
 $('#btnIkona').onclick = async () => {
   if (zainstalowana()) { $('#ikonaInfo').textContent = 'Asystentka jest już na pulpicie. Otwierasz ją teraz z ikony.'; return; }
-  if (prosbaInstalacji) { $('#btnInstaluj').onclick(); return; }
+  if (wAplikacji) { arkusz('banerAplikacji', true); return; }
+  pokazInstalacje(true); return;
   $('#ikonaInfo').innerHTML = iPhone
     ? 'W Safari dotknij <b>Udostępnij</b> (kwadrat ze strzałką na dole), potem <b>Do ekranu początkowego</b> i <b>Dodaj</b>.'
     : 'W Chrome dotknij <b>⋮</b> w prawym górnym rogu, potem <b>Dodaj do ekranu głównego</b> albo <b>Zainstaluj aplikację</b>, i potwierdź <b>Zainstaluj</b>. Jeśli ikona już jest na pulpicie, ta opcja się nie pojawi.';
