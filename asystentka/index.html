@@ -348,7 +348,9 @@ async function ladujWiadomosci() {
     document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; $('#zespol').classList.add('ukryty'); $('#strzalka').textContent = '▾'; ladujWiadomosci(); });
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
-      <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div></div>`).join('')}</div>` : '';
+      <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div>
+      <div style="display:flex;gap:8px;margin-top:8px"><textarea data-wtresc="${esc(w.id)}" rows="1" placeholder="Odpisz ${esc(w.odImie)}..." style="flex:1;min-height:42px"></textarea><button class="jasny" data-wodpisz="${esc(w.id)}" style="flex:none;padding:0 14px;border-radius:14px">Wyślij</button></div>
+      <div data-wstatus="${esc(w.id)}" style="font-size:14px;margin-top:4px"></div></div>`).join('')}</div>` : '';
     const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'] };
     const hist = [...(r.wyslane || []).map(w => ({ ...w, kier: 'do' })), ...(r.wiadomosci || []).map(w => ({ ...w, kier: 'od' }))].sort((a, b) => b.czas - a.czas).slice(0, 25);
     $('#ileHist').textContent = hist.length ? `(${hist.length})` : '';
@@ -356,9 +358,21 @@ async function ladujWiadomosci() {
     $('#wyslane').innerHTML = hist.length ? hist.map(w => {
       if (w.kier === 'do') { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
         return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
-      return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`;
+      return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)} · <a href="#" data-odpiszhist="${esc(w.od)}" style="color:var(--granat)">Odpisz</a></div></div></div>`;
     }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie</p>' : '<div class="pusto">Brak wiadomości.</div>';
     const zn = id => nowe.find(w => w.id === id);
+    document.querySelectorAll('[data-odpiszhist]').forEach(a => a.onclick = e => { e.preventDefault(); $('#doKogo').value = a.dataset.odpiszhist; panel(0); ladujWiadomosci().then(() => $('#trescWiad').focus()); });
+    document.querySelectorAll('[data-wodpisz]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.wodpisz, w = zn(id), pole = document.querySelector(`[data-wtresc="${id}"]`), st = document.querySelector(`[data-wstatus="${id}"]`);
+      const tekst = pole.value.trim(); if (!tekst) { pole.focus(); return; }
+      b.disabled = true; b.textContent = '...';
+      try {
+        await api('wiadomosc_wyslij', { do: w.od, tekst });
+        await api('wiadomosc_przeczytana', { id }).catch(() => {});
+        st.innerHTML = `<span style="color:#3c9a5f">✓ Odpisane do: ${esc(w.odImie)}</span>`;
+        setTimeout(() => ladujWiadomosci(), 2500);
+      } catch (e) { st.innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; b.disabled = false; b.textContent = 'Wyślij'; }
+    });
     document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => { b.disabled = true; await api('wiadomosc_przeczytana', { id: b.dataset.wid, odpowiedz: b.dataset.wodp }).catch(() => {}); ladujWiadomosci(); });
     const doZad = (id, d) => api('zadanie_dodaj', { dzien: d, tekst: zn(id).tekst, od: zn(id).odImie, wiadomosc: id }).then(() => { ladujWiadomosci(); ladujZadania(d); }).catch(e => { $('#odp').textContent = e.message; });
     document.querySelectorAll('[data-wzad]').forEach(b => b.onclick = () => doZad(b.dataset.wzad, dzisISO()));
