@@ -3,7 +3,7 @@ const admin = require('../funkcje/node_modules/firebase-admin');
 admin.initializeApp({ projectId: 'calm-metric-514918-h8' });
 (async () => {
   const db = admin.firestore();
-  for (const a of (await db.collection('agentki').get()).docs) {
+  for (const a of (await db.collection('agentki').get()).docs.filter(x => x.id === (process.env.KTO || 'magdalena.p@kramm.pl'))) {
     const d = a.data();
     console.log('AGENTKA', a.id, 'ostatniBrief', d.ostatniBrief, 'polaczenie', d.polaczenie, 'zakres', (d.zakres || '').split(' ').length);
     const x = await db.collection('agentki').doc(a.id).collection('briefy').doc(d.ostatniBrief).get();
