@@ -1,4 +1,8 @@
 {
+  "id": "./",
+  "description": "Głosowa asystentka agentek KRAMM: poranny brief, maile, zadania, wiadomości.",
+  "lang": "pl",
+  "orientation": "portrait",
   "name": "Asystentka KRAMM",
   "short_name": "Asystentka KRAMM",
   "start_url": "./",

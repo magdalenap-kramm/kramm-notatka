@@ -617,6 +617,7 @@ $('#btnZapiszUst').onclick = async () => {
 $('#btnWyloguj').onclick = async () => { try { await api('wyloguj'); } catch (e) {} localStorage.removeItem('asyst_sesja'); sesja = null; pokaz('#ekranStart'); };
 document.addEventListener('visibilitychange', () => { if (document.hidden && trwa) { przerwij = true; speechSynthesis.cancel(); try { rozp && rozp.abort(); } catch (e) {} } });
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});   // od razu: bez tego telefon nie zainstaluje aplikacji
 (async () => { if (!(await powrotZGoogle())) await start(); })();
 </script>
 </body>
