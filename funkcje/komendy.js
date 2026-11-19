@@ -55,7 +55,7 @@ const KATALOG_KRAMM = [
   ['Magdalena Pyrc', 'magdalena.p@kramm.pl'], ['Magda Horyza (zarządzanie najmem)', 'zarzadzanie@kramm.pl']
 ];
 function systemKomend(agentka, brief, ostatni, zespol) {
-  const lista = (zespol || []).filter(x => x.email !== agentka.email).map(x => `${x.nazwa || x.imie} (${x.email})`).join(', ') || '(nikt jeszcze nie korzysta)';
+  const lista = (zespol || []).filter(x => x.email !== agentka.email).map(x => `${x.nazwa || x.imie} (${x.email})${x.zalogowana === false ? ' - jeszcze nie w aplikacji, wiadomość poczeka' : ''}`).join(', ') || '(nikt jeszcze nie korzysta)';
   const katalog = KATALOG_KRAMM.filter(([, e]) => e !== agentka.email && !(zespol || []).some(x => x.email === e)).map(([n, e]) => `${n} (${e})`).join(', ');
   const maile = (brief && brief.maile || []).map(m => `${m.nr}. od ${m.od} (${m.odEmail}): ${m.temat}`).join('\n') || '(brak)';
   return `Jesteś głosową asystentką agentki nieruchomości ${agentka.imie || ''} z KRAMM Nieruchomości. Agentka mówi do telefonu, często w samochodzie.
@@ -233,6 +233,10 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [
       const zadanie = n.nazwa === 'zadanie_dla';
       const dz = zadanie ? (/^\d{4}-\d{2}-\d{2}$/.test(d.dzien || '') ? d.dzien : czas.dzien()) : null;
       const komu = kto.nazwa || kto.imie;
+      const uwaga = kto.zalogowana === false ? ` ${komu} jeszcze nie zalogowała się w Asystentce, zobaczy to po pierwszym logowaniu.` : '';
+      return { mow: (zadanie ? `Zadanie dla ${komu} na ${czas.mowionaData(dz, false)}: ${tx}.` : `Wiadomość do ${komu}: ${tx}.`) + uwaga + ' Wysłać?', oczekuje: true,
+        noweOczekujace: { typ: 'wiadomosc', do: kto.email, komu, tekst: tx, zadanie, dzien: dz },
+        ekran: { typ: 'lista', pozycje: [{ godzina: zadanie ? 'zadanie' : 'do', tytul: komu, miejsce: tx }] } };
       return { mow: zadanie ? `Zadanie dla ${komu} na ${czas.mowionaData(dz, false)}: ${tx}. Wysłać?` : `Wiadomość do ${komu}: ${tx}. Wysłać?`, oczekuje: true,
         noweOczekujace: { typ: 'wiadomosc', do: kto.email, komu, tekst: tx, zadanie, dzien: dz },
         ekran: { typ: 'lista', pozycje: [{ godzina: zadanie ? 'zadanie' : 'do', tytul: komu, miejsce: tx }] } };
@@ -291,4 +295,4 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [
   }
 }
 
-module.exports = { obsluz, wybierzMail, opisWydarzen, czytajBrief, TAK, NIE, NARZEDZIA };
+module.exports = { KATALOG_KRAMM, obsluz, wybierzMail, opisWydarzen, czytajBrief, TAK, NIE, NARZEDZIA };

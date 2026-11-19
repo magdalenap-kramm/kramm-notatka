@@ -63,9 +63,12 @@ async function zalegle(email) {
   const q = await agentkaRef(email).collection('zadania').where('zrobione', '==', false).get();
   return q.docs.map(x => ({ id: x.id, ...x.data() })).filter(z => z.dzien < dzis).sort((x, y) => x.dzien < y.dzien ? -1 : 1);
 }
+// cały zespół KRAMM: zalogowane w Asystentce + pozostałe z katalogu (wiadomości do nich czekają do pierwszego logowania)
 async function zespol() {
   const q = await db.collection('agentki').get();
-  return q.docs.map(x => ({ email: x.id, imie: x.data().imie || '', nazwa: x.data().nazwa || '' }));
+  const zal = q.docs.filter(x => x.data().refresh || x.data().imie).map(x => ({ email: x.id, imie: x.data().imie || '', nazwa: x.data().nazwa || '', zalogowana: true }));
+  const reszta = komendy.KATALOG_KRAMM.filter(([, e]) => !zal.some(x => x.email === e)).map(([n, e]) => ({ email: e, imie: n.split(' ')[0], nazwa: n, zalogowana: false }));
+  return [...zal, ...reszta];
 }
 async function noweWiadomosci(email) {
   const q = await agentkaRef(email).collection('wiadomosci').where('przeczytana', '==', false).get();

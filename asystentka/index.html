@@ -126,7 +126,10 @@
     </div>
     <div class="karta">
       <h3>Napisz do dziewczyn</h3>
-      <select id="doKogo"><option value="">Do kogo?</option></select>
+      <label>Do kogo</label>
+      <div id="zespol" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <p class="info" style="margin:6px 0 0"><span style="color:#3c9a5f">●</span> w Asystentce &nbsp; <span style="color:#c9a9b2">●</span> jeszcze nie - wiadomość poczeka do jej pierwszego logowania</p>
+      <input type="hidden" id="doKogo">
       <textarea id="trescWiad" rows="2" placeholder="Wiadomość albo zadanie" style="margin-top:8px"></textarea>
       <div class="przel"><input type="checkbox" id="jakoZadanie"><label for="jakoZadanie" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Wrzuć jako zadanie na dzień</label><input type="date" id="dzienZadania" style="width:auto;padding:6px;border:1px solid #eadfd8;border-radius:10px"></div>
       <button class="glowny" id="btnWyslijWiad">Wyślij</button>
@@ -327,9 +330,10 @@ async function dodajZadanie() {
 async function ladujWiadomosci() {
   try {
     const r = await api('wiadomosci');
-    const sel = $('#doKogo'), wyb = sel.value;
-    sel.innerHTML = '<option value="">Do kogo?</option>' + r.zespol.map(x => `<option value="${esc(x.email)}">${esc(x.nazwa || x.imie || x.email)}</option>`).join('');
-    sel.value = wyb;
+    const wyb = $('#doKogo').value;
+    const zesp = [...r.zespol].sort((a, b) => (b.zalogowana === true) - (a.zalogowana === true));
+    $('#zespol').innerHTML = zesp.map(x => `<button type="button" data-osoba="${esc(x.email)}" style="border:1px solid ${x.email === wyb ? 'var(--granat)' : '#eadfd8'};background:${x.email === wyb ? 'var(--granat)' : '#fff'};color:${x.email === wyb ? '#fff' : 'var(--tekst)'};border-radius:999px;padding:8px 12px;font-family:inherit;font-size:14px;display:flex;align-items:center;gap:6px"><i style="width:9px;height:9px;border-radius:50%;background:${x.zalogowana === false ? '#c9a9b2' : '#3c9a5f'}"></i>${esc(x.nazwa || x.imie || x.email)}</button>`).join('');
+    document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; ladujWiadomosci(); });
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
       <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div></div>`).join('')}</div>` : '';
@@ -349,7 +353,7 @@ async function wyslijWiadomosc() {
   const zadanie = $('#jakoZadanie').checked;
   try {
     await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
-    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; ladujWiadomosci();
+    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; $('#doKogo').value = ''; ladujWiadomosci();
     $('#odp').textContent = zadanie ? 'Zadanie wysłane.' : 'Wiadomość wysłana.';
   } catch (e) { $('#odp').textContent = e.message; }
 }
