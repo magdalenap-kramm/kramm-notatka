@@ -52,7 +52,7 @@ const NARZEDZIA = [
 const KATALOG_KRAMM = [
   ['Dominika Sadowska-Nowak', 'dominika@kramm.pl'], ['Żanna', 'zanna@kramm.pl'], ['Wiktoria', 'wiktoria@kramm.pl'], ['Barbara', 'barbara@kramm.pl'],
   ['Magdalena Halicka-Gołębiowska', 'magdalena@kramm.pl'], ['Sonia Kuźma', 'sonia@kramm.pl'], ['Magdalena Kaczmarek', 'magdalena.k@kramm.pl'],
-  ['Magdalena Pyrc', 'magdalena.p@kramm.pl'], ['Magda Horyza (zarządzanie najmem)', 'zarzadzanie@kramm.pl']
+  ['Magdalena Pyrc', 'magdalena.p@kramm.pl'], ['Magda Horyza (zarządzanie najmem)', 'zarzadzanie@kramm.pl'], ['Sylwia Marciniak', 'sylwia.m@kramm.pl']
 ];
 function systemKomend(agentka, brief, ostatni, zespol) {
   const lista = (zespol || []).filter(x => x.email !== agentka.email).map(x => `${x.nazwa || x.imie} (${x.email})${x.zalogowana === false ? ' - jeszcze nie w aplikacji, wiadomość poczeka' : ''}`).join(', ') || '(nikt jeszcze nie korzysta)';
