@@ -50,6 +50,7 @@
   .karta h3 small { font-family:Roboto, sans-serif; font-size:12px; color:var(--szary); font-weight:400; }
   .poz { padding:9px 0; border-top:1px solid #f0e6e1; font-size:15px; line-height:1.4; }
   .poz:first-of-type { border-top:0; }
+  .poz.czytany { background:#fbe8ee; border-radius:12px; padding-left:8px; padding-right:8px; }
   .poz b { font-weight:500; color:var(--granat); }
   .poz .opis { color:#6f6878; font-size:14px; }
   .poz a { color:var(--granat); }
@@ -405,6 +406,9 @@ function arkuszeZliczone(l) {
   l.forEach(a => { const n = a.nazwa || a.arkusz || 'Arkusz'; m[n] = (m[n] || 0) + 1; });
   return Object.entries(m).map(([nazwa, nowe]) => ({ nazwa, nowe }));
 }
+let ostatniMailKlik = {};
+function czytane() { try { return JSON.parse(localStorage.getItem('czytaneMaile') || '[]'); } catch (e) { return []; } }
+function oznaczCzytany(w) { if (!w) return; try { localStorage.setItem('czytaneMaile', JSON.stringify([...new Set([...czytane(), w])].slice(-200))); } catch (e) {} }
 function sekcja(tytul, poz, pusty, ile) {
   return `<div class="karta"><h3>${tytul}${ile ? `<small>${ile}</small>` : ''}</h3>${poz.length ? poz.join('') : `<div class="pusto">${pusty}</div>`}</div>`;
 }
@@ -414,12 +418,19 @@ function rysujBrief() {
   const tel = n => n ? ` · <a href="tel:${esc(n.replace(/[^\d+]/g, ''))}">${esc(n)}</a>` : '';
   $('#brief').innerHTML =
     sekcja('Dziś', (b.dzis || []).map(d => `<div class="poz"><b>${esc(d.godzina)}</b> ${esc(d.tytul)}${d.miejsce ? `<div class="opis">${esc(d.miejsce)}</div>` : ''}${d.notka ? `<div class="opis">${esc(d.notka)}</div>` : ''}</div>`), 'Nic w kalendarzu.') +
-    sekcja('Maile do odpowiedzi', (b.maile || []).map(m => `<div class="poz klik" data-mail="${m.nr}"><span class="nr">${m.nr}</span><b>${esc(m.od)}</b> · ${esc(m.temat)}<div class="opis">${esc(m.dlaczego)}</div></div>`), 'Wszystko odpisane.', (b.maile || []).length ? 'dotknij, żeby odsłuchać' : '') +
+    sekcja('Maile do odpowiedzi', (b.maile || []).map(m => `<div class="poz klik${czytane().includes(m.watek) ? ' czytany' : ''}" data-mail="${m.nr}" data-watek="${esc(m.watek || '')}"><span class="nr">${m.nr}</span><b>${esc(m.od)}</b> · ${esc(m.temat)}<div class="opis">${esc(m.dlaczego)}</div></div>`), 'Wszystko odpisane.', (b.maile || []).length ? 'dotknij, żeby odsłuchać' : '') +
     sekcja('Do kontaktu', (b.kontakty || []).map(k => `<div class="poz"><b>${esc(k.kto)}</b>${tel(k.numer)}<div class="opis">${esc(k.sprawa)}</div></div>`), 'Nikt nie czeka na kontakt.') +
     ((b.arkusze || []).length ? sekcja('Z arkuszy', arkuszeZliczone(b.arkusze).map(a => `<div class="poz" style="display:flex;justify-content:space-between;align-items:center"><b>${esc(a.nazwa || a.arkusz || '')}</b><span style="font-weight:500;color:${a.nowe ? 'var(--granat)' : 'var(--szary)'}">${typeof a.nowe === 'number' ? (a.nowe ? `+${a.nowe} ${a.nowe === 1 ? 'nowy' : 'nowe'}` : 'bez nowych') : ''}</span></div>`), '') : '') +
     sekcja('Przygotuj na jutro', (b.jutro || []).map(j => `<div class="poz">${esc(j)}</div>`), 'Nic do przygotowania.') +
     ((b.braki || []).length ? `<p class="info">Niedostępne: ${esc(b.braki.join('; '))}</p>` : '');
-  document.querySelectorAll('[data-mail]').forEach(el => el.onclick = () => rozmowa(`przeczytaj mail numer ${el.dataset.mail}`));
+  document.querySelectorAll('[data-mail]').forEach(el => el.onclick = () => {
+    // jedno czytanie na dotknięcie: drugie dotknięcie tego samego maila w ciągu kilku sekund albo w trakcie czytania jest pomijane
+    const teraz = Date.now();
+    if (ostatniMailKlik.nr === el.dataset.mail && (teraz - ostatniMailKlik.czas < 6000 || trwa)) return;
+    ostatniMailKlik = { nr: el.dataset.mail, czas: teraz };
+    el.classList.add('czytany'); oznaczCzytany(el.dataset.watek);
+    rozmowa(`przeczytaj mail numer ${el.dataset.mail}`);
+  });
 }
 function rysujKarte(e) {
   const k = $('#karta');

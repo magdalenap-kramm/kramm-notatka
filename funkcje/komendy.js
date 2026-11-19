@@ -71,6 +71,30 @@ ${ostatni ? `\nOstatnio czytany mail: numer ${ostatni}. Jeśli agentka mówi "od
 
 // ---------- pomocnicze ----------
 const krotkiTekst = t => String(t || '').replace(/\s+/g, ' ').trim();
+// tekst maila do czytania na głos: linki jako "link", podpis tylko z imieniem i nazwiskiem (bez stopki firmy, telefonów, stron)
+const POZEGNANIE = /^(z\s+)?(serdecznie\s+|pozdrawiam|pozdrowienia|z poważaniem|z wyrazami szacunku|łączę pozdrowienia|dziękuję i pozdrawiam|miłego dnia|best regards|kind regards|regards|cheers)/i;
+function doCzytania(tekst, nadawca) {
+  const linie = String(tekst || '').replace(/\r/g, '').split('\n').map(l => l.trim());
+  const out = [];
+  for (let i = 0; i < linie.length; i++) {
+    const l = linie[i];
+    if (/^(--\s*$|__+$|wysłane z|sent from my|ta wiadomość (jest|może)|this (e-?mail|message) (is|may))/i.test(l)) break;
+    if (POZEGNANIE.test(l)) {
+      out.push(l.replace(/[,.]+$/, '') + '.');
+      // następna niepusta linia, jeśli wygląda na imię i nazwisko
+      const n = linie.slice(i + 1).find(x => x);
+      if (n && n.split(/\s+/).length <= 4 && !/[\d@:/]|sp\.|s\.a\.|nieruchomo|biuro|tel|www/i.test(n)) out.push(n + '.');
+      break;
+    }
+    out.push(l);
+  }
+  let t = out.join('\n')
+    .replace(/https?:\/\/\S+|www\.\S+/gi, 'link')
+    .replace(/<link>|\[link\]|\(link\)/gi, 'link')
+    .replace(/(link[\s,]*){2,}/gi, 'link ')
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, 'adres mailowy');
+  return krotkiTekst(t);
+}
 function bezPodpisu(t) { return String(t).split(/\n\s*(Pozdrawiam|Z poważaniem|Serdecznie pozdrawiam|Z wyrazami szacunku|Łączę pozdrowienia|Miłego dnia|Dziękuję i pozdrawiam)/i)[0].trim(); }
 const bezPl = t => czysc(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
 const POMIN = new Set(['mail', 'maila', 'mailu', 'maile', 'przeczytaj', 'odpisz', 'odpowiedz', 'pana', 'pani', 'panu', 'temat', 'tego', 'jego', 'jej', 'numer', 'wiadomosc']);
@@ -216,7 +240,7 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [
       if (!m) return { mow: 'Który mail przeczytać? Powiedz numer albo od kogo.', oczekuje: true };
       const w = await g.watek(await google(), m.watek);
       const ost = [...w.wiadomosci].reverse().find(x => !x.wyslana) || w.wiadomosci[w.wiadomosci.length - 1];
-      return { mow: `Mail od ${m.od}, temat: ${ost.temat}. ${krotkiTekst(ost.tekst).slice(0, 1200)}. Co mam odpisać?`, oczekuje: true, noweOczekujace: null,
+      return { mow: `Mail od ${m.od}, temat: ${ost.temat}. ${doCzytania(ost.tekst, m.od).slice(0, 1200)} Co mam odpisać?`, oczekuje: true, noweOczekujace: null,
         ekran: { typ: 'mail', od: m.od, temat: ost.temat, tresc: ost.tekst }, wybranyMail: m.nr };
     }
     case 'zadanie_dodaj': {
@@ -295,4 +319,4 @@ async function obsluz({ agentka, tekst, stan, sekret, klucz, zadania, zespol = [
   }
 }
 
-module.exports = { KATALOG_KRAMM, obsluz, wybierzMail, opisWydarzen, czytajBrief, TAK, NIE, NARZEDZIA };
+module.exports = { doCzytania, KATALOG_KRAMM, obsluz, wybierzMail, opisWydarzen, czytajBrief, TAK, NIE, NARZEDZIA };
