@@ -525,10 +525,22 @@ function pokazInstalacje(sila) {
   else { $('#instalInfo').textContent = 'Dodaj ikonę na pulpit telefonu. Otworzysz Asystentkę jednym dotknięciem i dostaniesz powiadomienia.'; $('#btnInstaluj').classList.remove('ukryty'); }
   arkusz('banerInstalacji', true);
 }
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); prosbaInstalacji = e; pokazInstalacje(); });
+// bez preventDefault: Chrome sam pokazuje swój pasek "Zainstaluj"; dodatkowo okno systemowe przy pierwszym dotknięciu ekranu
+window.addEventListener('beforeinstallprompt', e => { prosbaInstalacji = e; pokazInstalacje(); });
+async function instalujTeraz() {
+  if (!prosbaInstalacji || zainstalowanaTeraz()) return;
+  const p = prosbaInstalacji; prosbaInstalacji = null;
+  try { p.prompt(); const { outcome } = await p.userChoice; if (outcome !== 'accepted') localStorage.setItem('instalPozniej', Date.now()); } catch (e) {}
+  arkusz('banerInstalacji', false);
+}
+document.addEventListener('pointerup', e => {
+  if (!prosbaInstalacji || e.target.closest('#btnInstalPozniej')) return;
+  let pozniej = 0; try { pozniej = +localStorage.getItem('instalPozniej') || 0; } catch (x) {}
+  if (Date.now() - pozniej > 864e5) instalujTeraz();
+}, true);
 window.addEventListener('appinstalled', () => { prosbaInstalacji = null; arkusz('banerInstalacji', false); });
 if (iPhone) setTimeout(() => pokazInstalacje(), 1500);
-$('#btnInstaluj').onclick = async () => {
+$('#btnInstaluj').onclick = async () => { if (prosbaInstalacji) return instalujTeraz();
   if (!prosbaInstalacji) return;
   prosbaInstalacji.prompt();
   const { outcome } = await prosbaInstalacji.userChoice.catch(() => ({}));
