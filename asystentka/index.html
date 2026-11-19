@@ -163,7 +163,8 @@
       </ul>
       <p class="info">Na każde dodanie i wysłanie asystentka pyta o potwierdzenie. Odpowiedz „tak”, „nie” albo powiedz, co zmienić.</p>
     </div>
-    <button class="drugi" id="btnOdswiez">Przygotuj brief od nowa</button>
+    <button class="glowny" id="btnOdswiez" style="background:#fff;color:var(--granat);border:1.5px solid var(--granat);box-shadow:none">Przygotuj brief od nowa</button>
+    <div id="statusBriefu" style="text-align:center;font-size:15px;margin:8px 0 16px;min-height:20px"></div>
   </section>
 
   <!-- ustawienia -->
@@ -650,7 +651,16 @@ async function start() {
 $('#btnZaloguj').onclick = () => zaloguj().catch(e => { $('#komunikatStart').textContent = 'Nie udało się: ' + e.message; });
 $('#btnMic').onclick = () => rozmowa();
 $('#btnBrief').onclick = () => odsluchajBrief(false);
-$('#btnOdswiez').onclick = () => odsluchajBrief(true);
+$('#btnOdswiez').onclick = async () => {
+  const b = $('#btnOdswiez'); if (b.disabled) return;
+  b.disabled = true; b.textContent = 'Przygotowuję brief... (do minuty)';
+  $('#statusBriefu').innerHTML = '<span style="color:var(--szary)">Czytam kalendarz, pocztę i arkusze.</span>';
+  try {
+    brief = (await api('brief', { odswiez: true })).brief; rysujBrief();
+    $('#statusBriefu').innerHTML = '<span style="color:#3c9a5f">✓ Brief gotowy. Przewiń w górę albo dotknij „Odsłuchaj brief”.</span>';
+  } catch (e) { $('#statusBriefu').innerHTML = `<span style="color:#b0544a">Nie udało się: ${esc(e.message)}</span>`; }
+  finally { b.disabled = false; b.textContent = 'Przygotuj brief od nowa'; }
+};
 $('#dzienWstecz').onclick = () => ladujZadania(plusDni(dzienZad, -1));
 $('#dzienDalej').onclick = () => ladujZadania(plusDni(dzienZad, 1));
 $('#btnDodajZadanie').onclick = dodajZadanie;
