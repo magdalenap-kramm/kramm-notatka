@@ -209,7 +209,7 @@ const $ = s => document.querySelector(s);
 const API = 'https://europe-central2-calm-metric-514918-h8.cloudfunctions.net/api';
 // Asystentka ma własny adres (osobno od Notatki KRAMM), żeby telefon mógł ją zainstalować jako osobną aplikację
 const NOWY_ADRES = 'https://asystentka-kramm.web.app/';
-// PRZENIESIENIE (włączyć po wdrożeniu hostingu): if (location.hostname.endsWith('github.io')) location.replace(NOWY_ADRES + location.search + location.hash);
+if (location.hostname.endsWith('github.io')) location.replace(NOWY_ADRES + location.search + location.hash);
 const ADRES = location.hostname.endsWith('web.app') ? NOWY_ADRES : location.hostname.endsWith('github.io') ? 'https://magdalenap-kramm.github.io/kramm-notatka/asystentka/' : location.origin + location.pathname;
 const ZDJECIA = {
   'dominika@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/21-210x210.png', 'zanna@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/19-210x210.png',
