@@ -92,6 +92,9 @@
   .arkusz h3 { font-family:"Cormorant Garamond", serif; font-size:24px; color:var(--granat); margin:0 0 6px; }
   .arkusz p { font-size:15px; color:#5e5868; margin:0 0 14px; line-height:1.45; }
   .zaslona { position:fixed; inset:0; z-index:49; background:rgba(28,31,107,.35); }
+  .zakl { flex:1; border:1px solid #eadfd8; background:#fff; color:var(--granat); border-radius:999px; padding:9px; font-family:"Cormorant Garamond", serif; font-size:19px; }
+  .zakl.akt { background:var(--granat); color:#fff; border-color:var(--granat); }
+  #panele::-webkit-scrollbar { display:none; }
 </style>
 </head>
 <body>
@@ -125,7 +128,9 @@
       <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="noweZadanie" placeholder="Dopisz zadanie"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnDodajZadanie">Dodaj</button></div>
     </div>
     <div class="karta">
-      <h3>Napisz do dziewczyn</h3>
+      <div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="zakl" data-panel="0">Napisz</button><button type="button" class="zakl" data-panel="1">Historia <span id="ileHist"></span></button></div>
+      <div id="panele" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:24px">
+      <div style="flex:0 0 100%;scroll-snap-align:start;min-width:0">
       <label>Do kogo</label>
       <button type="button" id="wybierzOsobe" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-size:16px;border:1px solid #eadfd8;border-radius:14px;background:#fffdfb;font-family:inherit;color:var(--tekst)"><span id="wybranaOsoba">Wybierz osobę</span><span id="strzalka">▾</span></button>
       <div id="zespol" class="ukryty" style="border:1px solid #eadfd8;border-radius:14px;margin-top:6px;overflow:hidden;background:#fff"></div>
@@ -134,8 +139,11 @@
       <textarea id="trescWiad" rows="2" placeholder="Wiadomość albo zadanie" style="margin-top:8px"></textarea>
       <div class="przel"><input type="checkbox" id="jakoZadanie"><label for="jakoZadanie" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Wrzuć jako zadanie na dzień</label><input type="date" id="dzienZadania" style="width:auto;padding:6px;border:1px solid #eadfd8;border-radius:10px"></div>
       <button class="glowny" id="btnWyslijWiad">Wyślij</button>
-      <div id="wyslane"></div>
-      <p class="info">Albo głosem: „napisz do Żanny, że klucze są w biurze”, „wrzuć Paulinie na piątek telefon do Nowaka”.</p>
+      <div id="statusWiad" style="text-align:center;font-size:15px;margin-top:8px;min-height:20px"></div>
+      <p class="info">Albo głosem: „napisz do Żanny, że klucze są w biurze”. Przesuń w lewo, żeby zobaczyć historię.</p>
+      </div>
+      <div style="flex:0 0 100%;scroll-snap-align:start;min-width:0"><div id="wyslane"><div class="pusto">Brak wiadomości.</div></div></div>
+      </div>
     </div>
     <div id="brief"></div>
     <button class="drugi" id="btnOdswiez">Przygotuj brief od nowa</button>
@@ -342,8 +350,14 @@ async function ladujWiadomosci() {
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
       <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div></div>`).join('')}</div>` : '';
     const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'] };
-    $('#wyslane').innerHTML = (r.wyslane || []).length ? '<label>Wysłane</label>' + r.wyslane.map(w => { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
-      return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div class="opis" style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div></div></div>`; }).join('') : '';
+    const hist = [...(r.wyslane || []).map(w => ({ ...w, kier: 'do' })), ...(r.wiadomosci || []).map(w => ({ ...w, kier: 'od' }))].sort((a, b) => b.czas - a.czas).slice(0, 25);
+    $('#ileHist').textContent = hist.length ? `(${hist.length})` : '';
+    const kiedy = t => new Date(t).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+    $('#wyslane').innerHTML = hist.length ? hist.map(w => {
+      if (w.kier === 'do') { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
+        return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
+      return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`;
+    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie</p>' : '<div class="pusto">Brak wiadomości.</div>';
     const zn = id => nowe.find(w => w.id === id);
     document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => { b.disabled = true; await api('wiadomosc_przeczytana', { id: b.dataset.wid, odpowiedz: b.dataset.wodp }).catch(() => {}); ladujWiadomosci(); });
     const doZad = (id, d) => api('zadanie_dodaj', { dzien: d, tekst: zn(id).tekst, od: zn(id).odImie, wiadomosc: id }).then(() => { ladujWiadomosci(); ladujZadania(d); }).catch(e => { $('#odp').textContent = e.message; });
@@ -353,14 +367,22 @@ async function ladujWiadomosci() {
 }
 async function wyslijWiadomosc() {
   const doKogo = $('#doKogo').value, tekst = $('#trescWiad').value.trim();
-  if (!doKogo || !tekst) { $('#odp').textContent = 'Wybierz, do kogo, i wpisz treść.'; return; }
+  const st = (t, kolor) => { $('#statusWiad').innerHTML = `<span style="color:${kolor}">${t}</span>`; };
+  if (!doKogo || !tekst) { st('Wybierz osobę i wpisz treść.', '#b0544a'); return; }
   const zadanie = $('#jakoZadanie').checked;
+  const komu = $('#wybranaOsoba').textContent.trim();
+  const btn = $('#btnWyslijWiad'); btn.disabled = true; btn.textContent = 'Wysyłam...';
   try {
     await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
-    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; $('#doKogo').value = ''; ladujWiadomosci();
-    $('#odp').textContent = zadanie ? 'Zadanie wysłane.' : 'Wiadomość wysłana.';
-  } catch (e) { $('#odp').textContent = e.message; }
+    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; $('#doKogo').value = '';
+    st(`✓ ${zadanie ? 'Zadanie wysłane' : 'Wysłane'} do: ${esc(komu)}`, '#3c9a5f');
+    setTimeout(() => { $('#statusWiad').innerHTML = ''; }, 6000);
+    ladujWiadomosci();
+  } catch (e) { st('Nie wysłano: ' + esc(e.message), '#b0544a'); }
+  finally { btn.disabled = false; btn.textContent = 'Wyślij'; }
 }
+function panel(n) { const p = $('#panele'); p.scrollTo({ left: n * (p.clientWidth + 24), behavior: 'smooth' }); }
+function zaznaczZakladke() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); document.querySelectorAll('.zakl').forEach(b => b.classList.toggle('akt', +b.dataset.panel === n)); }
 function sekcja(tytul, poz, pusty, ile) {
   return `<div class="karta"><h3>${tytul}${ile ? `<small>${ile}</small>` : ''}</h3>${poz.length ? poz.join('') : `<div class="pusto">${pusty}</div>`}</div>`;
 }
@@ -613,6 +635,8 @@ $('#dzienDalej').onclick = () => ladujZadania(plusDni(dzienZad, 1));
 $('#btnDodajZadanie').onclick = dodajZadanie;
 $('#noweZadanie').onkeydown = e => { if (e.key === 'Enter') dodajZadanie(); };
 $('#btnWyslijWiad').onclick = wyslijWiadomosc;
+document.querySelectorAll('.zakl').forEach(b => b.onclick = () => panel(+b.dataset.panel));
+$('#panele').addEventListener('scroll', () => zaznaczZakladke(), { passive: true }); zaznaczZakladke();
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
