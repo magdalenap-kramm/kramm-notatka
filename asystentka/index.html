@@ -6,11 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2e3192">
-<title>KRAMM - Asystentka</title>
+<title>Asystentka KRAMM</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="ikona-192.png">
-<meta name="apple-mobile-web-app-title" content="Asystentka">
+<meta name="apple-mobile-web-app-title" content="Asystentka KRAMM">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -173,6 +173,8 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
+      <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
+      <p class="info" id="ikonaInfo"></p>
       <div class="info"><b>Ikona na ekranie (iPhone):</b><ol><li>Otwórz tę stronę w Safari.</li><li>Dotknij <b>Udostępnij</b> -> <b>Do ekranu początkowego</b>.</li><li>Otwieraj asystentkę z ikony. Tylko wtedy działają powiadomienia.</li></ol>
       <b>Otwieranie głosem: „Hej Krammuszko”</b><ol><li>Aplikacja <b>Skróty</b> -> <b>+</b> -> <b>Otwórz adresy URL</b>: <b>magdalenap-kramm.github.io/kramm-notatka/asystentka</b>, nazwa „Asystentka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Skróty głosowe</b> -> <b>Ustaw</b> -> Skrót „Asystentka KRAMM”.</li><li>Fraza: <b>„Hej Krammuszko, otwórz asystentkę”</b>.</li></ol>
       <b>Powiadomienie w aucie:</b> Ustawienia -> Powiadomienia -> Odczytuj powiadomienia -> włącz dla Asystentki. Siri przeczyta je w słuchawkach i w CarPlay.</div>
@@ -498,6 +500,13 @@ $('#btnInstaluj').onclick = async () => {
   if (outcome !== 'accepted') try { localStorage.setItem('instalPozniej', Date.now()); } catch (e) {}
 };
 $('#btnInstalPozniej').onclick = () => { try { localStorage.setItem('instalPozniej', Date.now()); } catch (e) {} $('#banerInstalacji').classList.add('ukryty'); };
+$('#btnIkona').onclick = async () => {
+  if (zainstalowana()) { $('#ikonaInfo').textContent = 'Asystentka jest już na pulpicie. Otwierasz ją teraz z ikony.'; return; }
+  if (prosbaInstalacji) { $('#btnInstaluj').onclick(); return; }
+  $('#ikonaInfo').innerHTML = iPhone
+    ? 'W Safari dotknij <b>Udostępnij</b> (kwadrat ze strzałką na dole), potem <b>Do ekranu początkowego</b> i <b>Dodaj</b>.'
+    : 'W Chrome dotknij <b>⋮</b> w prawym górnym rogu, potem <b>Dodaj do ekranu głównego</b> albo <b>Zainstaluj aplikację</b>, i potwierdź <b>Zainstaluj</b>. Jeśli ikona już jest na pulpicie, ta opcja się nie pojawi.';
+};
 const zainstalowana = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 function stanPush() {
   const mozna = 'serviceWorker' in navigator && 'PushManager' in window;
