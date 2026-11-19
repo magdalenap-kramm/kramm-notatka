@@ -127,7 +127,8 @@
     <div class="karta">
       <h3>Napisz do dziewczyn</h3>
       <label>Do kogo</label>
-      <div id="zespol" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <button type="button" id="wybierzOsobe" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-size:16px;border:1px solid #eadfd8;border-radius:14px;background:#fffdfb;font-family:inherit;color:var(--tekst)"><span id="wybranaOsoba">Wybierz osobę</span><span id="strzalka">▾</span></button>
+      <div id="zespol" class="ukryty" style="border:1px solid #eadfd8;border-radius:14px;margin-top:6px;overflow:hidden;background:#fff"></div>
       <p class="info" style="margin:6px 0 0"><span style="color:#3c9a5f">●</span> w Asystentce &nbsp; <span style="color:#c9a9b2">●</span> jeszcze nie - wiadomość poczeka do jej pierwszego logowania</p>
       <input type="hidden" id="doKogo">
       <textarea id="trescWiad" rows="2" placeholder="Wiadomość albo zadanie" style="margin-top:8px"></textarea>
@@ -332,8 +333,11 @@ async function ladujWiadomosci() {
     const r = await api('wiadomosci');
     const wyb = $('#doKogo').value;
     const zesp = [...r.zespol].sort((a, b) => (b.zalogowana === true) - (a.zalogowana === true));
-    $('#zespol').innerHTML = zesp.map(x => `<button type="button" data-osoba="${esc(x.email)}" style="border:1px solid ${x.email === wyb ? 'var(--granat)' : '#eadfd8'};background:${x.email === wyb ? 'var(--granat)' : '#fff'};color:${x.email === wyb ? '#fff' : 'var(--tekst)'};border-radius:999px;padding:8px 12px;font-family:inherit;font-size:14px;display:flex;align-items:center;gap:6px"><i style="width:9px;height:9px;border-radius:50%;background:${x.zalogowana === false ? '#c9a9b2' : '#3c9a5f'}"></i>${esc(x.nazwa || x.imie || x.email)}</button>`).join('');
-    document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; ladujWiadomosci(); });
+    const kropka = x => `<i style="width:10px;height:10px;border-radius:50%;flex:none;background:${x.zalogowana === false ? '#c9a9b2' : '#3c9a5f'}"></i>`;
+    $('#zespol').innerHTML = zesp.map(x => `<button type="button" data-osoba="${esc(x.email)}" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border:0;border-top:1px solid #f3ebe7;background:${x.email === wyb ? '#f6eef0' : '#fff'};font-family:inherit;font-size:16px;color:var(--tekst);text-align:left">${kropka(x)}${esc(x.nazwa || x.imie || x.email)}</button>`).join('');
+    const w = zesp.find(x => x.email === wyb);
+    $('#wybranaOsoba').innerHTML = w ? `<span style="display:flex;align-items:center;gap:10px">${kropka(w)}${esc(w.nazwa || w.imie)}</span>` : 'Wybierz osobę';
+    document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; $('#zespol').classList.add('ukryty'); $('#strzalka').textContent = '▾'; ladujWiadomosci(); });
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
       <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div></div>`).join('')}</div>` : '';
@@ -609,6 +613,7 @@ $('#dzienDalej').onclick = () => ladujZadania(plusDni(dzienZad, 1));
 $('#btnDodajZadanie').onclick = dodajZadanie;
 $('#noweZadanie').onkeydown = e => { if (e.key === 'Enter') dodajZadanie(); };
 $('#btnWyslijWiad').onclick = wyslijWiadomosc;
+$('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
 $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; };
