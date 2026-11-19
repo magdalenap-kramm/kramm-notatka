@@ -15,12 +15,10 @@ const NARZEDZIE_BRIEF = {
         id: { type: 'string', description: 'krótki identyfikator maila z listy, np. M3' }, od: { type: 'string', description: 'imię i nazwisko nadawcy, a przy firmie także jej nazwa. Gdy w nagłówku jest tylko adres e-mail, ustal nadawcę z podpisu na końcu maila (pole podpis). Nigdy nie wpisuj tu adresu e-mail, chyba że naprawdę nie da się ustalić nadawcy.' }, temat: { type: 'string' }, dlaczego: { type: 'string', description: 'jedno zdanie: czego dotyczy i czego oczekuje nadawca' } }, required: ['id', 'od', 'temat', 'dlaczego'] } },
       kontakty: { type: 'array', description: 'Osoby do kontaktu dziś: zadania i alerty z rozmów, obiecane oddzwonienia, follow-upy po prezentacjach.', items: { type: 'object', properties: {
         kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string' } }, required: ['kto', 'sprawa'] } },
-      arkusze: { type: 'array', description: 'Nowe wpisy i sprawy wymagające działania z arkuszy pilnowanych przez agentkę (np. leady): każdy nowy wiersz od ostatniego briefu oraz wiersze, których status lub notatka wskazuje na potrzebę kontaktu albo działania.', items: { type: 'object', properties: {
-        arkusz: { type: 'string' }, kto: { type: 'string' }, numer: { type: 'string' }, sprawa: { type: 'string', description: 'czego dotyczy i co zrobić' }, nowy: { type: 'boolean' } }, required: ['arkusz', 'kto', 'sprawa'] } },
       jutro: { type: 'array', description: 'Co przygotować dziś na jutro (dokumenty, klucze, wydruki, umowy, sprzęt) na podstawie jutrzejszego kalendarza.', items: { type: 'string' } },
       mowa: { type: 'string', description: 'Tekst do przeczytania na głos (60-90 sekund). Naturalna polszczyzna, bez list i znaków specjalnych, godziny słownie zrozumiałe dla lektora (np. "o jedenastej trzydzieści").' }
     },
-    required: ['dzis', 'maile', 'kontakty', 'arkusze', 'jutro', 'mowa']
+    required: ['dzis', 'maile', 'kontakty', 'jutro', 'mowa']
   }
 };
 
@@ -35,10 +33,14 @@ Zasady:
 - Nie wymyślaj faktów. Jeśli czegoś nie ma w danych, pomiń. Jeśli źródło danych jest niedostępne, powiedz o tym jednym zdaniem.
 - Nieprzeczytane wiadomości od dziewczyn z KRAMM wymień w "mowa" (kto i czego dotyczy); sprawy do zrobienia z nich dodaj do "dzis".
 - Zadania z listy agentki na dziś i zaległe umieść w "dzis" (zaległe z dopiskiem "zaległe"), zadania na jutro w "jutro".
-- Najpierw wypełnij listy dzis, maile, kontakty, arkusze i jutro. W "mowa" powiedz, ile nowych wpisów jest w arkuszach, i wymień najważniejsze. Każda osoba, mail i sprawa wymieniona w "mowa" musi też być na odpowiedniej liście.
+- Najpierw wypełnij listy dzis, maile, kontakty i jutro. W "mowa" podaj tylko, ile nowych wpisów jest w każdym arkuszu (np. "W arkuszu Leady masz 3 nowe wpisy"), bez wymieniania osób z arkuszy. Każda osoba, mail i sprawa wymieniona w "mowa" musi też być na odpowiedniej liście.
 - Na końcu "mowa" dodaj jedno zdanie: "Powiedz, na który mail odpisać, albo co dodać do kalendarza."`;
 }
 
+// ile nowych wierszy przybyło w każdym pilnowanym arkuszu od ostatniego briefu
+function liczArkusze(dane) {
+  return (dane.arkusze || []).map(a => ({ id: a.id, nazwa: a.nazwa, nowe: typeof a.znane === 'number' ? Math.max(0, a.wiersze.length - a.znane) : 0, wszystkie: a.wiersze.length }));
+}
 async function zbierzDane(agentka, sekret) {
   const token = await g.tokenDostepu(agentka, sekret);
   const api = g.klient(token);
@@ -65,10 +67,7 @@ async function przygotuj(agentka, { sekret, klucz }) {
     ostatnie_rozmowy_z_notatki: dane.rozmowy,
     wiadomosci_od_dziewczyn_z_kramm: agentka.wiadomosciOdDziewczyn || [],
     zadania_z_listy_agentki: agentka.zadania || { dzis: [], jutro: [], zalegle: [] },
-    arkusze_pilnowane: (dane.arkusze || []).map(a => {
-      const znane = typeof a.znane === 'number' ? Math.min(a.znane, a.wiersze.length) : a.wiersze.length;
-      return { nazwa: a.nazwa, naglowek: a.naglowek, nowe_wiersze_od_ostatniego_briefu: a.wiersze.slice(znane).slice(-30), ostatnie_wiersze: a.wiersze.slice(Math.max(0, znane - 15), znane) };
-    }),
+    arkusze_pilnowane: liczArkusze(dane).map(a => ({ nazwa: a.nazwa, nowe_wpisy_od_ostatniego_briefu: a.nowe })),
     niedostepne_zrodla: dane.braki
   };
   const odp = await claude.zapytaj({ klucz, model: claude.MODEL_TEKSTY, system: system(agentka), narzedzia: [NARZEDZIE_BRIEF], wymusNarzedzie: 'zapisz_brief', maxTokenow: 8000,
@@ -81,7 +80,8 @@ async function przygotuj(agentka, { sekret, klucz }) {
   b.maile = (b.maile || []).map(m => ({ m, z: wg[String(m.id || '').trim().toUpperCase()] })).filter(x => x.z)
     .map((x, i) => ({ nr: i + 1, watek: x.z.watek, od: x.m.od || x.z.od, odEmail: x.z.odEmail, temat: x.m.temat || x.z.temat, dlaczego: x.m.dlaczego || '' }));
   b.liczbaMaili = dane.maile.length;
-  for (const k of ['dzis', 'kontakty', 'arkusze', 'jutro']) if (!Array.isArray(b[k])) b[k] = [];
+  for (const k of ['dzis', 'kontakty', 'jutro']) if (!Array.isArray(b[k])) b[k] = [];
+  b.arkusze = liczArkusze(dane);
   b.stanArkuszy = Object.fromEntries((dane.arkusze || []).map(a => [a.id, a.wiersze.length]));
   if (!b.maile.length) {   // model nie oddał listy - pokaż maile od ludzi (bez masowych)
     b.maile = dane.maile.filter(m => !m.masowy).slice(0, 8)
