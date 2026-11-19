@@ -180,7 +180,7 @@
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
       <div class="info"><b>Ikona na ekranie (iPhone):</b><ol><li>Otwórz tę stronę w Safari.</li><li>Dotknij <b>Udostępnij</b> -> <b>Do ekranu początkowego</b>.</li><li>Otwieraj asystentkę z ikony. Tylko wtedy działają powiadomienia.</li></ol>
-      <b>Otwieranie głosem: „Hej Krammuszko”</b><ol><li>Aplikacja <b>Skróty</b> -> <b>+</b> -> <b>Otwórz adresy URL</b>: <b>magdalenap-kramm.github.io/kramm-notatka/asystentka</b>, nazwa „Asystentka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Skróty głosowe</b> -> <b>Ustaw</b> -> Skrót „Asystentka KRAMM”.</li><li>Fraza: <b>„Hej Krammuszko, otwórz asystentkę”</b>.</li></ol>
+      <b>Otwieranie głosem: „Hej Krammuszko”</b><ol><li>Aplikacja <b>Skróty</b> -> <b>+</b> -> <b>Otwórz adresy URL</b>: <b>asystentka-kramm.web.app</b>, nazwa „Asystentka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Skróty głosowe</b> -> <b>Ustaw</b> -> Skrót „Asystentka KRAMM”.</li><li>Fraza: <b>„Hej Krammuszko, otwórz asystentkę”</b>.</li></ol>
       <b>Powiadomienie w aucie:</b> Ustawienia -> Powiadomienia -> Odczytuj powiadomienia -> włącz dla Asystentki. Siri przeczyta je w słuchawkach i w CarPlay.</div>
     </div>
     <button class="glowny jasny" id="btnWroc">Wróć</button>
@@ -207,7 +207,10 @@
 <script>
 const $ = s => document.querySelector(s);
 const API = 'https://europe-central2-calm-metric-514918-h8.cloudfunctions.net/api';
-const ADRES = location.hostname.endsWith('github.io') ? 'https://magdalenap-kramm.github.io/kramm-notatka/asystentka/' : location.origin + location.pathname;
+// Asystentka ma własny adres (osobno od Notatki KRAMM), żeby telefon mógł ją zainstalować jako osobną aplikację
+const NOWY_ADRES = 'https://asystentka-kramm.web.app/';
+if (location.hostname.endsWith('github.io')) location.replace(NOWY_ADRES + location.search + location.hash);
+const ADRES = location.hostname.endsWith('web.app') || location.hostname.endsWith('github.io') ? NOWY_ADRES : location.origin + location.pathname;
 const ZDJECIA = {
   'dominika@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/21-210x210.png', 'zanna@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/19-210x210.png',
   'wiktoria@kramm.pl': 'https://kramm.pl/wp-content/uploads/2018/02/WiktoriaB-1-210x210.png', 'barbara@kramm.pl': 'https://kramm.pl/wp-content/uploads/2024/02/20-210x210.png',
