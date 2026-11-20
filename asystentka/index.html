@@ -97,7 +97,7 @@
   .zakl.akt { background:var(--granat); color:#fff; border-color:var(--granat); }
   #panele::-webkit-scrollbar { display:none; }
   .instr { margin-top:12px; } .instr summary { cursor:pointer; padding:8px 0; color:var(--granat); } .instr ol, .instr ul { padding-left:20px; margin:4px 0 10px; } .instr li { margin:3px 0; } .instr p { margin:8px 0 4px; }
-  #panele { align-items:flex-start; overflow-y:hidden; transition:height .25s; }
+  #panele { align-items:flex-start; }
 </style>
 </head>
 <body>
@@ -270,13 +270,15 @@ function wymagaLogowania(powod) {
 }
 
 // ---------- logowanie Google (kod + stały dostęp, odświeżany na serwerze) ----------
-async function zaloguj() {
+async function zaloguj(pelnaZgoda) {
   const { clientId, zakresy } = await api('konfig');
   const stan = crypto.getRandomValues(new Uint32Array(2)).join('-');
   localStorage.setItem('asyst_stan', stan);
   const p = new URLSearchParams({ client_id: clientId, redirect_uri: ADRES, response_type: 'code', scope: zakresy, access_type: 'offline', prompt: 'consent',
     include_granted_scopes: 'true', hd: 'kramm.pl', state: stan });
   const e = localStorage.getItem('asyst_email'); if (e) p.set('login_hint', e);
+  // kolejne logowania bez ekranu zgód: Google od razu wraca, a serwer zachowuje stały dostęp z pierwszego logowania
+  if (e && pelnaZgoda !== true) p.delete('prompt');
   location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + p;
 }
 async function powrotZGoogle() {
@@ -415,8 +417,13 @@ async function wyslijWiadomosc() {
   } catch (e) { st('Nie wysłano: ' + esc(e.message), '#b0544a'); }
   finally { btn.disabled = false; btn.textContent = 'Wyślij'; }
 }
-function panel(n) { const p = $('#panele'); p.scrollTo({ left: n * (p.clientWidth + 24), behavior: 'smooth' }); }
-function dopasujPanele() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); const el = p.children[n]; if (el) p.style.height = el.offsetHeight + 'px'; }
+function panel(n) { rozwinPanele(); const p = $('#panele'); p.scrollTo({ left: n * (p.clientWidth + 24), behavior: 'smooth' }); }
+// karta ma wysokość widocznej zakładki: niewidoczna zakładka jest zwijana, gdy przewijanie się zatrzyma
+function dopasujPanele() {
+  const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24));
+  [...p.children].forEach((el, i) => { el.style.maxHeight = i === n ? '' : '0px'; el.style.overflow = i === n ? '' : 'hidden'; });
+}
+function rozwinPanele() { [...$('#panele').children].forEach(el => { el.style.maxHeight = ''; el.style.overflow = ''; }); }
 function zaznaczZakladke() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); document.querySelectorAll('.zakl').forEach(b => b.classList.toggle('akt', +b.dataset.panel === n)); }
 // stary format briefu (wiersz po wierszu) -> jedna pozycja na arkusz z liczbą nowych wpisów
 function arkuszeZliczone(l) {
@@ -697,9 +704,8 @@ $('#btnDodajZadanie').onclick = dodajZadanie;
 $('#noweZadanie').onkeydown = e => { if (e.key === 'Enter') dodajZadanie(); };
 $('#btnWyslijWiad').onclick = wyslijWiadomosc;
 document.querySelectorAll('.zakl').forEach(b => b.onclick = () => panel(+b.dataset.panel));
-$('#panele').addEventListener('scroll', () => { zaznaczZakladke(); clearTimeout(window._tp); window._tp = setTimeout(dopasujPanele, 120); }, { passive: true }); zaznaczZakladke();
-try { new ResizeObserver(() => dopasujPanele()).observe($('#panele').children[0]); new ResizeObserver(() => dopasujPanele()).observe($('#panele').children[1]); } catch (e) {}
-window.addEventListener('resize', dopasujPanele);
+$('#panele').addEventListener('scroll', () => { zaznaczZakladke(); rozwinPanele(); clearTimeout(window._tp); window._tp = setTimeout(dopasujPanele, 150); }, { passive: true }); zaznaczZakladke(); dopasujPanele();
+$('#panele').addEventListener('touchstart', rozwinPanele, { passive: true });
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
@@ -708,7 +714,7 @@ $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;
 $('#btnSzukajArkusza').onclick = szukajArkusza;
 $('#szukajArkusza').onkeydown = e => { if (e.key === 'Enter') szukajArkusza(); };
-$('#btnZgody').onclick = () => zaloguj().catch(e => { $('#odp').textContent = e.message; });
+$('#btnZgody').onclick = () => zaloguj(true).catch(e => { $('#odp').textContent = e.message; });
 $('#btnZapiszUst').onclick = async () => {
   try { profil = (await api('ustawienia', { godzina: $('#godzina').value, dniRobocze: $('#dniRobocze').checked})).profil; pokazProfil(); $('#komunikat').textContent = `Zapisane. Brief o ${profil.godzina}.`; }
   catch (e) { $('#komunikat').textContent = e.message; }
