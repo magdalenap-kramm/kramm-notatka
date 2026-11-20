@@ -1,0 +1,24 @@
+name: Wgraj Asystentkę
+on:
+  push:
+    branches: [main]
+    paths: ['asystentka/**', 'funkcje/**', 'firebase.json', '.github/workflows/wdroz-asystentke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency: wdrozenie
+jobs:
+  wdroz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --omit=dev
+        working-directory: funkcje
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/696449098485/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-wdrozenia@calm-metric-514918-h8.iam.gserviceaccount.com
+      - run: npx -y firebase-tools deploy --only hosting,functions --force --non-interactive --project calm-metric-514918-h8
