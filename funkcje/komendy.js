@@ -50,7 +50,7 @@ const NARZEDZIA = [
 ];
 
 const KATALOG_KRAMM = [
-  ['Dominika Sadowska-Nowak', 'dominika@kramm.pl'], ['Żanna', 'zanna@kramm.pl'], ['Wiktoria', 'wiktoria@kramm.pl'], ['Barbara', 'barbara@kramm.pl'],
+  ['Dominika Sadowska-Nowak', 'dominika@kramm.pl'], ['Żanna', 'zanna@kramm.pl'], ['Wiktoria Bryll', 'wiktoria@kramm.pl'], ['Barbara', 'barbara@kramm.pl'],
   ['Magdalena Halicka-Gołębiowska', 'magdalena@kramm.pl'], ['Sonia Kuźma', 'sonia@kramm.pl'], ['Magdalena Kaczmarek', 'magdalena.k@kramm.pl'],
   ['Magdalena Pyrc', 'magdalena.p@kramm.pl'], ['Magda Horyza (zarządzanie najmem)', 'zarzadzanie@kramm.pl'], ['Sylwia Marciniak', 'sylwia.m@kramm.pl']
 ];

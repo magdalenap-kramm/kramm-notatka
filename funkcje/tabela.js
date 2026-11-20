@@ -11,7 +11,7 @@ const CO_ILE_DNI = 7;      // ponowne zadanie, dopóki termin w tabeli się nie 
 // domyślne zakładki dla adresów, gdy agentka nie wybrała swojej w ustawieniach
 const DOMYSLNE = {
   'magdalena.k@kramm.pl': 'Magda K', 'magdalena@kramm.pl': 'Magda H', 'zanna@kramm.pl': 'Żanna',
-  'sonia@kramm.pl': 'Sonia', 'barbara@kramm.pl': 'Basia', 'dominika@kramm.pl': 'Domi', 'wiktoria@kramm.pl': 'Wiktoria'
+  'sonia@kramm.pl': 'Sonia', 'barbara@kramm.pl': 'Basia', 'dominika@kramm.pl': 'Domi', 'wiktoria@kramm.pl': 'Wiktoria'   // Wiktoria Bryll
 };
 const bezPl = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').trim();
 
@@ -23,6 +23,8 @@ function zgadnijZakladke(agentka, lista) {
   if (agentka.zakladkaTabeli && lista.includes(agentka.zakladkaTabeli)) return agentka.zakladkaTabeli;
   const d = DOMYSLNE[agentka.email]; if (d && lista.includes(d)) return d;
   const imie = bezPl(agentka.imie);
+  const dokladna = lista.find(t => bezPl(t) === imie);       // np. "Wiktoria" (Bryll), a nie "Wiktoria W."
+  if (dokladna) return dokladna;
   const pasujace = lista.filter(t => bezPl(t).split(/\s+/)[0] === imie);
   return pasujace.length === 1 ? pasujace[0] : null;
 }
