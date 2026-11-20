@@ -96,6 +96,8 @@
   .zakl { flex:1; border:1px solid #eadfd8; background:#fff; color:var(--granat); border-radius:999px; padding:9px; font-family:"Cormorant Garamond", serif; font-size:19px; }
   .zakl.akt { background:var(--granat); color:#fff; border-color:var(--granat); }
   #panele::-webkit-scrollbar { display:none; }
+  .instr { margin-top:12px; } .instr summary { cursor:pointer; padding:8px 0; color:var(--granat); } .instr ol, .instr ul { padding-left:20px; margin:4px 0 10px; } .instr li { margin:3px 0; } .instr p { margin:8px 0 4px; }
+  #panele { align-items:flex-start; overflow-y:hidden; transition:height .25s; }
 </style>
 </head>
 <body>
@@ -193,9 +195,25 @@
       <h3>Na telefonie</h3>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
-      <div class="info"><b>Ikona na ekranie (iPhone):</b><ol><li>Otwórz tę stronę w Safari.</li><li>Dotknij <b>Udostępnij</b> -> <b>Do ekranu początkowego</b>.</li><li>Otwieraj asystentkę z ikony. Tylko wtedy działają powiadomienia.</li></ol>
-      <b>Otwieranie głosem: „Hej Krammuszko”</b><ol><li>Aplikacja <b>Skróty</b> -> <b>+</b> -> <b>Otwórz adresy URL</b>: <b>asystentka-kramm.web.app</b>, nazwa „Asystentka KRAMM”.</li><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Skróty głosowe</b> -> <b>Ustaw</b> -> Skrót „Asystentka KRAMM”.</li><li>Fraza: <b>„Hej Krammuszko, otwórz asystentkę”</b>.</li></ol>
-      <b>Powiadomienie w aucie:</b> Ustawienia -> Powiadomienia -> Odczytuj powiadomienia -> włącz dla Asystentki. Siri przeczyta je w słuchawkach i w CarPlay.</div>
+      <details class="info instr"><summary><b>iPhone - ikona, Siri i stuknięcie w tył</b></summary>
+        <p><b>Ikona na ekranie</b></p>
+        <ol><li>Otwórz <b>asystentka-kramm.web.app</b> w <b>Safari</b>.</li><li>Dotknij <b>Udostępnij</b> (kwadrat ze strzałką na dole).</li><li>Wybierz <b>Do ekranu początkowego</b> -> <b>Dodaj</b>.</li><li>Otwieraj Asystentkę z ikony - tylko wtedy działają powiadomienia.</li></ol>
+        <p><b>Skrót „Asystentka” (potrzebny do Siri i stuknięcia)</b></p>
+        <ol><li>Otwórz aplikację <b>Skróty</b> i dotknij <b>+</b> w prawym górnym rogu.</li><li>Dotknij <b>Dodaj czynność</b>, wpisz w wyszukiwarkę <b>Otwórz URL</b> i wybierz tę czynność.</li><li>Dotknij niebieskie pole <b>URL</b> i wpisz: <b>asystentka-kramm.web.app</b></li><li>Dotknij nazwy skrótu na górze -> <b>Zmień nazwę</b> -> wpisz <b>Asystentka</b> -> <b>Gotowe</b>.</li></ol>
+        <p><b>Głosem:</b> powiedz <b>„Hej Siri, Asystentka”</b>. Siri uruchomi skrót o tej nazwie.</p>
+        <p><b>Podwójne stuknięcie w tył telefonu</b> (iPhone 8 i nowsze):</p>
+        <ol><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b>.</li><li>Na samym dole <b>Stuknięcie w tył</b> -> <b>Stuknięcie dwukrotne</b>.</li><li>Przewiń do sekcji <b>Skróty</b> i zaznacz <b>Asystentka</b>.</li></ol>
+        <p>Skrót otwiera Asystentkę w Safari. Za pierwszym razem zaloguj się tam też kontem Google.</p>
+        <p><b>Powiadomienia w aucie:</b> Ustawienia -> Powiadomienia -> Zapowiadaj powiadomienia -> włącz. Siri przeczyta je w słuchawkach i w CarPlay.</p>
+      </details>
+      <details class="info instr"><summary><b>Android - ikona, głos i stuknięcie w tył</b></summary>
+        <p><b>Ikona:</b> przycisk wyżej albo w Chrome <b>⋮</b> -> <b>Dodaj do ekranu głównego</b> -> <b>Zainstaluj</b>.</p>
+        <p><b>Głosem:</b> „<b>Hej Google, otwórz Asystentka KRAMM</b>” (działa, gdy ikona jest zainstalowana).</p>
+        <p><b>Podwójne stuknięcie w tył:</b></p>
+        <ul><li><b>Samsung:</b> zainstaluj ze sklepu Galaxy Store aplikację <b>Good Lock</b> -> moduł <b>RegiStar</b> -> <b>Back-Tap action</b> -> włącz -> <b>Double tap</b> -> <b>Open app</b> -> <b>Asystentka KRAMM</b>.</li>
+        <li><b>Pixel:</b> Ustawienia -> System -> Gesty -> <b>Szybkie dotknięcie</b> -> włącz -> <b>Otwórz aplikację</b> -> <b>Asystentka KRAMM</b>.</li></ul>
+      </details>
+</div>
     </div>
     <button class="glowny jasny" id="btnWroc">Wróć</button>
     <button class="drugi" id="btnWyloguj" style="color:#b0544a">Wyloguj</button>
@@ -398,6 +416,7 @@ async function wyslijWiadomosc() {
   finally { btn.disabled = false; btn.textContent = 'Wyślij'; }
 }
 function panel(n) { const p = $('#panele'); p.scrollTo({ left: n * (p.clientWidth + 24), behavior: 'smooth' }); }
+function dopasujPanele() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); const el = p.children[n]; if (el) p.style.height = el.offsetHeight + 'px'; }
 function zaznaczZakladke() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); document.querySelectorAll('.zakl').forEach(b => b.classList.toggle('akt', +b.dataset.panel === n)); }
 // stary format briefu (wiersz po wierszu) -> jedna pozycja na arkusz z liczbą nowych wpisów
 function arkuszeZliczone(l) {
@@ -678,7 +697,9 @@ $('#btnDodajZadanie').onclick = dodajZadanie;
 $('#noweZadanie').onkeydown = e => { if (e.key === 'Enter') dodajZadanie(); };
 $('#btnWyslijWiad').onclick = wyslijWiadomosc;
 document.querySelectorAll('.zakl').forEach(b => b.onclick = () => panel(+b.dataset.panel));
-$('#panele').addEventListener('scroll', () => zaznaczZakladke(), { passive: true }); zaznaczZakladke();
+$('#panele').addEventListener('scroll', () => { zaznaczZakladke(); clearTimeout(window._tp); window._tp = setTimeout(dopasujPanele, 120); }, { passive: true }); zaznaczZakladke();
+try { new ResizeObserver(() => dopasujPanele()).observe($('#panele').children[0]); new ResizeObserver(() => dopasujPanele()).observe($('#panele').children[1]); } catch (e) {}
+window.addEventListener('resize', dopasujPanele);
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
