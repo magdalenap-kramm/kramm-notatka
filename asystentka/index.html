@@ -415,8 +415,13 @@ async function ladujZadania(d) {
     const lista = [...(r.zalegle || []).map(z => ({ ...z, zalegle: true })), ...r.zadania];
     $('#listaZadan').innerHTML = (lista.length ? lista.map(poz).join('') : '<div class="pusto">Brak zadań na ten dzień.</div>') +
       (r.wydarzenia || []).map(e => `<div class="wyd">${e.godzina ? `<b>${esc(e.godzina)}</b> ` : ''}${esc(e.tytul)}${e.miejsce ? ' · ' + esc(e.miejsce) : ''}</div>`).join('');
-    document.querySelectorAll('[data-zid]').forEach(c => c.onchange = async () => { c.closest('.zad').classList.toggle('zrob', c.checked); await api('zadanie_zmien', { id: c.dataset.zid, zrobione: c.checked }).catch(() => {}); });
-    document.querySelectorAll('[data-zusun]').forEach(b => b.onclick = async () => { await api('zadanie_usun', { id: b.dataset.zusun }).catch(() => {}); ladujZadania(); });
+    const info = t => { $('#listaZadan').insertAdjacentHTML('afterbegin', `<div class="pusto" style="color:#b0544a">${esc(t)}</div>`); };
+    document.querySelectorAll('[data-zid]').forEach(c => c.onchange = async () => {
+      c.closest('.zad').classList.toggle('zrob', c.checked);
+      try { await api('zadanie_zmien', { id: c.dataset.zid, zrobione: c.checked }); }
+      catch (e) { c.checked = !c.checked; c.closest('.zad').classList.toggle('zrob', c.checked); info(e.message); }
+    });
+    document.querySelectorAll('[data-zusun]').forEach(b => b.onclick = async () => { try { await api('zadanie_usun', { id: b.dataset.zusun }); ladujZadania(); } catch (e) { info(e.message); } });
   } catch (e) { $('#listaZadan').innerHTML = `<div class="pusto">${esc(e.message)}</div>`; }
 }
 async function dodajZadanie() {

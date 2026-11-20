@@ -42,6 +42,30 @@ function data(t) {
 const dniMiedzy = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
 const krotko = d => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 
+// odcisk zakładki - zmienia się po każdej zmianie w tabeli
+async function odcisk(api, zakladka) {
+  const j = await api(`https://sheets.googleapis.com/v4/spreadsheets/${TABELA_ID}/values/${encodeURIComponent(`'${zakladka}'!A1:AB`)}`);
+  return crypto.createHash('sha1').update(JSON.stringify(j.values || [])).digest('hex');
+}
+// czy po piątkowym zadaniu coś zmieniło się w zakładce; przy zmianie oznacza zadanie jako zrobione
+async function uzupelniona({ api, ref }) {
+  const sRef = ref.collection('stan').doc('tabela');
+  const st = (await sRef.get()).data();
+  if (!st || !st.zakladka) return { jest: true, brak: true };
+  if (st.uzupelniona) return { jest: true, st };
+  const teraz = await odcisk(api, st.zakladka);
+  if (teraz === st.odcisk) return { jest: false, st };
+  await sRef.set({ ...st, uzupelniona: true, kiedy: Date.now() });
+  await ref.collection('zadania').doc(`tabela-${st.dzien}`).set({ zrobione: true }, { merge: true }).catch(() => {});
+  return { jest: true, st, teraz: true };
+}
+const PRZYPOMNIENIA = {
+  15: 'Pamiętaj o wypełnieniu tabeli KRAMM. Dominika czeka ☕',
+  16: 'Nie wypełniłaś tabelki. Dominika będzie zła 😬',
+  17: 'Tabelka dalej czeka, Dominika też. 5 minut i weekend jest Twój 🙏',
+  18: 'Ostatni dzwonek! Dominika patrzy na zegarek ⏰ Uzupełnij tabelę przed wyjściem'
+};
+
 // umowy "w toku" z terminem zakończenia
 async function umowy(api, zakladka) {
   const j = await api(`https://sheets.googleapis.com/v4/spreadsheets/${TABELA_ID}/values/${encodeURIComponent(`'${zakladka}'!A1:AB`)}`);
@@ -73,7 +97,10 @@ async function sprawdz({ api, ref, agentka }) {
     const zak = zgadnijZakladke(agentka, lista);
     wynik.zakladka = zak;
     if (new Date(dzis + 'T12:00:00Z').getUTCDay() === 5 && zak) {
-      await dodaj(`tabela-${dzis}`, `Uzupełnij tabelę KRAMM - zakładka „${zak}”: statusy, terminy umów i komentarz z tego tygodnia`);
+      const sRef = ref.collection('stan').doc('tabela');
+      const st = (await sRef.get()).data();
+      if (!st || st.dzien !== dzis) await sRef.set({ dzien: dzis, zakladka: zak, odcisk: await odcisk(api, zak), uzupelniona: false });
+      await dodaj(`tabela-${dzis}`, `Uzupełnij tabelę KRAMM - zakładka „${zak}”: statusy, terminy umów i komentarz z tego tygodnia. Zadanie zniknie samo po zmianach w tabeli`);
     }
     if (!zak) return wynik;
     const stanRef = ref.collection('stan').doc('umowy');
@@ -100,4 +127,4 @@ async function sprawdz({ api, ref, agentka }) {
   return wynik;
 }
 
-module.exports = { TABELA_ID, TABELA_URL, sprawdz, zakladki, zgadnijZakladke, umowy, data, dniMiedzy };
+module.exports = { odcisk, uzupelniona, PRZYPOMNIENIA, TABELA_ID, TABELA_URL, sprawdz, zakladki, zgadnijZakladke, umowy, data, dniMiedzy };

@@ -235,6 +235,10 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         return res.json({ id: d.id });
       }
       case 'zadanie_zmien': {
+        if (String(body.id).startsWith('tabela-') && body.zrobione) {
+          const u = await tabela.uzupelniona({ api: g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim())), ref });
+          if (!u.jest) return res.status(409).json({ blad: 'Najpierw uzupełnij swoją zakładkę w Tabeli KRAMM. Zadanie odhaczy się samo po zmianach.' });
+        }
         const zm = {};
         if (body.zrobione !== undefined) zm.zrobione = !!body.zrobione;
         if (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '')) zm.dzien = body.dzien;
@@ -242,6 +246,10 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         return res.json({ ok: true });
       }
       case 'zadanie_usun': {
+        if (String(body.id).startsWith('tabela-')) {
+          const u = await tabela.uzupelniona({ api: g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim())), ref });
+          if (!u.jest) return res.status(409).json({ blad: 'Tego zadania nie da się usunąć, dopóki nie uzupełnisz tabeli KRAMM.' });
+        }
         await ref.collection('zadania').doc(String(body.id)).delete();
         return res.json({ ok: true });
       }
@@ -300,8 +308,23 @@ exports.poranek = onSchedule({ region: REGION, schedule: 'every 5 minutes', time
   const dzis = czas.dzien(), teraz = czas.godzina(), weekend = czas.czyWeekend();
   const naMinuty = h => +h.slice(0, 2) * 60 + +h.slice(3, 5);
   const wszystkie = await db.collection('agentki').get();
+  const godzinaTeraz = +teraz.slice(0, 2);
+  const piatek = new Date(dzis + 'T12:00:00Z').getUTCDay() === 5;
   for (const doc of wszystkie.docs) {
     const a = doc.data();
+    // piątek 15-18: co godzinę przypomnienie o Tabeli KRAMM, dopóki zakładka się nie zmieni
+    if (piatek && a.refresh && tabela.PRZYPOMNIENIA[godzinaTeraz]) {
+      try {
+        const sRef = doc.ref.collection('stan').doc('tabela');
+        const st = (await sRef.get()).data();
+        if (st && st.dzien === dzis && !st.uzupelniona && st.ostatniaGodzina !== godzinaTeraz) {
+          await sRef.update({ ostatniaGodzina: godzinaTeraz });
+          const u = await tabela.uzupelniona({ api: g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim())), ref: doc.ref });
+          if (u.jest) await wyslijPush(a.email, { tytul: 'Tabela KRAMM', tresc: 'Dziękuję! Tabela uzupełniona, miłego weekendu 🎉', url: './' });
+          else await wyslijPush(a.email, { tytul: 'Tabela KRAMM', tresc: tabela.PRZYPOMNIENIA[godzinaTeraz], url: './' });
+        }
+      } catch (e) { logger.error('tabela', a.email, e.message); }
+    }
     const godz = a.godzina || DOMYSLNA_GODZINA;
     if (a.ostatniBrief === dzis || (a.dniRobocze !== false && weekend) || !a.refresh) continue;
     const roznica = naMinuty(teraz) - naMinuty(godz);
