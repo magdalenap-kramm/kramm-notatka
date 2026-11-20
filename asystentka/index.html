@@ -96,7 +96,7 @@
   .zakl { flex:1; border:1px solid #eadfd8; background:#fff; color:var(--granat); border-radius:999px; padding:9px; font-family:"Cormorant Garamond", serif; font-size:19px; }
   .zakl.akt { background:var(--granat); color:#fff; border-color:var(--granat); }
   #panele::-webkit-scrollbar { display:none; }
-  .instr { margin-top:12px; } .instr summary { cursor:pointer; padding:8px 0; color:var(--granat); } .instr ol, .instr ul { padding-left:20px; margin:4px 0 10px; } .instr li { margin:3px 0; } .instr p { margin:8px 0 4px; }
+  .instr { margin-top:12px; } .instr summary { cursor:pointer; padding:8px 0; color:var(--granat); } .instr ol, .instr ul { padding-left:20px; margin:4px 0 10px; } .instr li { margin:3px 0; } .instr p { margin:8px 0 4px; } .krok-t { font-weight:600; color:var(--granat); margin-top:14px !important; }
   #panele { align-items:flex-start; }
 </style>
 </head>
@@ -195,25 +195,57 @@
       <h3>Na telefonie</h3>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
-      <details class="info instr"><summary><b>iPhone - ikona, Siri i stuknięcie w tył</b></summary>
-        <p><b>Ikona na ekranie</b></p>
-        <ol><li>Otwórz <b>asystentka-kramm.web.app</b> w <b>Safari</b>.</li><li>Dotknij <b>Udostępnij</b> (kwadrat ze strzałką na dole).</li><li>Wybierz <b>Do ekranu początkowego</b> -> <b>Dodaj</b>.</li><li>Otwieraj Asystentkę z ikony - tylko wtedy działają powiadomienia.</li></ol>
-        <p><b>Skrót „Asystentka” (potrzebny do Siri i stuknięcia)</b></p>
-        <ol><li>Otwórz aplikację <b>Skróty</b> i dotknij <b>+</b> w prawym górnym rogu.</li><li>Dotknij <b>Dodaj czynność</b>, wpisz w wyszukiwarkę <b>Otwórz URL</b> i wybierz tę czynność.</li><li>Dotknij niebieskie pole <b>URL</b> i wpisz: <b>asystentka-kramm.web.app</b></li><li>Dotknij nazwy skrótu na górze -> <b>Zmień nazwę</b> -> wpisz <b>Asystentka</b> -> <b>Gotowe</b>.</li></ol>
-        <p><b>Głosem:</b> powiedz <b>„Hej Siri, Asystentka”</b>. Siri uruchomi skrót o tej nazwie.</p>
-        <p><b>Podwójne stuknięcie w tył telefonu</b> (iPhone 8 i nowsze):</p>
-        <ol><li><b>Ustawienia</b> -> <b>Dostępność</b> -> <b>Dotyk</b>.</li><li>Na samym dole <b>Stuknięcie w tył</b> -> <b>Stuknięcie dwukrotne</b>.</li><li>Przewiń do sekcji <b>Skróty</b> i zaznacz <b>Asystentka</b>.</li></ol>
-        <p>Skrót otwiera Asystentkę w Safari. Za pierwszym razem zaloguj się tam też kontem Google.</p>
-        <p><b>Powiadomienia w aucie:</b> Ustawienia -> Powiadomienia -> Zapowiadaj powiadomienia -> włącz. Siri przeczyta je w słuchawkach i w CarPlay.</p>
+      <details class="info instr"><summary><b>iPhone - krok po kroku</b></summary>
+        <p class="krok-t">1. Ikona Asystentki na ekranie</p>
+        <ol>
+          <li>Otwórz aplikację <b>Safari</b> (niebieski kompas).</li>
+          <li>U góry w pasku adresu wpisz <b>asystentka-kramm.web.app</b> i naciśnij <b>Idź</b>.</li>
+          <li>Na dole ekranu naciśnij ikonę <b>kwadratu ze strzałką do góry</b> (Udostępnij).</li>
+          <li>Wysunie się lista. Przewiń ją w dół i naciśnij <b>Do ekranu początkowego</b>.</li>
+          <li>Pojawi się okienko z nazwą „Asystentka KRAMM”. W prawym górnym rogu naciśnij <b>Dodaj</b>.</li>
+          <li>Na ekranie telefonu pojawi się granatowa ikona z różowym „r”. Od teraz otwieraj Asystentkę tylko z niej i zaloguj się raz.</li>
+        </ol>
+        <p class="krok-t">2. Skrót „Asystentka” (do Siri i stukania w telefon)</p>
+        <ol>
+          <li>Otwórz aplikację <b>Skróty</b> (ikona z dwoma kolorowymi kwadratami). Jeśli jej nie masz, pobierz ją za darmo z App Store.</li>
+          <li>Na dole naciśnij <b>Skróty</b>, a potem w prawym górnym rogu <b>+</b>.</li>
+          <li>Otworzy się pusty skrót. Naciśnij <b>Dodaj czynność</b> albo pole <b>Szukaj czynności</b> na dole.</li>
+          <li>Wpisz <b>URL</b>. Na liście naciśnij <b>Otwórz adresy URL</b>.</li>
+          <li>Pojawi się szary prostokąt z niebieskim słowem <b>URL</b>. Naciśnij to niebieskie słowo i wpisz <b>asystentka-kramm.web.app</b></li>
+          <li>Na samej górze naciśnij nazwę <b>Nowy skrót</b> -> <b>Zmień nazwę</b> -> wpisz <b>Asystentka</b>.</li>
+          <li>W prawym górnym rogu naciśnij <b>Gotowe</b>. Skrót jest zapisany.</li>
+        </ol>
+        <p class="krok-t">3. Otwieranie głosem</p>
+        <ol><li>Powiedz: <b>„Hej Siri, Asystentka”</b>. Siri otworzy Asystentkę.</li><li>Za pierwszym razem zaloguj się kontem Google (skrót otwiera Asystentkę w Safari).</li></ol>
+        <p class="krok-t">4. Podwójne stuknięcie w tył telefonu</p>
+        <ol>
+          <li>Otwórz <b>Ustawienia</b> (szara zębatka).</li>
+          <li>Naciśnij <b>Dostępność</b>, a potem <b>Dotyk</b>.</li>
+          <li>Przewiń na sam dół i naciśnij <b>Stuknięcie w tył</b>.</li>
+          <li>Naciśnij <b>Stuknięcie dwukrotne</b>.</li>
+          <li>Przewiń w dół do części <b>Skróty</b> i naciśnij <b>Asystentka</b>. Pojawi się niebieski ptaszek.</li>
+          <li>Gotowe. Stuknij dwa razy palcem w tył telefonu, a Asystentka się otworzy.</li>
+        </ol>
       </details>
-      <details class="info instr"><summary><b>Android - ikona, głos i stuknięcie w tył</b></summary>
-        <p><b>Ikona:</b> przycisk wyżej albo w Chrome <b>⋮</b> -> <b>Dodaj do ekranu głównego</b> -> <b>Zainstaluj</b>.</p>
-        <p><b>Głosem:</b> „<b>Hej Google, otwórz Asystentka KRAMM</b>” (działa, gdy ikona jest zainstalowana).</p>
-        <p><b>Podwójne stuknięcie w tył:</b></p>
-        <ul><li><b>Samsung:</b> zainstaluj ze sklepu Galaxy Store aplikację <b>Good Lock</b> -> moduł <b>RegiStar</b> -> <b>Back-Tap action</b> -> włącz -> <b>Double tap</b> -> <b>Open app</b> -> <b>Asystentka KRAMM</b>.</li>
-        <li><b>Pixel:</b> Ustawienia -> System -> Gesty -> <b>Szybkie dotknięcie</b> -> włącz -> <b>Otwórz aplikację</b> -> <b>Asystentka KRAMM</b>.</li></ul>
+      <details class="info instr"><summary><b>Android (Samsung) - krok po kroku</b></summary>
+        <p class="krok-t">1. Ikona Asystentki na ekranie</p>
+        <ol>
+          <li>Otwórz <b>Chrome</b> i wpisz <b>asystentka-kramm.web.app</b>. Jeśli link otworzył się w Messengerze, naciśnij <b>Otwórz w Chrome</b>.</li>
+          <li>Dotknij ekranu w dowolnym miejscu. Wyskoczy okienko <b>Zainstalować aplikację?</b> - naciśnij <b>Zainstaluj</b>.</li>
+          <li>Jeśli okienko się nie pokaże: naciśnij <b>trzy kropki</b> w prawym górnym rogu Chrome -> <b>Dodaj do ekranu głównego</b> -> <b>Zainstaluj</b>.</li>
+          <li>Ikona pojawi się na ekranie. Jeśli jej nie widzisz, przesuń palcem w górę po ekranie głównym i wpisz u góry „Asystentka”.</li>
+        </ol>
+        <p class="krok-t">2. Otwieranie głosem</p>
+        <ol><li>Powiedz: <b>„Hej Google, otwórz Asystentka KRAMM”</b>.</li></ol>
+        <p class="krok-t">3. Podwójne stuknięcie w tył (Samsung)</p>
+        <ol>
+          <li>Otwórz <b>Galaxy Store</b>, wyszukaj <b>Good Lock</b> i naciśnij <b>Zainstaluj</b>.</li>
+          <li>Otwórz <b>Good Lock</b>. Na dole naciśnij <b>Life up</b>, znajdź <b>RegiStar</b> i zainstaluj go.</li>
+          <li>Otwórz <b>RegiStar</b> -> <b>Back-Tap action</b> -> włącz przełącznik u góry.</li>
+          <li>Naciśnij <b>Double tap</b> -> <b>Open app</b> -> wybierz <b>Asystentka KRAMM</b>.</li>
+          <li>Gotowe. Stuknij dwa razy w tył telefonu.</li>
+        </ol>
       </details>
-</div>
     </div>
     <button class="glowny jasny" id="btnWroc">Wróć</button>
     <button class="drugi" id="btnWyloguj" style="color:#b0544a">Wyloguj</button>
