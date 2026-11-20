@@ -269,6 +269,15 @@
   <button class="glowny" id="btnInstaluj">Dodaj ikonę</button>
   <button class="jasny" style="margin-top:8px;width:100%;padding:10px;border-radius:999px;border:0" id="btnInstalPozniej">Później</button>
 </div>
+<div id="banerTabeli" class="arkusz ukryty" style="text-align:left;z-index:52;max-height:90vh;overflow-y:auto">
+  <h3 style="text-align:center">Twoja zakładka w Tabeli KRAMM</h3>
+  <p>Każda z nas ma w Tabeli KRAMM swoją zakładkę. Wybierz swoją, a Asystentka:</p>
+  <ul style="margin:0 0 12px;padding-left:20px;color:#5e5868;font-size:15px;line-height:1.5"><li>w każdy piątek rano doda Ci zadanie „Uzupełnij tabelę”,</li><li>na miesiąc przed końcem umowy pośrednictwa przypomni o przedłużeniu, co tydzień, dopóki nie zmienisz terminu w tabeli.</li></ul>
+  <select id="wyborZakladki" style="margin-bottom:12px"></select>
+  <button class="glowny" id="btnZakladkaZapisz">Zapisz</button>
+  <button class="jasny" style="margin-top:8px;width:100%;padding:10px;border-radius:999px;border:0" id="btnZakladkaPomin">Pomiń - nie mam zakładki</button>
+  <p class="info" style="text-align:center;margin-top:8px">Zmienisz to później w ustawieniach, w karcie „Tabela KRAMM”.</p>
+</div>
 <div id="banerAplikacji" class="arkusz ukryty">
   <img src="ikona-192.png" alt="">
   <h3>Otwórz w przeglądarce</h3>
@@ -355,11 +364,23 @@ function rysujArkusze() {
   $('#arkusze').innerHTML = l.length ? l.map(a => `<div class="punkt"><span>${esc(a.nazwa)}</span><button data-usunark="${esc(a.id)}" aria-label="Usuń">×</button></div>`).join('') : '<div class="pusto">Brak arkuszy.</div>';
   document.querySelectorAll('[data-usunark]').forEach(b => b.onclick = async () => { try { profil = (await api('arkusze_usun', { id: b.dataset.usunark })).profil; rysujArkusze(); } catch (e) { $('#komunikat').textContent = e.message; } });
 }
+async function zapytajOZakladke() {
+  if (!profil || profil.zakladkaTabeli || wAplikacji) return;
+  try {
+    const r = await api('tabela_zakladki');
+    $('#wyborZakladki').innerHTML = '<option value="">- wybierz swoją zakładkę -</option>' + r.lista.map(t => `<option${t === r.wybrana ? ' selected' : ''}>${esc(t)}</option>`).join('');
+    arkusz('banerInstalacji', false); arkusz('banerTabeli', true);
+  } catch (e) { /* brak dostępu do tabeli - nie pytamy */ }
+}
+async function zapiszZakladke(v) {
+  try { profil = (await api('ustawienia', { zakladkaTabeli: v })).profil; } catch (e) {}
+  arkusz('banerTabeli', false); setTimeout(() => pokazInstalacje(), 400);
+}
 async function ladujZakladki() {
   try {
     const r = await api('tabela_zakladki');
     $('#linkTabeli').href = r.url;
-    $('#zakladkaTabeli').innerHTML = '<option value="">- wybierz -</option>' + r.lista.map(t => `<option${t === r.wybrana ? ' selected' : ''}>${esc(t)}</option>`).join('');
+    $('#zakladkaTabeli').innerHTML = '<option value="">- wybierz -</option>' + r.lista.map(t => `<option${t === r.wybrana ? ' selected' : ''}>${esc(t)}</option>`).join('') + `<option value="-"${profil && profil.zakladkaTabeli === '-' ? ' selected' : ''}>nie mam zakładki</option>`;
   } catch (e) { $('#zakladkaTabeli').innerHTML = `<option value="">Brak dostępu do tabeli</option>`; $('#statusTabeli').textContent = e.message; }
 }
 async function szukajArkusza() {
@@ -660,7 +681,7 @@ if (wAplikacji && !zainstalowanaTeraz()) {
 }
 function zainstalowanaTeraz() { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone; }
 function pokazInstalacje(sila) {
-  if (wAplikacji || zainstalowanaTeraz()) return;
+  if (wAplikacji || zainstalowanaTeraz() || !$('#banerTabeli').classList.contains('ukryty')) return;
   let pozniej = 0; try { pozniej = +localStorage.getItem('instalPozniej') || 0; } catch (e) {}
   if (!sila && Date.now() - pozniej < 864e5) return;
   if (!prosbaInstalacji && !iPhone && !sila) return;
@@ -727,7 +748,7 @@ async function start() {
   pokaz('#ekranGlowny');
   try {
     const r = await api('ja');
-    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci();
+    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke();
     if (r.oczekujace && ['mail', 'kalendarz'].includes(r.oczekujace.typ) && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
       rysujKarte(r.oczekujace.typ === 'mail' ? { typ: 'szkic', do: r.oczekujace.od, temat: r.oczekujace.szkic.temat, tresc: r.oczekujace.szkic.tresc } : { typ: 'kalendarz', ...r.oczekujace.dane, kiedy: r.oczekujace.dane.start.replace('T', ' ') });
       $('#odp').textContent = 'Czeka na Twoje potwierdzenie.';
@@ -765,6 +786,8 @@ $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent =
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;
 $('#btnSzukajArkusza').onclick = szukajArkusza;
+$('#btnZakladkaZapisz').onclick = () => { const v = $('#wyborZakladki').value; if (!v) { $('#wyborZakladki').focus(); return; } zapiszZakladke(v); };
+$('#btnZakladkaPomin').onclick = () => zapiszZakladke('-');
 $('#zakladkaTabeli').onchange = async () => { try { profil = (await api('ustawienia', { zakladkaTabeli: $('#zakladkaTabeli').value })).profil; $('#statusTabeli').textContent = '✓ zapisane'; } catch (e) { $('#statusTabeli').textContent = e.message; } };
 $('#szukajArkusza').onkeydown = e => { if (e.key === 'Enter') szukajArkusza(); };
 $('#btnZgody').onclick = () => zaloguj(true).catch(e => { $('#odp').textContent = e.message; });

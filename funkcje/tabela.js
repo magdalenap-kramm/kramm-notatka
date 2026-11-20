@@ -20,6 +20,7 @@ async function zakladki(api) {
   return (j.sheets || []).map(s => s.properties.title).filter(t => !/^liczba odpowiedzi|^arkusz\d+$/i.test(t));
 }
 function zgadnijZakladke(agentka, lista) {
+  if (agentka.zakladkaTabeli === '-') return null;   // agentka pominęła wybór
   if (agentka.zakladkaTabeli && lista.includes(agentka.zakladkaTabeli)) return agentka.zakladkaTabeli;
   const d = DOMYSLNE[agentka.email]; if (d && lista.includes(d)) return d;
   const imie = bezPl(agentka.imie);
