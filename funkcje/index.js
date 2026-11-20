@@ -11,6 +11,7 @@ const czas = require('./czas');
 const g = require('./google');
 const brief = require('./brief');
 const komendy = require('./komendy');
+const tabela = require('./tabela');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -103,10 +104,13 @@ async function zrobBrief(email) {
   const ref = agentkaRef(email);
   const a = (await ref.get()).data();
   const dzis = czas.dzien();
+  // tabela KRAMM: piątkowe przypomnienie i umowy do przedłużenia -> zadania na dziś
+  const tab = await tabela.sprawdz({ api: g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim())), ref, agentka: a }).catch(e => { if (e.kod) throw e; return { zadania: [] }; });
   const [zd, zj, zz] = await Promise.all([zadaniaDnia(email, dzis), zadaniaDnia(email, czas.dodajDni(dzis, 1)), zalegle(email)]).catch(() => [[], [], []]);
   a.wiadomosciOdDziewczyn = (await noweWiadomosci(email).catch(() => [])).map(w => `${w.odImie}: ${w.tekst}`);
   a.zadania = { dzis: zd.filter(z => !z.zrobione).map(z => z.tekst), jutro: zj.filter(z => !z.zrobione).map(z => z.tekst), zalegle: zz.map(z => `${z.tekst} (z ${z.dzien})`) };
   const b = await brief.przygotuj(a, { sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
+  b.tabela = { zadania: tab.zadania || [], zakladka: tab.zakladka || null, url: tabela.TABELA_URL };
   await ref.collection('briefy').doc(b.data).set(b);
   const arkusze = (a.arkusze || []).map(x => b.stanArkuszy && b.stanArkuszy[x.id] !== undefined ? { ...x, wiersze: b.stanArkuszy[x.id] } : x);
   await ref.update({ ostatniBrief: b.data, arkusze, ...(b.arkusz && !a.arkuszNotatki ? { arkuszNotatki: b.arkusz } : {}), polaczenie: 'ok' });
@@ -141,7 +145,7 @@ async function kto(req) {
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
     powiadomienia: (a.push || []).length, polaczenie: a.polaczenie || 'ok',
-    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })),
+    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '',
     brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
 
@@ -168,6 +172,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         const zm = {};
         if (body.godzina !== undefined) { const h = czas.doPieciu(body.godzina); if (!h) return res.status(400).json({ blad: 'Zła godzina' }); zm.godzina = h; }
         if (body.dniRobocze !== undefined) zm.dniRobocze = !!body.dniRobocze;
+        if (body.zakladkaTabeli !== undefined) zm.zakladkaTabeli = String(body.zakladkaTabeli).slice(0, 60);
         if (Array.isArray(body.punkty)) zm.punkty = body.punkty.map(p => String(p).trim()).filter(Boolean).slice(0, 15);
         await ref.update(zm);
         return res.json({ profil: profil({ ...a, ...zm }) });
@@ -179,6 +184,11 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         await ref.update({ push });
         if (body.test) await wyslijPush(email, { tytul: 'Asystentka KRAMM', tresc: 'Powiadomienia działają. Rano przyjdzie tu Twój brief.', url: './' });
         return res.json({ ok: true, powiadomienia: push.length });
+      }
+      case 'tabela_zakladki': {
+        const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
+        const lista = await tabela.zakladki(api);
+        return res.json({ lista, wybrana: tabela.zgadnijZakladke(a, lista), url: tabela.TABELA_URL });
       }
       case 'arkusze_szukaj': {
         const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
@@ -299,7 +309,8 @@ exports.poranek = onSchedule({ region: REGION, schedule: 'every 5 minutes', time
     await doc.ref.update({ ostatniBrief: dzis });          // blokada przed podwójnym wysłaniem
     try {
       const b = await zrobBrief(a.email);
-      await wyslijPush(a.email, { tytul: `Dzień dobry, ${a.imie}`, tresc: podsumowanie(b), url: './?brief=1' });
+      const piatek = (b.tabela && b.tabela.zadania || []).some(t => t.startsWith('Uzupełnij tabelę'));
+      await wyslijPush(a.email, { tytul: `Dzień dobry, ${a.imie}`, tresc: (piatek ? 'Piątek: uzupełnij tabelę KRAMM. ' : '') + podsumowanie(b), url: './?brief=1' });
     } catch (e) {
       logger.error('poranek', a.email, e);
       if (e.kod === 'polacz') {

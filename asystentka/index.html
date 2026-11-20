@@ -184,6 +184,13 @@
       <button class="glowny" id="btnPush">Włącz powiadomienia</button>
     </div>
     <div class="karta">
+      <h3>Tabela KRAMM</h3>
+      <p class="info">W każdy piątek rano dostaniesz zadanie, żeby uzupełnić swoją zakładkę. Na miesiąc przed końcem umowy pośrednictwa pojawi się zadanie o przedłużeniu, co tydzień, dopóki nie zmienisz terminu w tabeli.</p>
+      <label for="zakladkaTabeli">Moja zakładka</label>
+      <select id="zakladkaTabeli"><option value="">Ładuję...</option></select>
+      <p class="info" style="margin-top:8px"><a id="linkTabeli" href="#" target="_blank" rel="noopener" style="color:var(--granat)">Otwórz tabelę</a> <span id="statusTabeli"></span></p>
+    </div>
+    <div class="karta">
       <h3>Arkusze do pilnowania</h3>
       <p class="info">Arkusze z Dysku, np. z leadami. W porannym briefie dostaniesz nowe wpisy i sprawy do załatwienia.</p>
       <div id="arkusze"></div>
@@ -347,6 +354,13 @@ function rysujArkusze() {
   const l = (profil && profil.arkusze) || [];
   $('#arkusze').innerHTML = l.length ? l.map(a => `<div class="punkt"><span>${esc(a.nazwa)}</span><button data-usunark="${esc(a.id)}" aria-label="Usuń">×</button></div>`).join('') : '<div class="pusto">Brak arkuszy.</div>';
   document.querySelectorAll('[data-usunark]').forEach(b => b.onclick = async () => { try { profil = (await api('arkusze_usun', { id: b.dataset.usunark })).profil; rysujArkusze(); } catch (e) { $('#komunikat').textContent = e.message; } });
+}
+async function ladujZakladki() {
+  try {
+    const r = await api('tabela_zakladki');
+    $('#linkTabeli').href = r.url;
+    $('#zakladkaTabeli').innerHTML = '<option value="">- wybierz -</option>' + r.lista.map(t => `<option${t === r.wybrana ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  } catch (e) { $('#zakladkaTabeli').innerHTML = `<option value="">Brak dostępu do tabeli</option>`; $('#statusTabeli').textContent = e.message; }
 }
 async function szukajArkusza() {
   const f = $('#szukajArkusza').value.trim();
@@ -747,10 +761,11 @@ $('#panele').addEventListener('touchstart', rozwinPanele, { passive: true });
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
-$('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; };
+$('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; ladujZakladki(); };
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;
 $('#btnSzukajArkusza').onclick = szukajArkusza;
+$('#zakladkaTabeli').onchange = async () => { try { profil = (await api('ustawienia', { zakladkaTabeli: $('#zakladkaTabeli').value })).profil; $('#statusTabeli').textContent = '✓ zapisane'; } catch (e) { $('#statusTabeli').textContent = e.message; } };
 $('#szukajArkusza').onkeydown = e => { if (e.key === 'Enter') szukajArkusza(); };
 $('#btnZgody').onclick = () => zaloguj(true).catch(e => { $('#odp').textContent = e.message; });
 $('#btnZapiszUst').onclick = async () => {
