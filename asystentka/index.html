@@ -406,14 +406,19 @@ async function ladujWiadomosci() {
       <div style="display:flex;gap:8px;margin-top:8px"><textarea data-wtresc="${esc(w.id)}" rows="1" placeholder="Odpisz ${esc(w.odImie)}..." style="flex:1;min-height:42px"></textarea><button class="jasny" data-wodpisz="${esc(w.id)}" style="flex:none;padding:0 14px;border-radius:14px">Wyślij</button></div>
       <div data-wstatus="${esc(w.id)}" style="font-size:14px;margin-top:4px"></div></div>`).join('')}</div>` : '';
     const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'] };
-    const hist = [...(r.wyslane || []).map(w => ({ ...w, kier: 'do' })), ...(r.wiadomosci || []).map(w => ({ ...w, kier: 'od' }))].sort((a, b) => b.czas - a.czas).slice(0, 25);
-    $('#ileHist').textContent = hist.length ? `(${hist.length})` : '';
+    const wszystko = [...(r.wyslane || []).map(w => ({ ...w, kier: 'do', osoba: w.do, imie: w.doImie })), ...(r.wiadomosci || []).map(w => ({ ...w, kier: 'od', osoba: w.od, imie: w.odImie }))].sort((a, b) => b.czas - a.czas).slice(0, 100);
+    $('#ileHist').textContent = wszystko.length ? `(${wszystko.length})` : '';
+    const osoby = [...new Map(wszystko.filter(w => w.osoba).map(w => [w.osoba, w.imie || w.osoba])).entries()];
+    if (filtrHist && !osoby.some(([e]) => e === filtrHist)) filtrHist = '';
+    const hist = filtrHist ? wszystko.filter(w => w.osoba === filtrHist) : wszystko;
     const kiedy = t => new Date(t).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
-    $('#wyslane').innerHTML = hist.length ? hist.map(w => {
+    const wybor = osoby.length > 1 ? `<select id="filtrHist" style="margin-bottom:8px"><option value="">Wszystkie osoby</option>${osoby.map(([e, n]) => `<option value="${esc(e)}"${e === filtrHist ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` : '';
+    $('#wyslane').innerHTML = wybor + '<div id="listaHist" style="max-height:55vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px">' + (hist.length ? hist.map(w => {
       if (w.kier === 'do') { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
         return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
       return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)} · <a href="#" data-odpiszhist="${esc(w.od)}" style="color:var(--granat)">Odpisz</a></div></div></div>`;
-    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie</p>' : '<div class="pusto">Brak wiadomości.</div>';
+    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie</p>' : '<div class="pusto">Brak wiadomości.</div>') + '</div>';
+    const fh = $('#filtrHist'); if (fh) fh.onchange = () => { filtrHist = fh.value; ladujWiadomosci(); };
     const zn = id => nowe.find(w => w.id === id);
     document.querySelectorAll('[data-odpiszhist]').forEach(a => a.onclick = e => { e.preventDefault(); $('#doKogo').value = a.dataset.odpiszhist; panel(0); ladujWiadomosci().then(() => $('#trescWiad').focus()); });
     document.querySelectorAll('[data-wodpisz]').forEach(b => b.onclick = async () => {
@@ -465,6 +470,7 @@ function arkuszeZliczone(l) {
   return Object.entries(m).map(([nazwa, nowe]) => ({ nazwa, nowe }));
 }
 let ostatniMailKlik = {};
+let filtrHist = '';
 function czytane() { try { return JSON.parse(localStorage.getItem('czytaneMaile') || '[]'); } catch (e) { return []; } }
 function oznaczCzytany(w) { if (!w) return; try { localStorage.setItem('czytaneMaile', JSON.stringify([...new Set([...czytane(), w])].slice(-200))); } catch (e) {} }
 function sekcja(tytul, poz, pusty, ile) {

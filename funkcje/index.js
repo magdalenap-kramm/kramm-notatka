@@ -202,7 +202,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         return res.json({ dzien, zadania, zalegle: zal, wydarzenia: wydarzenia.map(e => ({ godzina: e.caly ? '' : e.start.slice(11, 16), tytul: e.tytul, miejsce: e.miejsce })) });
       }
       case 'wiadomosci': {
-        const [q, wy] = await Promise.all([ref.collection('wiadomosci').orderBy('czas', 'desc').limit(20).get(), ref.collection('wyslane').orderBy('czas', 'desc').limit(8).get()]);
+        const [q, wy] = await Promise.all([ref.collection('wiadomosci').orderBy('czas', 'desc').limit(60).get(), ref.collection('wyslane').orderBy('czas', 'desc').limit(60).get()]);
         return res.json({ wiadomosci: q.docs.map(x => ({ id: x.id, ...x.data() })), wyslane: wy.docs.map(x => ({ id: x.id, ...x.data() })), zespol: (await zespol()).filter(x => x.email !== email) });
       }
       case 'wiadomosc_przeczytana': {
