@@ -758,7 +758,7 @@ async function start() {
   pokaz('#ekranGlowny');
   try {
     const r = await api('ja');
-    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke();
+    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik();
     if (r.oczekujace && ['mail', 'kalendarz'].includes(r.oczekujace.typ) && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
       rysujKarte(r.oczekujace.typ === 'mail' ? { typ: 'szkic', do: r.oczekujace.od, temat: r.oczekujace.szkic.temat, tresc: r.oczekujace.szkic.tresc } : { typ: 'kalendarz', ...r.oczekujace.dane, kiedy: r.oczekujace.dane.start.replace('T', ' ') });
       $('#odp').textContent = 'Czeka na Twoje potwierdzenie.';
@@ -791,7 +791,11 @@ $('#panele').addEventListener('scroll', () => { zaznaczZakladke(); rozwinPanele(
 $('#panele').addEventListener('touchstart', rozwinPanele, { passive: true });
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
-document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); } });
+function wyzerujLicznik() {
+  try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
+  if (sesja) api('odczytane').catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); wyzerujLicznik(); } });
 $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; ladujZakladki(); };
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;

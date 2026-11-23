@@ -38,8 +38,11 @@ async function wyslijPush(email, tresc) {
   vapid();
   const ref = agentkaRef(email); const a = (await ref.get()).data() || {};
   const subs = a.push || []; const zostaja = [];
+  // licznik na ikonie aplikacji: rośnie z każdym powiadomieniem, zeruje się po otwarciu Asystentki
+  const licznik = (a.licznik || 0) + 1;
+  if (subs.length) await ref.update({ licznik: admin.firestore.FieldValue.increment(1) }).catch(() => {});
   for (const s of subs) {
-    try { await webpush.sendNotification(s, JSON.stringify(tresc), { TTL: 6 * 3600, urgency: 'high' }); zostaja.push(s); }
+    try { await webpush.sendNotification(s, JSON.stringify({ ...tresc, licznik }), { TTL: 6 * 3600, urgency: 'high' }); zostaja.push(s); }
     catch (e) { if (![404, 410].includes(e.statusCode)) { zostaja.push(s); logger.warn('push', email, e.statusCode, e.body); } }
   }
   if (zostaja.length !== subs.length) await ref.update({ push: zostaja });
@@ -187,6 +190,10 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         await ref.update({ push });
         if (body.test) await wyslijPush(email, { tytul: 'Asystentka KRAMM', tresc: 'Powiadomienia działają. Rano przyjdzie tu Twój brief.', url: './' });
         return res.json({ ok: true, powiadomienia: push.length });
+      }
+      case 'odczytane': {
+        if (a.licznik) await ref.update({ licznik: 0 });
+        return res.json({ ok: true });
       }
       case 'tabela_zakladki': {
         const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));

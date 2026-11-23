@@ -10,9 +10,10 @@ self.addEventListener('fetch', e => {
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { tresc: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.tytul || 'Asystentka KRAMM', {
+  const ikona = d.licznik && self.navigator && self.navigator.setAppBadge ? self.navigator.setAppBadge(d.licznik).catch(() => {}) : Promise.resolve();
+  e.waitUntil(ikona.then(() => self.registration.showNotification(d.tytul || 'Asystentka KRAMM', {
     body: d.tresc || '', icon: 'ikona-192.png', badge: 'ikona-192.png', tag: d.tag || ('asystentka-' + Date.now()), renotify: true, data: { url: d.url || './' }
-  }));
+  })));
 });
 
 self.addEventListener('notificationclick', e => {
