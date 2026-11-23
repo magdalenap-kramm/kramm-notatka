@@ -11,7 +11,7 @@ self.addEventListener('push', e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { tresc: e.data && e.data.text() }; }
   e.waitUntil(self.registration.showNotification(d.tytul || 'Asystentka KRAMM', {
-    body: d.tresc || '', icon: 'ikona-192.png', badge: 'ikona-192.png', tag: 'asystentka', renotify: true, data: { url: d.url || './' }
+    body: d.tresc || '', icon: 'ikona-192.png', badge: 'ikona-192.png', tag: d.tag || ('asystentka-' + Date.now()), renotify: true, data: { url: d.url || './' }
   }));
 });
 

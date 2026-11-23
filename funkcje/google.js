@@ -213,4 +213,4 @@ async function rozmowy(api, idArkusza, ile = 40) {
 }
 
 module.exports = { CLIENT_ID, ZAKRESY, BladPolaczenia, wymienKod, tokenDostepu, klient, wydarzenia, dodajWydarzenie,
-  watkiDoOdpowiedzi, watek, wyslijMail, zbudujMail, stopkaGmail, szukajArkuszy, odczytajArkusz, arkuszNotatki, rozmowy, adresEmail, nazwaNadawcy, bezCytatu };
+  naglowek, watkiDoOdpowiedzi, watek, wyslijMail, zbudujMail, stopkaGmail, szukajArkuszy, odczytajArkusz, arkuszNotatki, rozmowy, adresEmail, nazwaNadawcy, bezCytatu };

@@ -202,6 +202,10 @@
       <h3>Na telefonie</h3>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
+      <p class="info" style="margin:12px 0 4px"><b>Powiadomienia w ciągu dnia</b> (dni robocze 7-20, sprawdzam co 15 minut)</p>
+      <div class="przel"><input type="checkbox" id="czujkaMaile"><label for="czujkaMaile" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Pilne maile od klientów</label></div>
+      <div class="przel"><input type="checkbox" id="czujkaLeady"><label for="czujkaLeady" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Nowe leady w pilnowanych arkuszach</label></div>
+      <p class="info">Wiadomości i zadania od dziewczyn przychodzą zawsze od razu.</p>
       <details class="info instr"><summary><b>iPhone - krok po kroku</b></summary>
         <p class="krok-t">1. Ikona Asystentki na ekranie</p>
         <ol>
@@ -358,6 +362,7 @@ function pokazProfil() {
   $('#godzina').value = profil.godzina || '07:30'; $('#dniRobocze').checked = profil.dniRobocze;
   rysujArkusze(); stanPush();
   $('#banerZgod').classList.toggle('ukryty', !profil.brakZgod);
+  $('#czujkaMaile').checked = profil.czujkaMaile !== false; $('#czujkaLeady').checked = profil.czujkaLeady !== false;
 }
 function rysujArkusze() {
   const l = (profil && profil.arkusze) || [];
@@ -791,6 +796,7 @@ $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent =
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;
 $('#btnSzukajArkusza').onclick = szukajArkusza;
+['czujkaMaile', 'czujkaLeady'].forEach(k => $('#' + k).onchange = async () => { try { profil = (await api('ustawienia', { [k]: $('#' + k).checked })).profil; } catch (e) { $('#komunikat').textContent = e.message; } });
 $('#btnZakladkaZapisz').onclick = () => { const v = $('#wyborZakladki').value; if (!v) { $('#wyborZakladki').focus(); return; } zapiszZakladke(v); };
 $('#btnZakladkaPomin').onclick = () => zapiszZakladke('-');
 $('#zakladkaTabeli').onchange = async () => { try { profil = (await api('ustawienia', { zakladkaTabeli: $('#zakladkaTabeli').value })).profil; $('#statusTabeli').textContent = '✓ zapisane'; } catch (e) { $('#statusTabeli').textContent = e.message; } };

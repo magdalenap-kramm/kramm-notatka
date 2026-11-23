@@ -12,6 +12,7 @@ const g = require('./google');
 const brief = require('./brief');
 const komendy = require('./komendy');
 const tabela = require('./tabela');
+const czujka = require('./czujka');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -87,7 +88,7 @@ async function wyslijDoAgentki(nadawca, w) {
     doc.set({ od: nadawca.email, odImie, tekst, czas: teraz, przeczytana: false, ...(w.zadanie ? { zadanie: true } : {}) }),
     agentkaRef(nadawca.email).collection('wyslane').doc(doc.id).set({ do: w.do, doImie: odbiorca.nazwa || odbiorca.imie || w.do, tekst, czas: teraz, stan: 'nowa', odpowiedz: null })
   ]);
-  await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1' }).catch(() => {});
+  await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'wiad-' + doc.id }).catch(() => {});
 }
 // odbiorczyni przeczytała / odpowiedziała OK albo Nie - zmiana widoczna u nadawczyni
 async function oznaczWiadomosc(odbiorczyni, id, odpowiedz) {
@@ -145,7 +146,7 @@ async function kto(req) {
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
     powiadomienia: (a.push || []).length, polaczenie: a.polaczenie || 'ok',
-    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '',
+    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '', czujkaMaile: a.czujkaMaile !== false, czujkaLeady: a.czujkaLeady !== false,
     brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
 
@@ -172,6 +173,8 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         const zm = {};
         if (body.godzina !== undefined) { const h = czas.doPieciu(body.godzina); if (!h) return res.status(400).json({ blad: 'Zła godzina' }); zm.godzina = h; }
         if (body.dniRobocze !== undefined) zm.dniRobocze = !!body.dniRobocze;
+        if (body.czujkaMaile !== undefined) zm.czujkaMaile = !!body.czujkaMaile;
+        if (body.czujkaLeady !== undefined) zm.czujkaLeady = !!body.czujkaLeady;
         if (body.zakladkaTabeli !== undefined) zm.zakladkaTabeli = String(body.zakladkaTabeli).slice(0, 60);
         if (Array.isArray(body.punkty)) zm.punkty = body.punkty.map(p => String(p).trim()).filter(Boolean).slice(0, 15);
         await ref.update(zm);
@@ -341,6 +344,34 @@ exports.poranek = onSchedule({ region: REGION, schedule: 'every 5 minutes', time
         await wyslijPush(a.email, { tytul: 'Asystentka KRAMM', tresc: 'Zaloguj się ponownie, żeby dostać poranny brief.', url: './' }).catch(() => {});
       }
     }
+  }
+});
+
+// ---------- czujka: pilne maile i nowe leady w ciągu dnia (dni robocze 7-20) ----------
+exports.czujka = onSchedule({ region: REGION, schedule: 'every 15 minutes', timeZone: czas.STREFA, secrets: SEKRETY, timeoutSeconds: 300, memory: '512MiB' }, async () => {
+  const h = +czas.godzina().slice(0, 2);
+  if (czas.czyWeekend() || h < 7 || h >= 20) return;
+  const wszystkie = await db.collection('agentki').get();
+  for (const doc of wszystkie.docs) {
+    const a = doc.data();
+    if (!a.refresh || !(a.push || []).length || (a.czujkaMaile === false && a.czujkaLeady === false)) continue;
+    try {
+      const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
+      const sRef = doc.ref.collection('stan').doc('czujka');
+      const st = (await sRef.get()).data() || {};
+      const nowy = {};
+      if (a.czujkaMaile !== false) {
+        const m = await czujka.pilneMaile({ api, agentka: a, znane: st.watki, klucz: ANTHROPIC_API_KEY.value().trim() });
+        nowy.watki = m.znane;
+        for (const x of m.pilne.slice(0, 3)) await wyslijPush(a.email, { tytul: `Pilny mail: ${x.od}`, tresc: `${x.temat} - ${x.powod}`, url: './', tag: 'mail-' + x.id });
+      }
+      if (a.czujkaLeady !== false && (a.arkusze || []).length) {
+        const l = await czujka.noweLeady({ api, arkusze: a.arkusze, stan: st.leady });
+        nowy.leady = l.stan;
+        for (const x of l.wynik) await wyslijPush(a.email, { tytul: x.ile === 1 ? `Nowy lead: ${x.arkusz}` : `${x.ile} nowe leady: ${x.arkusz}`, tresc: x.opis || 'Sprawdź arkusz', url: './', tag: 'lead-' + x.arkusz });
+      }
+      await sRef.set({ ...st, ...nowy, czas: Date.now() });
+    } catch (e) { logger.warn('czujka', a.email, e.message); }
   }
 });
 
