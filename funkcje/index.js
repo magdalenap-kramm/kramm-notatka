@@ -83,13 +83,13 @@ async function wyslijDoAgentki(nadawca, w) {
   const adresatka = agentkaRef(w.do);
   const odImie = nadawca.nazwa || nadawca.imie;
   const teraz = Date.now();
-  if (w.zadanie) await adresatka.collection('zadania').add({ dzien: w.dzien, tekst: w.tekst, zrobione: false, utworzono: teraz, od: odImie });
-  const tekst = w.zadanie ? `Nowe zadanie na ${czas.mowionaData(w.dzien, false)}: ${w.tekst}` : w.tekst;
   const doc = adresatka.collection('wiadomosci').doc();
+  if (w.zadanie) await adresatka.collection('zadania').add({ dzien: w.dzien, tekst: w.tekst, zrobione: false, utworzono: teraz, od: odImie, odEmail: nadawca.email, wiadomosc: doc.id });
+  const tekst = w.zadanie ? `Nowe zadanie na ${czas.mowionaData(w.dzien, false)}: ${w.tekst}` : w.tekst;
   const odbiorca = (await adresatka.get()).data() || {};
   await Promise.all([
     doc.set({ od: nadawca.email, odImie, tekst, czas: teraz, przeczytana: false, ...(w.zadanie ? { zadanie: true } : {}) }),
-    agentkaRef(nadawca.email).collection('wyslane').doc(doc.id).set({ do: w.do, doImie: odbiorca.nazwa || odbiorca.imie || w.do, tekst, czas: teraz, stan: 'nowa', odpowiedz: null })
+    agentkaRef(nadawca.email).collection('wyslane').doc(doc.id).set({ do: w.do, doImie: odbiorca.nazwa || odbiorca.imie || w.do, tekst, czas: teraz, stan: 'nowa', odpowiedz: null, zadanie: !!w.zadanie })
   ]);
   await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'wiad-' + doc.id }).catch(() => {});
 }
@@ -104,9 +104,10 @@ async function oznaczWiadomosc(odbiorczyni, id, odpowiedz, uzasadnienie) {
     await agentkaRef(w.od).collection('wyslane').doc(String(id)).update({ stan: 'przeczytana', czytano: Date.now(), ...(odpowiedz ? { odpowiedz } : {}), ...(uz ? { uzasadnienie: uz } : {}) }).catch(() => {});
     if (odpowiedz) await wyslijPush(w.od, { tytul: `${odbiorczyni.nazwa || odbiorczyni.imie}: ${odpowiedz === 'ok' ? 'OK' : 'Nie'}`,
       tresc: uz ? `Powód: ${uz.slice(0, 120)}` : w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'odp-' + id }).catch(() => {});
-    if (odpowiedz === 'nie') {   // odmowa z powodem trafia też do wiadomości nadawczyni
+    if (odpowiedz) {   // OK albo odmowa z powodem - widoczne u nadawczyni w karcie "Od dziewczyn"
       const imie = odbiorczyni.nazwa || odbiorczyni.imie;
-      await agentkaRef(w.od).collection('wiadomosci').add({ od: odbiorczyni.email, odImie: imie, tekst: `Odrzuciła: „${w.tekst.slice(0, 120)}”. Powód: ${uz || 'nie podano'}`, czas: Date.now(), przeczytana: false, odmowa: true }).catch(() => {});
+      const tekst = odpowiedz === 'ok' ? `OK ✓ do: „${w.tekst.slice(0, 120)}”` : `Odrzuciła: „${w.tekst.slice(0, 120)}”. Powód: ${uz || 'nie podano'}`;
+      await agentkaRef(w.od).collection('wiadomosci').add({ od: odbiorczyni.email, odImie: imie, tekst, czas: Date.now(), przeczytana: false, potwierdzenie: odpowiedz }).catch(() => {});
     }
   }
 }
@@ -261,7 +262,16 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         const zm = {};
         if (body.zrobione !== undefined) zm.zrobione = !!body.zrobione;
         if (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '')) zm.dzien = body.dzien;
-        await ref.collection('zadania').doc(String(body.id)).update(zm);
+        const zRef = ref.collection('zadania').doc(String(body.id));
+        const przed = (await zRef.get()).data() || {};
+        await zRef.update(zm);
+        // zadanie zlecone przez inną dziewczynę zostało wykonane -> potwierdzenie dla zlecającej
+        if (zm.zrobione && !przed.zrobione && przed.odEmail && przed.odEmail !== email) {
+          const imie = a.nazwa || a.imie;
+          if (przed.wiadomosc) await agentkaRef(przed.odEmail).collection('wyslane').doc(przed.wiadomosc).update({ stan: 'wykonane', odpowiedz: 'wykonane', wykonano: Date.now() }).catch(() => {});
+          await agentkaRef(przed.odEmail).collection('wiadomosci').add({ od: email, odImie: imie, tekst: `Wykonane ✓ „${String(przed.tekst).slice(0, 140)}”`, czas: Date.now(), przeczytana: false, potwierdzenie: 'wykonane' }).catch(() => {});
+          await wyslijPush(przed.odEmail, { tytul: `${imie}: zadanie wykonane ✓`, tresc: String(przed.tekst).slice(0, 140), url: './?wiadomosci=1', tag: 'wyk-' + body.id }).catch(() => {});
+        }
         return res.json({ ok: true });
       }
       case 'zadanie_usun': {

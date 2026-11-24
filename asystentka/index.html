@@ -455,10 +455,10 @@ async function ladujWiadomosci() {
     document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; $('#zespol').classList.add('ukryty'); $('#strzalka').textContent = '▾'; ladujWiadomosci(); });
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
-      <div class="akcje"><button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>${w.zadanie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div>
+      <div class="akcje">${w.potwierdzenie ? `<button data-wok="${esc(w.id)}">Przeczytane</button>` : `<button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>`}${w.zadanie || w.potwierdzenie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div>
       <div style="display:flex;gap:8px;margin-top:8px"><textarea data-wtresc="${esc(w.id)}" rows="1" placeholder="Odpisz ${esc(w.odImie)}..." style="flex:1;min-height:42px"></textarea><button class="jasny" data-wodpisz="${esc(w.id)}" style="flex:none;padding:0 14px;border-radius:14px">Wyślij</button></div>
       <div data-wstatus="${esc(w.id)}" style="font-size:14px;margin-top:4px"></div></div>`).join('')}</div>` : '';
-    const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'] };
+    const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'], wykonane: ['#1f7a45', 'wykonane ✓'] };
     const wszystko = [...(r.wyslane || []).map(w => ({ ...w, kier: 'do', osoba: w.do, imie: w.doImie })), ...(r.wiadomosci || []).map(w => ({ ...w, kier: 'od', osoba: w.od, imie: w.odImie }))].sort((a, b) => b.czas - a.czas).slice(0, 100);
     $('#ileHist').textContent = wszystko.length ? `(${wszystko.length})` : '';
     const osoby = [...new Map(wszystko.filter(w => w.osoba).map(w => [w.osoba, w.imie || w.osoba])).entries()];
@@ -470,7 +470,7 @@ async function ladujWiadomosci() {
       if (w.kier === 'do') { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
         return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div>${w.uzasadnienie ? `<div style="font-size:14px;color:#b0544a;margin-top:2px">Powód: ${esc(w.uzasadnienie)}</div>` : ''}<div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
       return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)} · <a href="#" data-odpiszhist="${esc(w.od)}" style="color:var(--granat)">Odpisz</a></div></div></div>`;
-    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie</p>' : '<div class="pusto">Brak wiadomości.</div>') + '</div>';
+    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie &nbsp;<span style="color:#1f7a45">●</span> wykonane</p>' : '<div class="pusto">Brak wiadomości.</div>') + '</div>';
     const fh = $('#filtrHist'); if (fh) fh.onchange = () => { filtrHist = fh.value; ladujWiadomosci(); };
     const zn = id => nowe.find(w => w.id === id);
     document.querySelectorAll('[data-odpiszhist]').forEach(a => a.onclick = e => { e.preventDefault(); $('#doKogo').value = a.dataset.odpiszhist; panel(0); ladujWiadomosci().then(() => $('#trescWiad').focus()); });
@@ -485,6 +485,7 @@ async function ladujWiadomosci() {
         setTimeout(() => ladujWiadomosci(), 2500);
       } catch (e) { st.innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; b.disabled = false; b.textContent = 'Wyślij'; }
     });
+    document.querySelectorAll('[data-wok]').forEach(b => b.onclick = async () => { b.disabled = true; await api('wiadomosc_przeczytana', { id: b.dataset.wok }).catch(() => {}); ladujWiadomosci(); });
     document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => {
       const id = b.dataset.wid;
       if (b.dataset.wodp === 'nie') {   // odmowa wymaga powodu - pokaż okienko pod wiadomością
