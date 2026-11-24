@@ -156,7 +156,7 @@ async function kto(req) {
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
     powiadomienia: (a.push || []).length, polaczenie: a.polaczenie || 'ok',
-    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '', czujkaMaile: a.czujkaMaile !== false, czujkaLeady: a.czujkaLeady !== false,
+    arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '', tourWidziany: !!a.tourWidziany, czujkaMaile: a.czujkaMaile !== false, czujkaLeady: a.czujkaLeady !== false,
     brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
 
@@ -183,6 +183,7 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         const zm = {};
         if (body.godzina !== undefined) { const h = czas.doPieciu(body.godzina); if (!h) return res.status(400).json({ blad: 'Zła godzina' }); zm.godzina = h; }
         if (body.dniRobocze !== undefined) zm.dniRobocze = !!body.dniRobocze;
+        if (body.tourWidziany) zm.tourWidziany = true;
         if (body.czujkaMaile !== undefined) zm.czujkaMaile = !!body.czujkaMaile;
         if (body.czujkaLeady !== undefined) zm.czujkaLeady = !!body.czujkaLeady;
         if (body.zakladkaTabeli !== undefined) zm.zakladkaTabeli = String(body.zakladkaTabeli).slice(0, 60);

@@ -411,7 +411,9 @@ function tourPokaz() {
   karta.classList.remove('ukryty');
   if (!el || el.classList.contains('ukryty')) { cien.style.cssText = 'left:50%;top:50%;width:0;height:0'; cien.classList.remove('ukryty'); karta.style.top = '30%'; return; }
   el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const krok = tourKrok;
   setTimeout(() => {
+    if (karta.classList.contains('ukryty') || krok !== tourKrok) return;   // wprowadzenie już zamknięte albo przeskoczone dalej
     const r = el.getBoundingClientRect(), m = 8;
     cien.style.cssText = `left:${r.left - m}px;top:${r.top - m}px;width:${r.width + 2 * m}px;height:${Math.min(r.height, innerHeight * .45) + 2 * m}px`;
     cien.classList.remove('ukryty');
@@ -422,6 +424,7 @@ function tourPokaz() {
 function tourZamknij() {
   $('#tourKarta').classList.add('ukryty'); $('#tourCien').classList.add('ukryty');
   try { localStorage.setItem('tourWidziany', '1'); } catch (e) {}
+  if (profil && !profil.tourWidziany) { profil.tourWidziany = true; api('ustawienia', { tourWidziany: true }).catch(() => {}); }   // raz na osobę, na każdym telefonie
   window.scrollTo({ top: 0, behavior: 'smooth' });
   const f = tourKoniec; tourKoniec = null; if (f) setTimeout(f, 400);
 }
@@ -429,7 +432,7 @@ function startTour(potem) { pokaz('#ekranGlowny'); tourKrok = 0; tourKoniec = po
 $('#tourDalej').onclick = () => { if (tourKrok < TOUR.length - 1) { tourKrok++; tourPokaz(); } else tourZamknij(); };
 $('#tourPomin').onclick = tourZamknij;
 $('#btnTour').onclick = () => startTour();
-function tourWidziany() { try { return localStorage.getItem('tourWidziany') === '1'; } catch (e) { return true; } }
+function tourWidziany() { if (profil && profil.tourWidziany) return true; try { return localStorage.getItem('tourWidziany') === '1'; } catch (e) { return true; } }
 
 async function zapytajOZakladke() {
   if (!tourWidziany() && !wAplikacji) { startTour(zapytajOZakladke); return; }
