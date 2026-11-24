@@ -98,6 +98,13 @@
   #panele::-webkit-scrollbar { display:none; }
   .instr { margin-top:12px; } .instr summary { cursor:pointer; padding:8px 0; color:var(--granat); } .instr ol, .instr ul { padding-left:20px; margin:4px 0 10px; } .instr li { margin:3px 0; } .instr p { margin:8px 0 4px; } .krok-t { font-weight:600; color:var(--granat); margin-top:14px !important; }
   #panele { align-items:flex-start; }
+  .tour-cien { position:fixed; z-index:60; border-radius:20px; box-shadow:0 0 0 9999px rgba(20,22,70,.62); pointer-events:none; transition:all .3s ease; }
+  .tour-karta { position:fixed; z-index:61; left:16px; right:16px; background:#fffdfb; border-radius:20px; padding:18px 18px 14px; box-shadow:0 10px 40px rgba(0,0,0,.25); transition:top .3s ease; }
+  .tour-karta h3 { font-family:"Cormorant Garamond", serif; font-size:23px; color:var(--granat); margin:0 0 6px; }
+  .tour-karta p { margin:0 0 12px; font-size:15px; line-height:1.5; color:#4f4a5a; }
+  .tour-kropki { display:flex; gap:6px; justify-content:center; margin-bottom:12px; } .tour-kropki i { width:7px; height:7px; border-radius:50%; background:#e4d6da; } .tour-kropki i.a { background:var(--granat); width:18px; border-radius:4px; }
+  .tour-przyc { display:flex; gap:8px; } .tour-przyc button { flex:1; padding:12px; border-radius:999px; font-family:inherit; font-size:15px; border:0; }
+  .tour-dalej { background:var(--granat); color:#fff; } .tour-pomin { background:var(--roz-j); color:var(--granat); }
 </style>
 </head>
 <body>
@@ -130,7 +137,7 @@
       <div id="listaZadan"><div class="pusto">Ładuję...</div></div>
       <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="noweZadanie" placeholder="Dopisz zadanie"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnDodajZadanie">Dodaj</button></div>
     </div>
-    <div class="karta">
+    <div class="karta" id="kartaNapisz">
       <div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="zakl" data-panel="0">Napisz</button><button type="button" class="zakl" data-panel="1">Historia <span id="ileHist"></span></button></div>
       <div id="panele" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:24px">
       <div style="flex:0 0 100%;scroll-snap-align:start;min-width:0">
@@ -200,6 +207,7 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
+      <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
       <p class="info" style="margin:12px 0 4px"><b>Powiadomienia w ciągu dnia</b> (dni robocze 7-20, sprawdzam co 15 minut)</p>
@@ -280,6 +288,12 @@
   <p id="instalInfo">Dodaj ikonę na pulpit telefonu. Otworzysz Asystentkę jednym dotknięciem i dostaniesz powiadomienia.</p>
   <button class="glowny" id="btnInstaluj">Dodaj ikonę</button>
   <button class="jasny" style="margin-top:8px;width:100%;padding:10px;border-radius:999px;border:0" id="btnInstalPozniej">Później</button>
+</div>
+<div id="tourCien" class="tour-cien ukryty"></div>
+<div id="tourKarta" class="tour-karta ukryty" role="dialog" aria-live="polite">
+  <div class="tour-kropki" id="tourKropki"></div>
+  <h3 id="tourTytul"></h3><p id="tourTekst"></p>
+  <div class="tour-przyc"><button class="tour-pomin" id="tourPomin">Pomiń</button><button class="tour-dalej" id="tourDalej">Dalej</button></div>
 </div>
 <div id="banerTabeli" class="arkusz ukryty" style="text-align:left;z-index:52;max-height:90vh;overflow-y:auto">
   <h3 style="text-align:center">Twoja zakładka w Tabeli KRAMM</h3>
@@ -377,7 +391,48 @@ function rysujArkusze() {
   $('#arkusze').innerHTML = l.length ? l.map(a => `<div class="punkt"><span>${esc(a.nazwa)}</span><button data-usunark="${esc(a.id)}" aria-label="Usuń">×</button></div>`).join('') : '<div class="pusto">Brak arkuszy.</div>';
   document.querySelectorAll('[data-usunark]').forEach(b => b.onclick = async () => { try { profil = (await api('arkusze_usun', { id: b.dataset.usunark })).profil; rysujArkusze(); } catch (e) { $('#komunikat').textContent = e.message; } });
 }
+// ---------- wprowadzenie (pierwsze uruchomienie) ----------
+const TOUR = [
+  { el: null, t: 'Cześć! To Twoja Asystentka KRAMM', x: 'Pokażę Ci w 6 krokach, co tu jest. Zajmie to pół minuty. Możesz pominąć i wrócić do tego w ustawieniach.' },
+  { el: '#micWrap', t: '1. Mów zamiast pisać', x: 'Dotknij mikrofonu i powiedz, czego potrzebujesz, np. „przeczytaj maile”, „odpisz Kowalskiemu, że pokażę mieszkanie w piątek”, „dodaj spotkanie jutro o 10”. Asystentka zawsze dopyta, zanim coś wyśle.' },
+  { el: '#btnBrief', t: '2. Poranny brief', x: 'Codziennie rano asystentka przegląda kalendarz, pocztę i arkusze. Dotknij, żeby odsłuchać: co masz dziś, na które maile odpisać, do kogo zadzwonić.' },
+  { el: '#kartaZadan', t: '3. Zadania na każdy dzień', x: 'Strzałkami przewijasz dni. Dopisujesz zadanie w polu albo głosem („na jutro zadzwonić do Pani Nowak”) i odhaczasz zrobione.' },
+  { el: '#kartaNapisz', t: '4. Wiadomości do dziewczyn', x: 'Wybierz osobę i napisz wiadomość albo wrzuć jej zadanie na konkretny dzień. Dostaniesz powiadomienie, gdy da OK, odrzuci z powodem albo wykona zadanie. Przesuń w lewo, żeby zobaczyć historię.' },
+  { el: '#brief', t: '5. Brief na ekranie', x: 'Tu widać wszystko z briefu. Dotknij maila, żeby go odsłuchać - przeczytany zmienia kolor na różowy. Na samym dole jest „Przygotuj brief od nowa”.' },
+  { el: '#btnUst', t: '6. Ustawienia', x: 'Tu ustawisz godzinę briefu, włączysz powiadomienia, wybierzesz arkusze z leadami i swoją zakładkę w Tabeli KRAMM. Jest też instrukcja, jak dodać ikonę i otwierać asystentkę stuknięciem w tył telefonu.' }
+];
+let tourKrok = 0, tourKoniec = null;
+function tourPokaz() {
+  const k = TOUR[tourKrok], el = k.el && $(k.el);
+  $('#tourKropki').innerHTML = TOUR.map((_, i) => `<i class="${i === tourKrok ? 'a' : ''}"></i>`).join('');
+  $('#tourTytul').textContent = k.t; $('#tourTekst').textContent = k.x;
+  $('#tourDalej').textContent = tourKrok === TOUR.length - 1 ? 'Zaczynamy' : 'Dalej';
+  const karta = $('#tourKarta'), cien = $('#tourCien');
+  karta.classList.remove('ukryty');
+  if (!el || el.classList.contains('ukryty')) { cien.style.cssText = 'left:50%;top:50%;width:0;height:0'; cien.classList.remove('ukryty'); karta.style.top = '30%'; return; }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  setTimeout(() => {
+    const r = el.getBoundingClientRect(), m = 8;
+    cien.style.cssText = `left:${r.left - m}px;top:${r.top - m}px;width:${r.width + 2 * m}px;height:${Math.min(r.height, innerHeight * .45) + 2 * m}px`;
+    cien.classList.remove('ukryty');
+    const wys = karta.offsetHeight, dol = r.top + Math.min(r.height, innerHeight * .45) + m + 14;
+    karta.style.top = (dol + wys < innerHeight - 10 ? dol : Math.max(10, r.top - m - wys - 14)) + 'px';
+  }, 380);
+}
+function tourZamknij() {
+  $('#tourKarta').classList.add('ukryty'); $('#tourCien').classList.add('ukryty');
+  try { localStorage.setItem('tourWidziany', '1'); } catch (e) {}
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const f = tourKoniec; tourKoniec = null; if (f) setTimeout(f, 400);
+}
+function startTour(potem) { pokaz('#ekranGlowny'); tourKrok = 0; tourKoniec = potem || null; tourPokaz(); }
+$('#tourDalej').onclick = () => { if (tourKrok < TOUR.length - 1) { tourKrok++; tourPokaz(); } else tourZamknij(); };
+$('#tourPomin').onclick = tourZamknij;
+$('#btnTour').onclick = () => startTour();
+function tourWidziany() { try { return localStorage.getItem('tourWidziany') === '1'; } catch (e) { return true; } }
+
 async function zapytajOZakladke() {
+  if (!tourWidziany() && !wAplikacji) { startTour(zapytajOZakladke); return; }
   if (!profil || profil.zakladkaTabeli || wAplikacji) return;
   try {
     const r = await api('tabela_zakladki');
