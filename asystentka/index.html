@@ -101,7 +101,7 @@
   .tour-cien { position:fixed; z-index:60; border-radius:20px; box-shadow:0 0 0 9999px rgba(20,22,70,.62); pointer-events:none; transition:all .3s ease; }
   .tour-karta { position:fixed; z-index:61; left:16px; right:16px; background:#fffdfb; border-radius:20px; padding:18px 18px 14px; box-shadow:0 10px 40px rgba(0,0,0,.25); transition:top .3s ease; }
   .tour-karta h3 { font-family:"Cormorant Garamond", serif; font-size:23px; color:var(--granat); margin:0 0 6px; }
-  .tour-karta p { margin:0 0 12px; font-size:15px; line-height:1.5; color:#4f4a5a; }
+  .tour-karta p { white-space:pre-line; margin:0 0 12px; font-size:15px; line-height:1.5; color:#4f4a5a; }
   .tour-kropki { display:flex; gap:6px; justify-content:center; margin-bottom:12px; } .tour-kropki i { width:7px; height:7px; border-radius:50%; background:#e4d6da; } .tour-kropki i.a { background:var(--granat); width:18px; border-radius:4px; }
   .tour-przyc { display:flex; gap:8px; } .tour-przyc button { flex:1; padding:12px; border-radius:999px; font-family:inherit; font-size:15px; border:0; }
   .tour-dalej { background:var(--granat); color:#fff; } .tour-pomin { background:var(--roz-j); color:var(--granat); }
@@ -393,13 +393,15 @@ function rysujArkusze() {
 }
 // ---------- wprowadzenie (pierwsze uruchomienie) ----------
 const TOUR = [
-  { el: null, t: 'Cześć! To Twoja Asystentka KRAMM', x: 'Pokażę Ci w 6 krokach, co tu jest. Zajmie to pół minuty. Możesz pominąć i wrócić do tego w ustawieniach.' },
+  { el: null, t: 'Cześć! To Twoja Asystentka KRAMM', x: 'Pokażę Ci w kilku krokach, co tu jest. Zajmie to pół minuty. Możesz pominąć i wrócić do tego w ustawieniach.' },
   { el: '#micWrap', t: '1. Mów zamiast pisać', x: 'Dotknij mikrofonu i powiedz, czego potrzebujesz, np. „przeczytaj maile”, „odpisz Kowalskiemu, że pokażę mieszkanie w piątek”, „dodaj spotkanie jutro o 10”. Asystentka zawsze dopyta, zanim coś wyśle.' },
   { el: '#btnBrief', t: '2. Poranny brief', x: 'Codziennie rano asystentka przegląda kalendarz, pocztę i arkusze. Dotknij, żeby odsłuchać: co masz dziś, na które maile odpisać, do kogo zadzwonić.' },
   { el: '#kartaZadan', t: '3. Zadania na każdy dzień', x: 'Strzałkami przewijasz dni. Dopisujesz zadanie w polu albo głosem („na jutro zadzwonić do Pani Nowak”) i odhaczasz zrobione.' },
   { el: '#kartaNapisz', t: '4. Wiadomości do dziewczyn', x: 'Wybierz osobę i napisz wiadomość albo wrzuć jej zadanie na konkretny dzień. Dostaniesz powiadomienie, gdy da OK, odrzuci z powodem albo wykona zadanie. Przesuń w lewo, żeby zobaczyć historię.' },
   { el: '#brief', t: '5. Brief na ekranie', x: 'Tu widać wszystko z briefu. Dotknij maila, żeby go odsłuchać - przeczytany zmienia kolor na różowy. Na samym dole jest „Przygotuj brief od nowa”.' },
-  { el: '#btnUst', t: '6. Ustawienia', x: 'Tu ustawisz godzinę briefu, włączysz powiadomienia, wybierzesz arkusze z leadami i swoją zakładkę w Tabeli KRAMM. Jest też instrukcja, jak dodać ikonę i otwierać asystentkę stuknięciem w tył telefonu.' }
+  { el: '#btnUst', t: '6. Ikonka ludzika - Twój profil', x: 'Ludzik w prawym górnym rogu otwiera Twój profil i ustawienia. Znajdziesz tam:' },
+  { el: '#btnUst', t: 'W profilu ustawisz', x: '• godzinę porannego briefu i dni pracy\n• powiadomienia na telefon (brief, pilne maile, nowe leady)\n• arkusze z leadami do pilnowania\n• swoją zakładkę w Tabeli KRAMM\n• dodanie ikony na pulpit i otwieranie stuknięciem w tył telefonu\n• to wprowadzenie, gdybyś chciała je obejrzeć jeszcze raz\n• wylogowanie' },
+  { el: '#btnUst', t: 'Gotowe!', x: 'Dotknij ludzika, żeby włączyć powiadomienia i ustawić godzinę briefu. Potem dotknij mikrofonu i powiedz „przeczytaj maile”.' }
 ];
 let tourKrok = 0, tourKoniec = null;
 function tourPokaz() {
