@@ -186,7 +186,9 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
       case 'push': {
         const s = body.subskrypcja;
         if (!s || !s.endpoint) return res.status(400).json({ blad: 'Brak subskrypcji' });
-        const push = [...(a.push || []).filter(x => x.endpoint !== s.endpoint), s].slice(-5);
+        // tylko subskrypcje z nowego adresu Asystentki - stare (z adresu Notatki) pokazywały powiadomienia na ikonie Notatki
+        const zrodlo = String(body.zrodlo || '');
+        const push = [...(a.push || []).filter(x => x.endpoint !== s.endpoint && (!zrodlo || x.zrodlo === zrodlo)), { ...s, zrodlo }].slice(-5);
         await ref.update({ push });
         if (body.test) await wyslijPush(email, { tytul: 'Asystentka KRAMM', tresc: 'Powiadomienia działają. Rano przyjdzie tu Twój brief.', url: './' });
         return res.json({ ok: true, powiadomienia: push.length });

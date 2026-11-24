@@ -755,8 +755,9 @@ async function wlaczPush() {
     const { vapid } = await api('konfig');
     const klucz = Uint8Array.from(atob(vapid.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - vapid.length % 4) % 4)), c => c.charCodeAt(0));
     const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: klucz });
-    const r = await api('push', { subskrypcja: sub.toJSON(), test: true });
-    profil.powiadomienia = r.powiadomienia; stanPush(); $('#komunikat').textContent = 'Wysłałam próbne powiadomienie.';
+    const r = await api('push', { subskrypcja: sub.toJSON(), test: !wlaczPush.cicho, zrodlo: location.origin });
+    profil.powiadomienia = r.powiadomienia; stanPush(); if (!wlaczPush.cicho) $('#komunikat').textContent = 'Wysłałam próbne powiadomienie.';
+    try { localStorage.setItem('pushZrodlo', location.origin); } catch (e) {}
   } catch (e) { $('#komunikat').textContent = 'Nie udało się: ' + e.message; }
 }
 
@@ -766,7 +767,7 @@ async function start() {
   pokaz('#ekranGlowny');
   try {
     const r = await api('ja');
-    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik();
+    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik(); odnowPush();
     if (r.oczekujace && ['mail', 'kalendarz'].includes(r.oczekujace.typ) && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
       rysujKarte(r.oczekujace.typ === 'mail' ? { typ: 'szkic', do: r.oczekujace.od, temat: r.oczekujace.szkic.temat, tresc: r.oczekujace.szkic.tresc } : { typ: 'kalendarz', ...r.oczekujace.dane, kiedy: r.oczekujace.dane.start.replace('T', ' ') });
       $('#odp').textContent = 'Czeka na Twoje potwierdzenie.';
@@ -799,6 +800,13 @@ $('#panele').addEventListener('scroll', () => { zaznaczZakladke(); rozwinPanele(
 $('#panele').addEventListener('touchstart', rozwinPanele, { passive: true });
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
+// po przeniesieniu na nowy adres: zgoda na powiadomienia jest, ale subskrypcja jeszcze ze starej strony -> przepisz po cichu
+async function odnowPush() {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted' || localStorage.getItem('pushZrodlo') === location.origin) return;
+    wlaczPush.cicho = true; await wlaczPush(); wlaczPush.cicho = false;
+  } catch (e) {}
+}
 function wyzerujLicznik() {
   try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
   if (sesja) api('odczytane').catch(() => {});
