@@ -207,6 +207,7 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
+      <p class="info" style="text-align:center">Wersja 24.11 (b)</p>
       <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
@@ -433,6 +434,9 @@ function tourZamknij() {
 function startTour(potem) { pokaz('#ekranGlowny'); tourKrok = 0; tourKoniec = potem || null; tourPokaz(); }
 $('#tourDalej').onclick = () => { if (tourKrok < TOUR.length - 1) { tourKrok++; tourPokaz(); } else tourZamknij(); };
 $('#tourPomin').onclick = tourZamknij;
+// awaryjnie: jeśli zaciemnienie zostało, a okienka nie ma - dotknięcie gdziekolwiek je zdejmuje
+document.addEventListener('click', () => { if ($('#tourKarta').classList.contains('ukryty')) $('#tourCien').classList.add('ukryty'); if (!document.querySelector('.arkusz:not(.ukryty)')) $('#zaslona').classList.add('ukryty'); }, true);
+setInterval(() => { if ($('#tourKarta').classList.contains('ukryty')) $('#tourCien').classList.add('ukryty'); }, 1000);
 $('#btnTour').onclick = () => startTour();
 function tourWidziany() { if (profil && profil.tourWidziany) return true; try { return localStorage.getItem('tourWidziany') === '1'; } catch (e) { return true; } }
 

@@ -1,10 +1,13 @@
+// wersja 2026-11-24b
 // Asystentka KRAMM - powiadomienia (poranny brief)
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 // obsługa żądań (wymagana, żeby telefon zainstalował Asystentkę jako aplikację z ikoną)
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.registration.scope)) return;
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  // strona zawsze świeża z serwera (bez pamięci podręcznej telefonu)
+  const swieza = e.request.mode === 'navigate' || /\.(html|js|webmanifest)$/.test(new URL(e.request.url).pathname);
+  e.respondWith(fetch(e.request, swieza ? { cache: 'no-store' } : undefined).catch(() => caches.match(e.request)));
 });
 
 self.addEventListener('push', e => {
