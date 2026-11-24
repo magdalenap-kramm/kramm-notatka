@@ -94,14 +94,20 @@ async function wyslijDoAgentki(nadawca, w) {
   await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'wiad-' + doc.id }).catch(() => {});
 }
 // odbiorczyni przeczytała / odpowiedziała OK albo Nie - zmiana widoczna u nadawczyni
-async function oznaczWiadomosc(odbiorczyni, id, odpowiedz) {
+async function oznaczWiadomosc(odbiorczyni, id, odpowiedz, uzasadnienie) {
+  const uz = String(uzasadnienie || '').trim().slice(0, 500);
   const ref = agentkaRef(odbiorczyni.email).collection('wiadomosci').doc(String(id));
   const w = (await ref.get()).data();
   if (!w) return;
-  await ref.update({ przeczytana: true, ...(odpowiedz ? { odpowiedz } : {}) });
+  await ref.update({ przeczytana: true, ...(odpowiedz ? { odpowiedz } : {}), ...(uz ? { uzasadnienie: uz } : {}) });
   if (w.od) {
-    await agentkaRef(w.od).collection('wyslane').doc(String(id)).update({ stan: 'przeczytana', czytano: Date.now(), ...(odpowiedz ? { odpowiedz } : {}) }).catch(() => {});
-    if (odpowiedz) await wyslijPush(w.od, { tytul: `${odbiorczyni.nazwa || odbiorczyni.imie}: ${odpowiedz === 'ok' ? 'OK' : 'Nie'}`, tresc: w.tekst.slice(0, 140), url: './' }).catch(() => {});
+    await agentkaRef(w.od).collection('wyslane').doc(String(id)).update({ stan: 'przeczytana', czytano: Date.now(), ...(odpowiedz ? { odpowiedz } : {}), ...(uz ? { uzasadnienie: uz } : {}) }).catch(() => {});
+    if (odpowiedz) await wyslijPush(w.od, { tytul: `${odbiorczyni.nazwa || odbiorczyni.imie}: ${odpowiedz === 'ok' ? 'OK' : 'Nie'}`,
+      tresc: uz ? `Powód: ${uz.slice(0, 120)}` : w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'odp-' + id }).catch(() => {});
+    if (odpowiedz === 'nie') {   // odmowa z powodem trafia też do wiadomości nadawczyni
+      const imie = odbiorczyni.nazwa || odbiorczyni.imie;
+      await agentkaRef(w.od).collection('wiadomosci').add({ od: odbiorczyni.email, odImie: imie, tekst: `Odrzuciła: „${w.tekst.slice(0, 120)}”. Powód: ${uz || 'nie podano'}`, czas: Date.now(), przeczytana: false, odmowa: true }).catch(() => {});
+    }
   }
 }
 async function zrobBrief(email) {
@@ -228,7 +234,8 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         return res.json({ wiadomosci: q.docs.map(x => ({ id: x.id, ...x.data() })), wyslane: wy.docs.map(x => ({ id: x.id, ...x.data() })), zespol: (await zespol()).filter(x => x.email !== email) });
       }
       case 'wiadomosc_przeczytana': {
-        await oznaczWiadomosc(a, body.id, ['ok', 'nie'].includes(body.odpowiedz) ? body.odpowiedz : null);
+        if (body.odpowiedz === 'nie' && !String(body.uzasadnienie || '').trim()) return res.status(400).json({ blad: 'Napisz krótko, dlaczego nie.' });
+        await oznaczWiadomosc(a, body.id, ['ok', 'nie'].includes(body.odpowiedz) ? body.odpowiedz : null, body.uzasadnienie);
         return res.json({ ok: true });
       }
       case 'wiadomosc_wyslij': {

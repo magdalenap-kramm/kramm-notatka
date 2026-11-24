@@ -468,7 +468,7 @@ async function ladujWiadomosci() {
     const wybor = osoby.length > 1 ? `<select id="filtrHist" style="margin-bottom:8px"><option value="">Wszystkie osoby</option>${osoby.map(([e, n]) => `<option value="${esc(e)}"${e === filtrHist ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` : '';
     $('#wyslane').innerHTML = wybor + '<div id="listaHist" style="max-height:55vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px">' + (hist.length ? hist.map(w => {
       if (w.kier === 'do') { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
-        return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
+        return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div>${w.uzasadnienie ? `<div style="font-size:14px;color:#b0544a;margin-top:2px">Powód: ${esc(w.uzasadnienie)}</div>` : ''}<div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
       return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)} · <a href="#" data-odpiszhist="${esc(w.od)}" style="color:var(--granat)">Odpisz</a></div></div></div>`;
     }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie</p>' : '<div class="pusto">Brak wiadomości.</div>') + '</div>';
     const fh = $('#filtrHist'); if (fh) fh.onchange = () => { filtrHist = fh.value; ladujWiadomosci(); };
@@ -485,7 +485,24 @@ async function ladujWiadomosci() {
         setTimeout(() => ladujWiadomosci(), 2500);
       } catch (e) { st.innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; b.disabled = false; b.textContent = 'Wyślij'; }
     });
-    document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => { b.disabled = true; await api('wiadomosc_przeczytana', { id: b.dataset.wid, odpowiedz: b.dataset.wodp }).catch(() => {}); ladujWiadomosci(); });
+    document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.wid;
+      if (b.dataset.wodp === 'nie') {   // odmowa wymaga powodu - pokaż okienko pod wiadomością
+        const st = document.querySelector(`[data-wstatus="${id}"]`);
+        st.innerHTML = `<div style="margin-top:8px"><textarea data-powod="${esc(id)}" rows="2" placeholder="Dlaczego nie? Napisz krótko - trafi do ${esc(zn(id).odImie)}" style="width:100%"></textarea>
+          <div style="display:flex;gap:8px;margin-top:6px"><button class="glowny" data-wyslijnie="${esc(id)}" style="flex:1;padding:10px">Wyślij odmowę</button><button class="jasny" data-anuluj="${esc(id)}" style="flex:none;padding:10px 14px;border-radius:999px;border:0">Anuluj</button></div></div>`;
+        const pole = st.querySelector('textarea'); pole.focus();
+        st.querySelector('[data-anuluj]').onclick = () => { st.innerHTML = ''; };
+        st.querySelector('[data-wyslijnie]').onclick = async e => {
+          const uz = pole.value.trim(); if (!uz) { pole.focus(); pole.placeholder = 'Powód jest potrzebny, żeby odrzucić'; return; }
+          e.target.disabled = true; e.target.textContent = 'Wysyłam...';
+          try { await api('wiadomosc_przeczytana', { id, odpowiedz: 'nie', uzasadnienie: uz }); st.innerHTML = `<span style="color:#3c9a5f">✓ Odmowa z powodem wysłana do: ${esc(zn(id).odImie)}</span>`; setTimeout(() => ladujWiadomosci(), 2000); }
+          catch (x) { e.target.disabled = false; e.target.textContent = 'Wyślij odmowę'; st.insertAdjacentHTML('beforeend', `<div style="color:#b0544a">${esc(x.message)}</div>`); }
+        };
+        return;
+      }
+      b.disabled = true; await api('wiadomosc_przeczytana', { id, odpowiedz: b.dataset.wodp }).catch(() => {}); ladujWiadomosci();
+    });
     const doZad = (id, d) => api('zadanie_dodaj', { dzien: d, tekst: zn(id).tekst, od: zn(id).odImie, wiadomosc: id }).then(() => { ladujWiadomosci(); ladujZadania(d); }).catch(e => { $('#odp').textContent = e.message; });
     document.querySelectorAll('[data-wzad]').forEach(b => b.onclick = () => doZad(b.dataset.wzad, dzisISO()));
     document.querySelectorAll('[data-wjutro]').forEach(b => b.onclick = () => doZad(b.dataset.wjutro, plusDni(dzisISO(), 1)));
