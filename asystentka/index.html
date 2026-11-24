@@ -207,7 +207,7 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
-      <p class="info" style="text-align:center">Wersja 24.11 (b)</p>
+      <p class="info" style="text-align:center">Wersja 24.11 (c)</p>
       <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
@@ -488,7 +488,7 @@ async function ladujZadania(d) {
   try {
     const r = await api('zadania', { dzien: dzienZad });
     if (r.dzien !== dzienZad) return;
-    const poz = z => `<div class="zad${z.zrobione ? ' zrob' : ''}"><input type="checkbox" data-zid="${esc(z.id)}" ${z.zrobione ? 'checked' : ''}><span>${esc(z.tekst)}${z.od ? `<i class="od">od ${esc(z.od)}</i>` : ''}${z.zalegle ? `<i class="od">zaległe z ${esc(nazwaDnia(z.dzien))}</i>` : ''}</span><button data-zusun="${esc(z.id)}" aria-label="Usuń">×</button></div>`;
+    const poz = z => `<div class="zad${z.zrobione ? ' zrob' : ''}"><input type="checkbox" data-zid="${esc(z.id)}" ${z.zrobione ? 'checked' : ''}><span>${esc(z.tekst)}${z.od ? `<i class="od">od ${esc(z.od)}</i>` : ''}${z.zalegle ? `<i class="od">zaległe z ${esc(nazwaDnia(z.dzien))}</i>` : ''}${!z.zrobione && z.zDnia && z.zDnia !== z.dzien ? `<i class="od">przeniesione z ${esc(nazwaDnia(z.zDnia))}</i>` : ''}</span><button data-zusun="${esc(z.id)}" aria-label="Usuń">×</button></div>`;
     const lista = [...(r.zalegle || []).map(z => ({ ...z, zalegle: true })), ...r.zadania];
     $('#listaZadan').innerHTML = (lista.length ? lista.map(poz).join('') : '<div class="pusto">Brak zadań na ten dzień.</div>') +
       (r.wydarzenia || []).map(e => `<div class="wyd">${e.godzina ? `<b>${esc(e.godzina)}</b> ` : ''}${esc(e.tytul)}${e.miejsce ? ' · ' + esc(e.miejsce) : ''}</div>`).join('');

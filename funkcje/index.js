@@ -63,11 +63,27 @@ async function zadaniaDnia(email, dzien) {
   const q = await agentkaRef(email).collection('zadania').where('dzien', '==', dzien).get();
   return q.docs.map(x => ({ id: x.id, ...x.data() })).sort((x, y) => (x.utworzono || 0) - (y.utworzono || 0));
 }
-async function zalegle(email) {
+// niewykonane zadania z minionych dni przechodzą automatycznie na dziś (zDnia = dzień, na który były pierwotnie)
+async function przeniesZalegle(email) {
   const dzis = czas.dzien();
-  const q = await agentkaRef(email).collection('zadania').where('zrobione', '==', false).get();
-  return q.docs.map(x => ({ id: x.id, ...x.data() })).filter(z => z.dzien < dzis).sort((x, y) => x.dzien < y.dzien ? -1 : 1);
+  const col = agentkaRef(email).collection('zadania');
+  const q = await col.where('zrobione', '==', false).get();
+  const stare = q.docs.filter(x => (x.data().dzien || dzis) < dzis);
+  if (!stare.length) return 0;
+  // przypomnienia o umowie powtarzają się co tydzień - z jednej umowy zostaje tylko najnowsze
+  const umowy = {};
+  for (const x of q.docs) { const m = x.id.match(/^umowa-(.+)-(\d{4}-\d{2}-\d{2})$/); if (m) (umowy[m[1]] = umowy[m[1]] || []).push(x); }
+  const doUsuniecia = new Set();
+  for (const lista of Object.values(umowy)) { lista.sort((a, b) => a.id < b.id ? 1 : -1); lista.slice(1).forEach(x => doUsuniecia.add(x.id)); }
+  const batch = db.batch();
+  for (const x of stare) {
+    if (doUsuniecia.has(x.id)) batch.delete(x.ref);
+    else batch.update(x.ref, { dzien: dzis, zDnia: x.data().zDnia || x.data().dzien });
+  }
+  await batch.commit();
+  return stare.length;
 }
+async function zalegle(email) { await przeniesZalegle(email).catch(e => logger.warn('przenies', e.message)); return []; }
 // cały zespół KRAMM: zalogowane w Asystentce + pozostałe z katalogu (wiadomości do nich czekają do pierwszego logowania)
 async function zespol() {
   const q = await db.collection('agentki').get();
@@ -117,7 +133,8 @@ async function zrobBrief(email) {
   const dzis = czas.dzien();
   // tabela KRAMM: piątkowe przypomnienie i umowy do przedłużenia -> zadania na dziś
   const tab = await tabela.sprawdz({ api: g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim())), ref, agentka: a }).catch(e => { if (e.kod) throw e; return { zadania: [] }; });
-  const [zd, zj, zz] = await Promise.all([zadaniaDnia(email, dzis), zadaniaDnia(email, czas.dodajDni(dzis, 1)), zalegle(email)]).catch(() => [[], [], []]);
+  await zalegle(email);
+  const [zd, zj, zz] = await Promise.all([zadaniaDnia(email, dzis), zadaniaDnia(email, czas.dodajDni(dzis, 1)), []]).catch(() => [[], [], []]);
   a.wiadomosciOdDziewczyn = (await noweWiadomosci(email).catch(() => [])).map(w => `${w.odImie}: ${w.tekst}`);
   a.zadania = { dzis: zd.filter(z => !z.zrobione).map(z => z.tekst), jutro: zj.filter(z => !z.zrobione).map(z => z.tekst), zalegle: zz.map(z => `${z.tekst} (z ${z.dzien})`) };
   const b = await brief.przygotuj(a, { sekret: GOOGLE_CLIENT_SECRET.value().trim(), klucz: ANTHROPIC_API_KEY.value().trim() });
@@ -228,7 +245,8 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
       case 'zadania': {
         const dzien = /^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien();
         const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
-        const [zadania, wydarzenia, zal] = await Promise.all([zadaniaDnia(email, dzien), g.wydarzenia(api, dzien, dzien).catch(() => []), dzien === czas.dzien() ? zalegle(email) : []]);
+        if (dzien === czas.dzien()) await zalegle(email);
+        const [zadania, wydarzenia, zal] = await Promise.all([zadaniaDnia(email, dzien), g.wydarzenia(api, dzien, dzien).catch(() => []), []]);
         return res.json({ dzien, zadania, zalegle: zal, wydarzenia: wydarzenia.map(e => ({ godzina: e.caly ? '' : e.start.slice(11, 16), tytul: e.tytul, miejsce: e.miejsce })) });
       }
       case 'wiadomosci': {
@@ -342,6 +360,11 @@ exports.poranek = onSchedule({ region: REGION, schedule: 'every 5 minutes', time
   const piatek = new Date(dzis + 'T12:00:00Z').getUTCDay() === 5;
   for (const doc of wszystkie.docs) {
     const a = doc.data();
+    // po północy: niewykonane zadania z wczoraj przechodzą na dziś
+    if (a.przeniesiono !== dzis && (a.refresh || a.imie)) {
+      await przeniesZalegle(doc.id).catch(e => logger.warn('przenies', doc.id, e.message));
+      await doc.ref.update({ przeniesiono: dzis }).catch(() => {});
+    }
     // piątek 15-18: co godzinę przypomnienie o Tabeli KRAMM, dopóki zakładka się nie zmieni
     if (piatek && a.refresh && tabela.PRZYPOMNIENIA[godzinaTeraz]) {
       try {
