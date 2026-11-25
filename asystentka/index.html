@@ -207,7 +207,7 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
-      <p class="info" style="text-align:center">Wersja 24.11 (c)</p>
+      <p class="info" style="text-align:center">Wersja 25.11</p>
       <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
@@ -304,6 +304,13 @@
   <button class="glowny" id="btnZakladkaZapisz">Zapisz</button>
   <button class="jasny" style="margin-top:8px;width:100%;padding:10px;border-radius:999px;border:0" id="btnZakladkaPomin">Pomiń - nie mam zakładki</button>
   <p class="info" style="text-align:center;margin-top:8px">Zmienisz to później w ustawieniach, w karcie „Tabela KRAMM”.</p>
+</div>
+<div id="banerPush" class="arkusz ukryty">
+  <img src="ikona-192.png" alt="">
+  <h3>Włącz powiadomienia</h3>
+  <p>Dzięki nim dostaniesz rano brief, a na ikonce Asystentki zobaczysz cyferkę, gdy przyjdzie notatka od dziewczyn, pilny mail albo nowy lead.</p>
+  <button class="glowny" id="btnPushTak">Włącz powiadomienia</button>
+  <button class="jasny" style="margin-top:8px;width:100%;padding:10px;border-radius:999px;border:0" id="btnPushNie">Nie teraz</button>
 </div>
 <div id="banerAplikacji" class="arkusz ukryty">
   <img src="ikona-192.png" alt="">
@@ -885,10 +892,23 @@ $('#dzienZadania').value = dzisISO();
 // po przeniesieniu na nowy adres: zgoda na powiadomienia jest, ale subskrypcja jeszcze ze starej strony -> przepisz po cichu
 async function odnowPush() {
   try {
-    if (!('Notification' in window) || Notification.permission !== 'granted' || localStorage.getItem('pushZrodlo') === location.origin) return;
-    wlaczPush.cicho = true; await wlaczPush(); wlaczPush.cicho = false;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !location.hostname.endsWith('web.app')) return;
+    if (/iphone|ipad/i.test(navigator.userAgent) && !zainstalowana()) return;
+    // ta ikonka ma już zgodę - po cichu zapisz jej subskrypcję
+    if ('Notification' in window && Notification.permission === 'granted') {
+      if (profil && profil.powiadomienia && localStorage.getItem('pushZrodlo') === location.origin) return;
+      wlaczPush.cicho = true; await wlaczPush(); wlaczPush.cicho = false; return;
+    }
+    if ('Notification' in window && Notification.permission === 'denied') return;
+    // brak zgody na tej ikonce: poproś (telefon wymaga dotknięcia przycisku)
+    let odlozone = 0; try { odlozone = +localStorage.getItem('pushPozniej') || 0; } catch (e) {}
+    if (Date.now() - odlozone < 24 * 3600e3) return;
+    const pokazBaner = () => { if (document.querySelector('.arkusz:not(.ukryty)') || !$('#tourKarta').classList.contains('ukryty')) return setTimeout(pokazBaner, 2000); arkusz('banerPush', true); };
+    setTimeout(pokazBaner, 1500);
   } catch (e) {}
 }
+$('#btnPushTak').onclick = async () => { arkusz('banerPush', false); wlaczPush.cicho = false; await wlaczPush(); };
+$('#btnPushNie').onclick = () => { arkusz('banerPush', false); try { localStorage.setItem('pushPozniej', String(Date.now())); } catch (e) {} };
 function wyzerujLicznik() {
   try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
   if (sesja) api('odczytane').catch(() => {});

@@ -34,10 +34,13 @@ let vapidGotowe = false;
 function vapid() {
   if (!vapidGotowe) { webpush.setVapidDetails('mailto:magdalena.p@kramm.pl', VAPID_PUBLIC.value().trim(), VAPID_PRIVATE.value().trim()); vapidGotowe = true; }
 }
+// powiadomienia tylko na ikonkę Asystentki (stare zapisy z adresu github.io trafiały na ikonkę Notatki)
+const ZRODLO_ASYSTENTKI = 'https://asystentka-kramm.web.app';
+const dobraSub = x => x && x.zrodlo === ZRODLO_ASYSTENTKI;
 async function wyslijPush(email, tresc) {
   vapid();
   const ref = agentkaRef(email); const a = (await ref.get()).data() || {};
-  const subs = a.push || []; const zostaja = [];
+  const subs = (a.push || []).filter(dobraSub); const zostaja = [];
   // licznik na ikonie aplikacji: rośnie z każdym powiadomieniem, zeruje się po otwarciu Asystentki
   const licznik = (a.licznik || 0) + 1;
   if (subs.length) await ref.update({ licznik: admin.firestore.FieldValue.increment(1) }).catch(() => {});
@@ -45,7 +48,7 @@ async function wyslijPush(email, tresc) {
     try { await webpush.sendNotification(s, JSON.stringify({ ...tresc, licznik }), { TTL: 6 * 3600, urgency: 'high' }); zostaja.push(s); }
     catch (e) { if (![404, 410].includes(e.statusCode)) { zostaja.push(s); logger.warn('push', email, e.statusCode, e.body); } }
   }
-  if (zostaja.length !== subs.length) await ref.update({ push: zostaja });
+  if (zostaja.length !== (a.push || []).length) await ref.update({ push: zostaja });
   return zostaja.length;
 }
 
@@ -172,7 +175,7 @@ async function kto(req) {
 }
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
-    powiadomienia: (a.push || []).length, polaczenie: a.polaczenie || 'ok',
+    powiadomienia: (a.push || []).filter(dobraSub).length, polaczenie: a.polaczenie || 'ok',
     arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '', tourWidziany: !!a.tourWidziany, czujkaMaile: a.czujkaMaile !== false, czujkaLeady: a.czujkaLeady !== false,
     brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
@@ -213,7 +216,8 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         if (!s || !s.endpoint) return res.status(400).json({ blad: 'Brak subskrypcji' });
         // tylko subskrypcje z nowego adresu Asystentki - stare (z adresu Notatki) pokazywały powiadomienia na ikonie Notatki
         const zrodlo = String(body.zrodlo || '');
-        const push = [...(a.push || []).filter(x => x.endpoint !== s.endpoint && (!zrodlo || x.zrodlo === zrodlo)), { ...s, zrodlo }].slice(-5);
+        if (zrodlo !== ZRODLO_ASYSTENTKI) return res.json({ ok: true, powiadomienia: (a.push || []).filter(dobraSub).length });
+        const push = [...(a.push || []).filter(x => x.endpoint !== s.endpoint && dobraSub(x)), { ...s, zrodlo }].slice(-5);
         await ref.update({ push });
         if (body.test) await wyslijPush(email, { tytul: 'Asystentka KRAMM', tresc: 'Powiadomienia działają. Rano przyjdzie tu Twój brief.', url: './' });
         return res.json({ ok: true, powiadomienia: push.length });
@@ -404,7 +408,7 @@ exports.czujka = onSchedule({ region: REGION, schedule: 'every 15 minutes', time
   const wszystkie = await db.collection('agentki').get();
   for (const doc of wszystkie.docs) {
     const a = doc.data();
-    if (!a.refresh || !(a.push || []).length || (a.czujkaMaile === false && a.czujkaLeady === false)) continue;
+    if (!a.refresh || !(a.push || []).filter(dobraSub).length || (a.czujkaMaile === false && a.czujkaLeady === false)) continue;
     try {
       const api = g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()));
       const sRef = doc.ref.collection('stan').doc('czujka');

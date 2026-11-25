@@ -244,6 +244,9 @@
 <footer><div class="podpis"><small>by</small>Magdalena Pyrc</div><div class="atrybucja ukryty" id="atrybucja">Głosy lektorek: <a href="https://elevenlabs.io" target="_blank" rel="noopener">ElevenLabs</a></div></footer>
 
 <script>
+// Notatka nie pokazuje powiadomień: zdejmij cyferkę z ikonki, jeśli została po starej Asystentce
+try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
+navigator.serviceWorker && navigator.serviceWorker.getRegistrations && navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => { if (x.scope.includes('/asystentka/')) x.unregister(); })).catch(() => {});
 const $ = s => document.querySelector(s);
 const ust = () => { try { return JSON.parse(localStorage.getItem('kramm_ust') || '{}'); } catch(e) { return {}; } };
 let akcja = 'brak';
