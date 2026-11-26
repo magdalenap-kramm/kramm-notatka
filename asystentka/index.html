@@ -155,6 +155,12 @@
       <div style="flex:0 0 100%;scroll-snap-align:start;min-width:0"><div id="wyslane"><div class="pusto">Brak wiadomości.</div></div></div>
       </div>
     </div>
+    <div class="karta ukryty" id="kartaZespol">
+      <h3 style="margin-top:0">Zespół<small>podgląd menadżerki</small></h3>
+      <div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="zakl" data-zesp="zadania">Zadania</button><button type="button" class="zakl" data-zesp="tabela">Tabela KRAMM</button></div>
+      <div class="dni" id="zespDni"><button id="zespWstecz" aria-label="Poprzedni dzień">‹</button><b id="zespDzien">Dziś</b><button id="zespDalej" aria-label="Następny dzień">›</button></div>
+      <div id="zespLista"><div class="pusto">Ładuję...</div></div>
+    </div>
     <div id="brief"></div>
 
     <div class="karta">
@@ -207,7 +213,7 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
-      <p class="info" style="text-align:center">Wersja 26.11</p>
+      <p class="info" style="text-align:center">Wersja 26.11 (b)</p>
       <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
@@ -520,9 +526,10 @@ async function ladujWiadomosci() {
     const wyb = $('#doKogo').value;
     const zesp = [...r.zespol].sort((a, b) => (b.zalogowana === true) - (a.zalogowana === true));
     const kropka = x => `<i style="width:10px;height:10px;border-radius:50%;flex:none;background:${x.zalogowana === false ? '#c9a9b2' : '#3c9a5f'}"></i>`;
-    $('#zespol').innerHTML = zesp.map(x => `<button type="button" data-osoba="${esc(x.email)}" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border:0;border-top:1px solid #f3ebe7;background:${x.email === wyb ? '#f6eef0' : '#fff'};font-family:inherit;font-size:16px;color:var(--tekst);text-align:left">${kropka(x)}${esc(x.nazwa || x.imie || x.email)}</button>`).join('');
-    const w = zesp.find(x => x.email === wyb);
-    $('#wybranaOsoba').innerHTML = w ? `<span style="display:flex;align-items:center;gap:10px">${kropka(w)}${esc(w.nazwa || w.imie)}</span>` : 'Wybierz osobę';
+    const wszystkie = profil && profil.menadzerka ? `<button type="button" data-osoba="*" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border:0;background:${wyb === '*' ? '#f6eef0' : '#fff'};font-family:inherit;font-size:16px;font-weight:700;color:var(--tekst);text-align:left">★ Wszystkie dziewczyny</button>` : '';
+    $('#zespol').innerHTML = wszystkie + zesp.map(x => `<button type="button" data-osoba="${esc(x.email)}" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border:0;border-top:1px solid #f3ebe7;background:${x.email === wyb ? '#f6eef0' : '#fff'};font-family:inherit;font-size:16px;color:var(--tekst);text-align:left">${kropka(x)}${esc(x.nazwa || x.imie || x.email)}</button>`).join('');
+    const w = wyb === '*' ? { nazwa: 'Wszystkie dziewczyny', zalogowana: true } : zesp.find(x => x.email === wyb);
+    $('#wybranaOsoba').innerHTML = wyb === '*' ? '★ Wszystkie dziewczyny' : w ? `<span style="display:flex;align-items:center;gap:10px">${kropka(w)}${esc(w.nazwa || w.imie)}</span>` : 'Wybierz osobę';
     document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; $('#zespol').classList.add('ukryty'); $('#strzalka').textContent = '▾'; ladujWiadomosci(); });
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
     $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
@@ -580,6 +587,38 @@ async function ladujWiadomosci() {
     document.querySelectorAll('[data-wjutro]').forEach(b => b.onclick = () => doZad(b.dataset.wjutro, plusDni(dzisISO(), 1)));
   } catch (e) { /* bez wiadomości */ }
 }
+// ---------- podgląd zespołu (menadżerka biura) ----------
+let zespWidok = 'zadania', zespDzienD = null;
+async function ladujZespol(d) {
+  if (!profil || !profil.menadzerka) return;
+  zespDzienD = d || zespDzienD || dzisISO();
+  $('#zespDzien').textContent = nazwaDnia(zespDzienD);
+  $('#zespDni').classList.toggle('ukryty', zespWidok !== 'zadania');
+  document.querySelectorAll('[data-zesp]').forEach(b => b.classList.toggle('akt', b.dataset.zesp === zespWidok));
+  try {
+    const r = await api('zespol_podglad', { dzien: zespDzienD });
+    if (r.dzien !== zespDzienD) return;
+    const fmt = t => t ? new Date(t).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    if (zespWidok === 'zadania') {
+      $('#zespLista').innerHTML = r.osoby.map(o => {
+        const zr = o.zadania.filter(z => z.zrobione).length;
+        return `<details class="wiad" style="margin-bottom:8px"><summary style="display:flex;justify-content:space-between;gap:8px;cursor:pointer"><b>${esc(o.imie)}</b><span style="color:${o.zadania.length && zr === o.zadania.length ? '#3c9a5f' : '#7a7385'}">${o.zadania.length ? `${zr}/${o.zadania.length} zrobione` : 'brak zadań'}</span></summary>
+          ${o.zadania.map(z => `<div style="padding:4px 0;${z.zrobione ? 'color:#9a93a3;text-decoration:line-through' : ''}">${z.zrobione ? '✓' : '○'} ${esc(z.tekst)}${z.od ? ` <i class="od">od ${esc(z.od)}</i>` : ''}${!z.zrobione && z.zDnia && z.zDnia !== r.dzien ? ` <i class="od">- przeniesione z ${esc(nazwaDnia(z.zDnia))}</i>` : ''}</div>`).join('')}</details>`;
+      }).join('') || '<div class="pusto">Nikt jeszcze się nie zalogował.</div>';
+    } else {
+      $('#zespLista').innerHTML = r.osoby.map(o => {
+        const t = o.tabela;
+        const stan = !o.zakladka ? '<span style="color:#9a93a3">bez zakładki</span>' : !t ? '<span style="color:#9a93a3">jeszcze nie sprawdzana</span>'
+          : t.uzupelniona ? `<span style="color:#3c9a5f">✓ uzupełniona${t.kiedy ? ' (' + esc(fmt(t.kiedy)) + ')' : ''}</span>` : `<span style="color:#b0544a">✗ nieuzupełniona (${esc(nazwaDnia(t.piatek))})</span>`;
+        return `<div class="wiad" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.imie)}</b>${stan}</div>${o.zakladka ? `<div class="info" style="margin:2px 0 0">Zakładka: ${esc(o.zakladka)}</div>` : ''}
+          ${o.umowy.length ? `<div style="margin-top:6px"><b style="font-size:14px">Umowy do przedłużenia:</b>${o.umowy.map(u => `<div style="font-size:14px;padding:2px 0">• ${esc(u.replace(/^Przedłuż umowę pośrednictwa:\s*/, '').replace(/\. Po przedłużeniu.*$/, ''))}</div>`).join('')}</div>` : ''}</div>`;
+      }).join('') || '<div class="pusto">Nikt jeszcze się nie zalogował.</div>';
+    }
+  } catch (e) { $('#zespLista').innerHTML = `<div class="pusto">Nie udało się: ${esc(e.message)}</div>`; }
+}
+document.querySelectorAll('[data-zesp]').forEach(b => b.onclick = () => { zespWidok = b.dataset.zesp; ladujZespol(); });
+$('#zespWstecz').onclick = () => ladujZespol(plusDni(zespDzienD || dzisISO(), -1));
+$('#zespDalej').onclick = () => ladujZespol(plusDni(zespDzienD || dzisISO(), 1));
 async function wyslijWiadomosc() {
   const doKogo = $('#doKogo').value, tekst = $('#trescWiad').value.trim();
   const st = (t, kolor) => { $('#statusWiad').innerHTML = `<span style="color:${kolor}">${t}</span>`; };
@@ -588,9 +627,10 @@ async function wyslijWiadomosc() {
   const komu = $('#wybranaOsoba').textContent.trim();
   const btn = $('#btnWyslijWiad'); btn.disabled = true; btn.textContent = 'Wysyłam...';
   try {
-    await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
+    const wynik = await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
     $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; $('#doKogo').value = '';
-    st(`✓ ${zadanie ? 'Zadanie wysłane' : 'Wysłane'} do: ${esc(komu)}`, '#3c9a5f');
+    st(`✓ ${zadanie ? 'Zadanie wysłane' : 'Wysłane'} do: ${esc(komu)}${wynik.ile ? ` (${wynik.ile} os.)` : ''}`, '#3c9a5f');
+    if (doKogo === '*') ladujZespol();
     setTimeout(() => { $('#statusWiad').innerHTML = ''; }, 6000);
     ladujWiadomosci();
   } catch (e) { st('Nie wysłano: ' + esc(e.message), '#b0544a'); }
@@ -603,7 +643,7 @@ function dopasujPanele() {
   [...p.children].forEach((el, i) => { el.style.maxHeight = i === n ? '' : '0px'; el.style.overflow = i === n ? '' : 'hidden'; });
 }
 function rozwinPanele() { [...$('#panele').children].forEach(el => { el.style.maxHeight = ''; el.style.overflow = ''; }); }
-function zaznaczZakladke() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); document.querySelectorAll('.zakl').forEach(b => b.classList.toggle('akt', +b.dataset.panel === n)); }
+function zaznaczZakladke() { const p = $('#panele'); const n = Math.round(p.scrollLeft / (p.clientWidth + 24)); document.querySelectorAll('.zakl[data-panel]').forEach(b => b.classList.toggle('akt', +b.dataset.panel === n)); }
 // stary format briefu (wiersz po wierszu) -> jedna pozycja na arkusz z liczbą nowych wpisów
 function arkuszeZliczone(l) {
   if (l.every(a => typeof a.nowe === 'number')) return l;
@@ -856,7 +896,7 @@ async function start() {
   pokaz('#ekranGlowny');
   try {
     const r = await api('ja');
-    profil = r.profil; brief = r.brief; pokazProfil(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik(); odnowPush();
+    profil = r.profil; brief = r.brief; pokazProfil(); $('#kartaZespol').classList.toggle('ukryty', !profil.menadzerka); ladujZespol(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik(); odnowPush();
     if (r.oczekujace && ['mail', 'kalendarz'].includes(r.oczekujace.typ) && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
       rysujKarte(r.oczekujace.typ === 'mail' ? { typ: 'szkic', do: r.oczekujace.od, temat: r.oczekujace.szkic.temat, tresc: r.oczekujace.szkic.tresc } : { typ: 'kalendarz', ...r.oczekujace.dane, kiedy: r.oczekujace.dane.start.replace('T', ' ') });
       $('#odp').textContent = 'Czeka na Twoje potwierdzenie.';
@@ -884,7 +924,7 @@ $('#dzienDalej').onclick = () => ladujZadania(plusDni(dzienZad, 1));
 $('#btnDodajZadanie').onclick = dodajZadanie;
 $('#noweZadanie').onkeydown = e => { if (e.key === 'Enter') dodajZadanie(); };
 $('#btnWyslijWiad').onclick = wyslijWiadomosc;
-document.querySelectorAll('.zakl').forEach(b => b.onclick = () => panel(+b.dataset.panel));
+document.querySelectorAll('.zakl[data-panel]').forEach(b => b.onclick = () => panel(+b.dataset.panel));
 $('#panele').addEventListener('scroll', () => { zaznaczZakladke(); rozwinPanele(); clearTimeout(window._tp); window._tp = setTimeout(dopasujPanele, 150); }, { passive: true }); zaznaczZakladke(); dopasujPanele();
 $('#panele').addEventListener('touchstart', rozwinPanele, { passive: true });
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };

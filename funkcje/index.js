@@ -173,10 +173,14 @@ async function kto(req) {
   const s = await db.collection('sesje').doc(hash(m[1])).get();
   return s.exists ? s.data().email : null;
 }
+// menadżerka biura: widzi zadania i Tabelę KRAMM całego zespołu, może pisać do wszystkich naraz
+const MENADZERKI = ['zanna@kramm.pl'];
+const czyMenadzerka = email => MENADZERKI.includes(String(email || '').toLowerCase());
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
     powiadomienia: (a.push || []).filter(dobraSub).length, polaczenie: a.polaczenie || 'ok',
     arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '', tourWidziany: !!a.tourWidziany, czujkaMaile: a.czujkaMaile !== false, czujkaLeady: a.czujkaLeady !== false,
+    menadzerka: czyMenadzerka(a.email),
     brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
 
@@ -265,10 +269,37 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
       case 'wiadomosc_wyslij': {
         const tekst = String(body.tekst || '').trim().slice(0, 500);
         const zesp = await zespol();
-        if (!tekst || !zesp.some(x => x.email === body.do)) return res.status(400).json({ blad: 'Wybierz adresatkę i wpisz treść' });
         const zadanie = !!body.zadanie;
-        await wyslijDoAgentki(a, { do: body.do, tekst, zadanie, dzien: zadanie ? (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien()) : null });
+        const dzienW = zadanie ? (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien()) : null;
+        if (body.do === '*') {
+          if (!czyMenadzerka(email)) return res.status(403).json({ blad: 'Tylko menadżerka biura może pisać do wszystkich' });
+          if (!tekst) return res.status(400).json({ blad: 'Wpisz treść' });
+          const adresatki = zesp.filter(x => x.email !== email);
+          for (const x of adresatki) await wyslijDoAgentki(a, { do: x.email, tekst, zadanie, dzien: dzienW }).catch(e => logger.warn('do wszystkich', x.email, e.message));
+          return res.json({ ok: true, ile: adresatki.length });
+        }
+        if (!tekst || !zesp.some(x => x.email === body.do)) return res.status(400).json({ blad: 'Wybierz adresatkę i wpisz treść' });
+        await wyslijDoAgentki(a, { do: body.do, tekst, zadanie, dzien: dzienW });
         return res.json({ ok: true });
+      }
+      case 'zespol_podglad': {
+        if (!czyMenadzerka(email)) return res.status(403).json({ blad: 'Brak uprawnień' });
+        const dzien = /^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien();
+        const q = await db.collection('agentki').get();
+        const osoby = await Promise.all(q.docs.filter(x => x.data().refresh || x.data().imie).map(async x => {
+          const d = x.data();
+          if (dzien === czas.dzien()) await przeniesZalegle(x.id).catch(() => {});
+          const [zad, tab, otw] = await Promise.all([
+            zadaniaDnia(x.id, dzien),
+            x.ref.collection('stan').doc('tabela').get().then(t => t.data() || null).catch(() => null),
+            x.ref.collection('zadania').where('zrobione', '==', false).get().then(z => z.docs.filter(y => y.id.startsWith('umowa-')).map(y => y.data().tekst)).catch(() => []),
+          ]);
+          return { email: x.id, imie: d.nazwa || d.imie || x.id, zakladka: d.zakladkaTabeli === '-' ? null : (d.zakladkaTabeli || (tab && tab.zakladka) || null),
+            zadania: zad.map(z => ({ tekst: z.tekst, zrobione: !!z.zrobione, od: z.od || '', zDnia: z.zDnia || '' })),
+            tabela: tab ? { piatek: tab.dzien, uzupelniona: !!tab.uzupelniona, kiedy: tab.kiedy || null } : null, umowy: otw };
+        }));
+        osoby.sort((x, y) => x.imie.localeCompare(y.imie, 'pl'));
+        return res.json({ dzien, osoby });
       }
       case 'zadanie_dodaj': {
         const tekst = String(body.tekst || '').trim().slice(0, 300);
