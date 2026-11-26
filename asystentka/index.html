@@ -137,6 +137,19 @@
       <div id="listaZadan"><div class="pusto">Ładuję...</div></div>
       <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="noweZadanie" placeholder="Dopisz zadanie"><button class="jasny" style="flex:none;padding:0 16px;border-radius:14px" id="btnDodajZadanie">Dodaj</button></div>
     </div>
+    <div class="karta ukryty" id="kartaPytania">
+      <h3 style="margin-top:0">Pytania do Żanny<small>odpowie w wolnej chwili</small></h3>
+      <textarea id="trescPytania" rows="2" placeholder="Twoje pytanie do Żanny"></textarea>
+      <button class="glowny" id="btnPytanie" style="margin-top:8px">Zadaj pytanie</button>
+      <div id="statusPytania" style="text-align:center;font-size:15px;margin-top:8px;min-height:20px"></div>
+      <div id="mojePytania" style="max-height:45vh;overflow-y:auto;overscroll-behavior:contain"></div>
+    </div>
+    <div class="karta ukryty" id="kartaPytaniaZ">
+      <h3 style="margin-top:0">Pytania od dziewczyn<small id="ilePytanZ"></small></h3>
+      <div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="zakl" data-pz="otwarte">Czekają</button><button type="button" class="zakl" data-pz="historia">Historia</button></div>
+      <div id="listaPytanZ" style="max-height:60vh;overflow-y:auto;overscroll-behavior:contain"><div class="pusto">Ładuję...</div></div>
+      <p class="info" id="linkBazy" style="margin-top:8px"></p>
+    </div>
     <div class="karta" id="kartaNapisz">
       <div style="display:flex;gap:6px;margin-bottom:10px"><button type="button" class="zakl" data-panel="0">Napisz</button><button type="button" class="zakl" data-panel="1">Historia <span id="ileHist"></span></button></div>
       <div id="panele" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:24px">
@@ -147,6 +160,7 @@
       <p class="info" style="margin:6px 0 0"><span style="color:#3c9a5f">●</span> w Asystentce &nbsp; <span style="color:#c9a9b2">●</span> jeszcze nie - wiadomość poczeka do jej pierwszego logowania</p>
       <input type="hidden" id="doKogo">
       <textarea id="trescWiad" rows="2" placeholder="Wiadomość albo zadanie" style="margin-top:8px"></textarea>
+      <div class="przel ukryty"><input type="checkbox" id="jakoPytanie"><label for="jakoPytanie" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">To pytanie - poczekam na odpowiedź</label></div>
       <div class="przel"><input type="checkbox" id="jakoZadanie"><label for="jakoZadanie" style="margin:0;text-transform:none;letter-spacing:0;font-size:15px;color:var(--tekst)">Wrzuć jako zadanie na dzień</label><input type="date" id="dzienZadania" style="width:auto;padding:6px;border:1px solid #eadfd8;border-radius:10px"></div>
       <button class="glowny" id="btnWyslijWiad">Wyślij</button>
       <div id="statusWiad" style="text-align:center;font-size:15px;margin-top:8px;min-height:20px"></div>
@@ -213,7 +227,7 @@
     </div>
     <div class="karta">
       <h3>Na telefonie</h3>
-      <p class="info" style="text-align:center">Wersja 26.11 (b)</p>
+      <p class="info" style="text-align:center">Wersja 26.11 (d)</p>
       <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
@@ -532,11 +546,20 @@ async function ladujWiadomosci() {
     $('#wybranaOsoba').innerHTML = wyb === '*' ? '★ Wszystkie dziewczyny' : w ? `<span style="display:flex;align-items:center;gap:10px">${kropka(w)}${esc(w.nazwa || w.imie)}</span>` : 'Wybierz osobę';
     document.querySelectorAll('[data-osoba]').forEach(b => b.onclick = () => { $('#doKogo').value = b.dataset.osoba; $('#zespol').classList.add('ukryty'); $('#strzalka').textContent = '▾'; ladujWiadomosci(); });
     const nowe = r.wiadomosci.filter(w => !w.przeczytana);
-    $('#wiadomosci').innerHTML = nowe.length ? `<div class="karta"><h3>Od dziewczyn<small>${nowe.length}</small></h3>${nowe.map(w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}<div>${esc(w.tekst)}</div>
+    const kartaW = w => `<div class="wiad"><b>${esc(w.odImie)}</b> · ${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}${w.pytanie ? ' · <span style="color:#7a4fb0;font-weight:600">❓ pytanie</span>' : ''}<div>${esc(w.tekst)}</div>
+      ${w.pytanie ? `<div style="margin-top:8px"><textarea data-podp="${esc(w.id)}" rows="2" placeholder="Twoja odpowiedź dla ${esc(w.odImie)}..." style="width:100%"></textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="glowny" data-wpodp="${esc(w.id)}" style="flex:1;padding:10px">Odpowiedz</button><button class="jasny" data-pozniej="${esc(w.id)}" style="flex:none;padding:10px 14px;border-radius:999px;border:0">Później</button></div></div><div data-wstatus="${esc(w.id)}" style="font-size:14px;margin-top:4px"></div></div>` : `
       <div class="akcje">${w.potwierdzenie ? `<button data-wok="${esc(w.id)}">Przeczytane</button>` : `<button data-wodp="ok" data-wid="${esc(w.id)}">OK</button><button data-wodp="nie" data-wid="${esc(w.id)}">Nie</button>`}${w.zadanie || w.potwierdzenie ? '' : `<button data-wzad="${esc(w.id)}">Do zadań</button><button data-wjutro="${esc(w.id)}">Na jutro</button>`}</div>
       <div style="display:flex;gap:8px;margin-top:8px"><textarea data-wtresc="${esc(w.id)}" rows="1" placeholder="Odpisz ${esc(w.odImie)}..." style="flex:1;min-height:42px"></textarea><button class="jasny" data-wodpisz="${esc(w.id)}" style="flex:none;padding:0 14px;border-radius:14px">Wyślij</button></div>
-      <div data-wstatus="${esc(w.id)}" style="font-size:14px;margin-top:4px"></div></div>`).join('')}</div>` : '';
-    const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'], wykonane: ['#1f7a45', 'wykonane ✓'] };
+      <div data-wstatus="${esc(w.id)}" style="font-size:14px;margin-top:4px"></div></div>`}`;
+    const zwykle = nowe.filter(w => !w.pytanie), pytaniaDoMnie = profil && profil.menadzerka ? [] : nowe.filter(w => w.pytanie);
+    $('#wiadomosci').innerHTML = (pytaniaDoMnie.length ? `<div class="karta"><h3>Pytania do Ciebie<small>${pytaniaDoMnie.length}</small></h3>${pytaniaDoMnie.map(kartaW).join('')}</div>` : '')
+      + (zwykle.length ? `<div class="karta"><h3>Od dziewczyn<small>${zwykle.length}</small></h3>${zwykle.map(kartaW).join('')}</div>` : '');
+    // sekcja „Pytania do Żanny” (dla dziewczyn): moje pytania i odpowiedzi
+    if (profil && !profil.menadzerka) {
+      const moje = (r.wyslane || []).filter(w => w.pytanie && w.do === ZANNA).slice(0, 15);
+      $('#mojePytania').innerHTML = moje.length ? moje.map(w => `<div class="wiad"><div style="color:#6f6878;font-size:14px">${esc(new Date(w.czas).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }))}</div><div>${esc(w.tekst)}</div>${w.odpowiedzTekst ? `<div style="margin-top:6px;color:#7a4fb0"><b>Żanna:</b> ${esc(w.odpowiedzTekst)}</div>` : '<div style="margin-top:6px;color:#c98a9b">czeka na odpowiedź</div>'}</div>`).join('') : '<div class="pusto">Nie zadałaś jeszcze pytania.</div>';
+    }
+    const STAN = { nowa: ['#f2b8c6', 'nieprzeczytana'], przeczytana: ['#2e3192', 'przeczytana'], ok: ['#3c9a5f', 'OK'], nie: ['#b0544a', 'Nie'], wykonane: ['#1f7a45', 'wykonane ✓'], odpowiedziala: ['#7a4fb0', 'odpowiedziała'] };
     const wszystko = [...(r.wyslane || []).map(w => ({ ...w, kier: 'do', osoba: w.do, imie: w.doImie })), ...(r.wiadomosci || []).map(w => ({ ...w, kier: 'od', osoba: w.od, imie: w.odImie }))].sort((a, b) => b.czas - a.czas).slice(0, 100);
     $('#ileHist').textContent = wszystko.length ? `(${wszystko.length})` : '';
     const osoby = [...new Map(wszystko.filter(w => w.osoba).map(w => [w.osoba, w.imie || w.osoba])).entries()];
@@ -545,10 +568,10 @@ async function ladujWiadomosci() {
     const kiedy = t => new Date(t).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
     const wybor = osoby.length > 1 ? `<select id="filtrHist" style="margin-bottom:8px"><option value="">Wszystkie osoby</option>${osoby.map(([e, n]) => `<option value="${esc(e)}"${e === filtrHist ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>` : '';
     $('#wyslane').innerHTML = wybor + '<div id="listaHist" style="max-height:55vh;overflow-y:auto;overscroll-behavior:contain;padding-right:4px">' + (hist.length ? hist.map(w => {
-      if (w.kier === 'do') { const st = STAN[w.odpowiedz || w.stan] || STAN.nowa;
-        return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div>${w.uzasadnienie ? `<div style="font-size:14px;color:#b0544a;margin-top:2px">Powód: ${esc(w.uzasadnienie)}</div>` : ''}<div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
+      if (w.kier === 'do') { const st = w.pytanie && w.stan !== 'odpowiedziala' ? ['#f2b8c6', 'czeka na odpowiedź'] : STAN[w.odpowiedz || w.stan] || STAN.nowa;
+        return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;background:${st[0]};flex:none;margin-top:6px"></i><div style="flex:1"><b>do ${esc(w.doImie)}</b> · <span style="color:${st[0]};font-weight:500">${st[1]}</span><div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div>${w.uzasadnienie ? `<div style="font-size:14px;color:#b0544a;margin-top:2px">Powód: ${esc(w.uzasadnienie)}</div>` : ''}${w.odpowiedzTekst ? `<div style="font-size:14px;color:#7a4fb0;margin-top:2px">Odpowiedź: ${esc(w.odpowiedzTekst)}</div>` : ''}<div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)}</div></div></div>`; }
       return `<div class="wiad" style="display:flex;gap:10px;align-items:flex-start"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--granat);flex:none;margin-top:5px"></i><div style="flex:1"><b>od ${esc(w.odImie)}</b>${w.odpowiedz ? ` · <span style="font-weight:500">Ty: ${w.odpowiedz === 'ok' ? 'OK' : 'Nie'}</span>` : ''}<div style="color:#6f6878;font-size:14px">${esc(w.tekst)}</div><div class="info" style="margin:2px 0 0;font-size:12px">${kiedy(w.czas)} · <a href="#" data-odpiszhist="${esc(w.od)}" style="color:var(--granat)">Odpisz</a></div></div></div>`;
-    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie &nbsp;<span style="color:#1f7a45">●</span> wykonane</p>' : '<div class="pusto">Brak wiadomości.</div>') + '</div>';
+    }).join('') + '<p class="info" style="margin-top:8px"><span style="color:#f2b8c6">●</span> nieprzeczytana &nbsp;<span style="color:#2e3192">●</span> przeczytana &nbsp;<span style="color:#3c9a5f">●</span> OK &nbsp;<span style="color:#b0544a">●</span> Nie &nbsp;<span style="color:#1f7a45">●</span> wykonane &nbsp;<span style="color:#7a4fb0">●</span> odpowiedziała</p>' : '<div class="pusto">Brak wiadomości.</div>') + '</div>';
     const fh = $('#filtrHist'); if (fh) fh.onchange = () => { filtrHist = fh.value; ladujWiadomosci(); };
     const zn = id => nowe.find(w => w.id === id);
     document.querySelectorAll('[data-odpiszhist]').forEach(a => a.onclick = e => { e.preventDefault(); $('#doKogo').value = a.dataset.odpiszhist; panel(0); ladujWiadomosci().then(() => $('#trescWiad').focus()); });
@@ -562,6 +585,14 @@ async function ladujWiadomosci() {
         st.innerHTML = `<span style="color:#3c9a5f">✓ Odpisane do: ${esc(w.odImie)}</span>`;
         setTimeout(() => ladujWiadomosci(), 2500);
       } catch (e) { st.innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; b.disabled = false; b.textContent = 'Wyślij'; }
+    });
+    document.querySelectorAll('[data-pozniej]').forEach(b => b.onclick = () => { const st = document.querySelector(`[data-wstatus="${b.dataset.pozniej}"]`); st.innerHTML = '<span style="color:#7a7385">Pytanie poczeka tutaj, aż odpowiesz.</span>'; document.querySelector(`[data-podp="${b.dataset.pozniej}"]`).blur(); });
+    document.querySelectorAll('[data-wpodp]').forEach(b => b.onclick = async () => {
+      const id = b.dataset.wpodp, pole = document.querySelector(`[data-podp="${id}"]`), st = document.querySelector(`[data-wstatus="${id}"]`);
+      const tekst = pole.value.trim(); if (!tekst) { pole.focus(); return; }
+      b.disabled = true; b.textContent = 'Wysyłam...';
+      try { await api('pytanie_odpowiedz', { id, tekst }); st.innerHTML = `<span style="color:#3c9a5f">✓ Odpowiedź wysłana do: ${esc(zn(id).odImie)}</span>`; setTimeout(() => ladujWiadomosci(), 2500); }
+      catch (e) { st.innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; b.disabled = false; b.textContent = 'Odpowiedz'; }
     });
     document.querySelectorAll('[data-wok]').forEach(b => b.onclick = async () => { b.disabled = true; await api('wiadomosc_przeczytana', { id: b.dataset.wok }).catch(() => {}); ladujWiadomosci(); });
     document.querySelectorAll('[data-wodp]').forEach(b => b.onclick = async () => {
@@ -619,17 +650,79 @@ async function ladujZespol(d) {
 document.querySelectorAll('[data-zesp]').forEach(b => b.onclick = () => { zespWidok = b.dataset.zesp; ladujZespol(); });
 $('#zespWstecz').onclick = () => ladujZespol(plusDni(zespDzienD || dzisISO(), -1));
 $('#zespDalej').onclick = () => ladujZespol(plusDni(zespDzienD || dzisISO(), 1));
+const ZANNA = 'zanna@kramm.pl';
+async function wyslijPytanie(tekst) {
+  const st = (t, k) => { $('#statusPytania').innerHTML = `<span style="color:${k}">${t}</span>`; };
+  await api('wiadomosc_wyslij', { do: ZANNA, tekst, pytanie: true });
+  $('#trescPytania').value = ''; st('✓ Pytanie wysłane. Dostaniesz powiadomienie, gdy Żanna odpowie.', '#3c9a5f');
+  setTimeout(() => { $('#statusPytania').innerHTML = ''; }, 7000); ladujWiadomosci();
+}
+$('#btnPytanie').onclick = async () => {
+  const tekst = $('#trescPytania').value.trim(), b = $('#btnPytanie');
+  if (!tekst) { $('#trescPytania').focus(); return; }
+  b.disabled = true; b.textContent = 'Sprawdzam w bazie...';
+  try {
+    // Asystentka sprawdza, czy Żanna odpowiadała już na takie pytanie
+    const { podpowiedz: p } = await api('pytanie_szukaj', { tekst }).catch(() => ({}));
+    if (p) {
+      $('#statusPytania').innerHTML = `<div class="wiad" style="text-align:left;border-left:3px solid #7a4fb0"><div style="font-size:14px;color:#7a4fb0;font-weight:600">Żanna odpowiadała już na podobne pytanie (${esc(new Date(p.kiedy).toLocaleDateString('pl-PL'))})</div>
+        <div style="font-size:14px;color:#6f6878;margin-top:4px">„${esc(p.pytanie)}”</div><div style="margin-top:6px">${esc(p.odpowiedz)}</div>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="glowny" id="btnPWystarczy" style="flex:1;padding:10px">To mi wystarczy</button><button class="jasny" id="btnPDoZanny" style="flex:1;padding:10px;border-radius:999px;border:0">Wyślij do Żanny</button></div></div>`;
+      $('#btnPWystarczy').onclick = () => { api('pytanie_rozwiazane', { id: p.id }).catch(() => {}); $('#trescPytania').value = ''; $('#statusPytania').innerHTML = '<span style="color:#3c9a5f">✓ Super, pytanie nie poszło do Żanny.</span>'; setTimeout(() => { $('#statusPytania').innerHTML = ''; }, 5000); };
+      $('#btnPDoZanny').onclick = async () => { try { await wyslijPytanie(tekst); } catch (e) { $('#statusPytania').innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; } };
+    } else await wyslijPytanie(tekst);
+  } catch (e) { $('#statusPytania').innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; }
+  finally { b.disabled = false; b.textContent = 'Zadaj pytanie'; }
+};
+// ---------- sekcja menadżerki: pytania od dziewczyn ----------
+let pzWidok = 'otwarte';
+async function ladujPytaniaZ() {
+  if (!profil || !profil.menadzerka) return;
+  document.querySelectorAll('[data-pz]').forEach(b => b.classList.toggle('akt', b.dataset.pz === pzWidok));
+  try {
+    const r = await api('pytania_lista');
+    const otwarte = r.pytania.filter(p => !p.odpowiedzTekst), stare = r.pytania.filter(p => p.odpowiedzTekst);
+    $('#ilePytanZ').textContent = otwarte.length ? String(otwarte.length) : '';
+    document.querySelector('[data-pz="otwarte"]').textContent = `Czekają${otwarte.length ? ' (' + otwarte.length + ')' : ''}`;
+    const kiedy = t => new Date(t).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+    $('#linkBazy').innerHTML = r.dokument ? `Wszystkie pytania i odpowiedzi są też w dokumencie <a href="${esc(r.dokument)}" target="_blank" style="color:var(--granat)">${esc('Pytania do Żanny - baza KRAMM')}</a> na Twoim Dysku.` : 'Po pierwszej odpowiedzi na Twoim Dysku powstanie dokument „Pytania do Żanny - baza KRAMM”.';
+    if (pzWidok === 'otwarte') {
+      $('#listaPytanZ').innerHTML = otwarte.length ? otwarte.map(p => `<div class="wiad"><b>${esc(p.odImie)}</b> · ${esc(kiedy(p.czas))}<div style="margin-top:4px">${esc(p.tekst)}</div>
+        <textarea data-pzodp="${esc(p.id)}" rows="2" placeholder="Odpowiedź dla ${esc(p.odImie)}..." style="width:100%;margin-top:8px"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px"><button class="glowny" data-pzwyslij="${esc(p.id)}" style="flex:1;padding:10px">Odpowiedz</button><button class="jasny" data-pzbaza="${esc(p.id)}" style="flex:none;padding:10px 14px;border-radius:999px;border:0">Podpowiedź z bazy</button></div>
+        <div data-pzst="${esc(p.id)}" style="font-size:14px;margin-top:4px"></div></div>`).join('') : '<div class="pusto">Brak pytań do odpowiedzi.</div>';
+      document.querySelectorAll('[data-pzwyslij]').forEach(b => b.onclick = async () => {
+        const id = b.dataset.pzwyslij, pole = document.querySelector(`[data-pzodp="${id}"]`), st = document.querySelector(`[data-pzst="${id}"]`);
+        const tekst = pole.value.trim(); if (!tekst) { pole.focus(); return; }
+        b.disabled = true; b.textContent = 'Wysyłam...';
+        try { await api('pytanie_odpowiedz', { id, tekst }); st.innerHTML = '<span style="color:#3c9a5f">✓ Odpowiedź wysłana i zapisana w bazie</span>'; setTimeout(ladujPytaniaZ, 2000); }
+        catch (e) { st.innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; b.disabled = false; b.textContent = 'Odpowiedz'; }
+      });
+      document.querySelectorAll('[data-pzbaza]').forEach(b => b.onclick = async () => {
+        const id = b.dataset.pzbaza, p = otwarte.find(x => x.id === id), st = document.querySelector(`[data-pzst="${id}"]`);
+        b.disabled = true; st.innerHTML = '<span style="color:#7a7385">Szukam w bazie...</span>';
+        const { podpowiedz: q } = await api('pytanie_szukaj', { tekst: p.tekst }).catch(() => ({}));
+        b.disabled = false;
+        if (q) { document.querySelector(`[data-pzodp="${id}"]`).value = q.odpowiedz; st.innerHTML = `<span style="color:#7a4fb0">Wpisałam odpowiedź z ${esc(new Date(q.kiedy).toLocaleDateString('pl-PL'))} na pytanie „${esc(q.pytanie)}”. Popraw, jeśli trzeba.</span>`; }
+        else st.innerHTML = '<span style="color:#7a7385">W bazie nie ma odpowiedzi na takie pytanie.</span>';
+      });
+    } else {
+      $('#listaPytanZ').innerHTML = stare.length ? stare.map(p => `<div class="wiad"><b>${esc(p.odImie)}</b> · ${esc(kiedy(p.czas))}<div style="margin-top:4px">${esc(p.tekst)}</div><div style="margin-top:6px;color:#7a4fb0"><b>Ty:</b> ${esc(p.odpowiedzTekst)}</div></div>`).join('') : '<div class="pusto">Jeszcze nic.</div>';
+    }
+  } catch (e) { $('#listaPytanZ').innerHTML = `<div class="pusto">Nie udało się: ${esc(e.message)}</div>`; }
+}
+document.querySelectorAll('[data-pz]').forEach(b => b.onclick = () => { pzWidok = b.dataset.pz; ladujPytaniaZ(); });
 async function wyslijWiadomosc() {
   const doKogo = $('#doKogo').value, tekst = $('#trescWiad').value.trim();
   const st = (t, kolor) => { $('#statusWiad').innerHTML = `<span style="color:${kolor}">${t}</span>`; };
   if (!doKogo || !tekst) { st('Wybierz osobę i wpisz treść.', '#b0544a'); return; }
-  const zadanie = $('#jakoZadanie').checked;
+  const zadanie = $('#jakoZadanie').checked, pytanie = !zadanie && $('#jakoPytanie').checked;
   const komu = $('#wybranaOsoba').textContent.trim();
   const btn = $('#btnWyslijWiad'); btn.disabled = true; btn.textContent = 'Wysyłam...';
   try {
-    const wynik = await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, dzien: $('#dzienZadania').value || dzisISO() });
-    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; $('#doKogo').value = '';
-    st(`✓ ${zadanie ? 'Zadanie wysłane' : 'Wysłane'} do: ${esc(komu)}${wynik.ile ? ` (${wynik.ile} os.)` : ''}`, '#3c9a5f');
+    const wynik = await api('wiadomosc_wyslij', { do: doKogo, tekst, zadanie, pytanie, dzien: $('#dzienZadania').value || dzisISO() });
+    $('#trescWiad').value = ''; $('#jakoZadanie').checked = false; $('#jakoPytanie').checked = false; $('#doKogo').value = '';
+    st(`✓ ${zadanie ? 'Zadanie wysłane' : pytanie ? 'Pytanie wysłane' : 'Wysłane'} do: ${esc(komu)}${wynik.ile ? ` (${wynik.ile} os.)` : ''}`, '#3c9a5f');
     if (doKogo === '*') ladujZespol();
     setTimeout(() => { $('#statusWiad').innerHTML = ''; }, 6000);
     ladujWiadomosci();
@@ -896,7 +989,7 @@ async function start() {
   pokaz('#ekranGlowny');
   try {
     const r = await api('ja');
-    profil = r.profil; brief = r.brief; pokazProfil(); $('#kartaZespol').classList.toggle('ukryty', !profil.menadzerka); ladujZespol(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik(); odnowPush();
+    profil = r.profil; brief = r.brief; pokazProfil(); $('#kartaZespol').classList.toggle('ukryty', !profil.menadzerka); $('#kartaPytania').classList.toggle('ukryty', !!profil.menadzerka); $('#kartaPytaniaZ').classList.toggle('ukryty', !profil.menadzerka); ladujPytaniaZ(); ladujZespol(); rysujBrief(); ladujZadania(dzisISO()); ladujWiadomosci(); zapytajOZakladke(); wyzerujLicznik(); odnowPush();
     if (r.oczekujace && ['mail', 'kalendarz'].includes(r.oczekujace.typ) && Date.now() - (r.oczekujace.czas || 0) < 15 * 60000) {
       rysujKarte(r.oczekujace.typ === 'mail' ? { typ: 'szkic', do: r.oczekujace.od, temat: r.oczekujace.szkic.temat, tresc: r.oczekujace.szkic.tresc } : { typ: 'kalendarz', ...r.oczekujace.dane, kiedy: r.oczekujace.dane.start.replace('T', ' ') });
       $('#odp').textContent = 'Czeka na Twoje potwierdzenie.';
@@ -927,6 +1020,8 @@ $('#btnWyslijWiad').onclick = wyslijWiadomosc;
 document.querySelectorAll('.zakl[data-panel]').forEach(b => b.onclick = () => panel(+b.dataset.panel));
 $('#panele').addEventListener('scroll', () => { zaznaczZakladke(); rozwinPanele(); clearTimeout(window._tp); window._tp = setTimeout(dopasujPanele, 150); }, { passive: true }); zaznaczZakladke(); dopasujPanele();
 $('#panele').addEventListener('touchstart', rozwinPanele, { passive: true });
+$('#jakoPytanie').onchange = () => { if ($('#jakoPytanie').checked) $('#jakoZadanie').checked = false; };
+$('#jakoZadanie').addEventListener('change', () => { if ($('#jakoZadanie').checked) $('#jakoPytanie').checked = false; });
 $('#wybierzOsobe').onclick = () => { const z = $('#zespol').classList.toggle('ukryty'); $('#strzalka').textContent = z ? '▾' : '▴'; };
 $('#dzienZadania').value = dzisISO();
 // po przeniesieniu na nowy adres: zgoda na powiadomienia jest, ale subskrypcja jeszcze ze starej strony -> przepisz po cichu
@@ -953,7 +1048,7 @@ function wyzerujLicznik() {
   try { if (navigator.clearAppBadge) navigator.clearAppBadge(); } catch (e) {}
   if (sesja) api('odczytane').catch(() => {});
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); wyzerujLicznik(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); ladujPytaniaZ(); wyzerujLicznik(); } });
 $('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; ladujZakladki(); };
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;

@@ -12,6 +12,7 @@ const g = require('./google');
 const brief = require('./brief');
 const komendy = require('./komendy');
 const tabela = require('./tabela');
+const pytania = require('./pytania');
 const czujka = require('./czujka');
 
 admin.initializeApp();
@@ -107,10 +108,10 @@ async function wyslijDoAgentki(nadawca, w) {
   const tekst = w.zadanie ? `Nowe zadanie na ${czas.mowionaData(w.dzien, false)}: ${w.tekst}` : w.tekst;
   const odbiorca = (await adresatka.get()).data() || {};
   await Promise.all([
-    doc.set({ od: nadawca.email, odImie, tekst, czas: teraz, przeczytana: false, ...(w.zadanie ? { zadanie: true } : {}) }),
-    agentkaRef(nadawca.email).collection('wyslane').doc(doc.id).set({ do: w.do, doImie: odbiorca.nazwa || odbiorca.imie || w.do, tekst, czas: teraz, stan: 'nowa', odpowiedz: null, zadanie: !!w.zadanie })
+    doc.set({ od: nadawca.email, odImie, tekst, czas: teraz, przeczytana: false, ...(w.zadanie ? { zadanie: true } : {}), ...(w.pytanie ? { pytanie: true } : {}) }),
+    agentkaRef(nadawca.email).collection('wyslane').doc(doc.id).set({ do: w.do, doImie: odbiorca.nazwa || odbiorca.imie || w.do, tekst, czas: teraz, stan: 'nowa', odpowiedz: null, zadanie: !!w.zadanie, pytanie: !!w.pytanie })
   ]);
-  await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'wiad-' + doc.id }).catch(() => {});
+  await wyslijPush(w.do, { tytul: w.zadanie ? `Zadanie od ${odImie}` : w.pytanie ? `Pytanie od ${odImie}` : `Wiadomość od ${odImie}`, tresc: w.tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'wiad-' + doc.id }).catch(() => {});
 }
 // odbiorczyni przeczytała / odpowiedziała OK albo Nie - zmiana widoczna u nadawczyni
 async function oznaczWiadomosc(odbiorczyni, id, odpowiedz, uzasadnienie) {
@@ -266,20 +267,59 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         await oznaczWiadomosc(a, body.id, ['ok', 'nie'].includes(body.odpowiedz) ? body.odpowiedz : null, body.uzasadnienie);
         return res.json({ ok: true });
       }
+      case 'pytanie_szukaj': {
+        const tekst = String(body.tekst || '').trim().slice(0, 500);
+        if (!tekst) return res.json({ podpowiedz: null });
+        const podpowiedz = await pytania.szukaj(db, { klucz: ANTHROPIC_API_KEY.value().trim(), tekst }).catch(e => { logger.warn('szukaj pytań', e.message); return null; });
+        return res.json({ podpowiedz });
+      }
+      case 'pytanie_rozwiazane': {   // agentce wystarczyła odpowiedź z bazy
+        await db.collection('pytania_baza').doc(String(body.id || '-')).update({ pomoglo: admin.firestore.FieldValue.increment(1) }).catch(() => {});
+        return res.json({ ok: true });
+      }
+      case 'pytania_lista': {
+        if (!czyMenadzerka(email)) return res.status(403).json({ blad: 'Brak uprawnień' });
+        const q = await ref.collection('wiadomosci').where('pytanie', '==', true).get();
+        const lista = q.docs.map(x => ({ id: x.id, ...x.data() })).sort((x, y) => y.czas - x.czas).slice(0, 200);
+        const st = (await db.collection('ustawienia').doc('pytania').get()).data() || {};
+        return res.json({ pytania: lista, dokument: st.dokument ? `https://docs.google.com/document/d/${st.dokument}/edit` : null });
+      }
+      case 'pytanie_odpowiedz': {
+        // odpowiedź na pytanie w wolnej chwili - trafia do pytającej z powiadomieniem
+        const tekst = String(body.tekst || '').trim().slice(0, 1000);
+        if (!tekst) return res.status(400).json({ blad: 'Wpisz odpowiedź' });
+        const wRef = ref.collection('wiadomosci').doc(String(body.id || '-'));
+        const w = (await wRef.get()).data();
+        if (!w) return res.status(404).json({ blad: 'Nie ma takiego pytania' });
+        const imie = a.nazwa || a.imie, teraz = Date.now();
+        await wRef.update({ przeczytana: true, odpowiedzTekst: tekst, odpowiedziano: teraz });
+        // baza pytań i odpowiedzi + dokument na Dysku menadżerki
+        if (w.pytanie) {
+          await pytania.zapisz(db, wRef.id, { pytanie: w.tekst, odpowiedz: tekst, odEmail: w.od || '', odImie: w.odImie || '', czas: w.czas || teraz, odpowiedziano: teraz, odpowiadala: email }).catch(e => logger.warn('baza pytań', e.message));
+          await pytania.dokument(db, g.klient(await g.tokenDostepu(a, GOOGLE_CLIENT_SECRET.value().trim()))).catch(e => logger.warn('dokument pytań', e.message));
+        }
+        if (w.od) {
+          await agentkaRef(w.od).collection('wyslane').doc(wRef.id).update({ stan: 'odpowiedziala', odpowiedzTekst: tekst, czytano: teraz }).catch(() => {});
+          await agentkaRef(w.od).collection('wiadomosci').add({ od: email, odImie: imie, tekst: `Odpowiedź na „${w.tekst.slice(0, 120)}”: ${tekst}`, czas: teraz, przeczytana: false, potwierdzenie: 'odpowiedz' });
+          await wyslijPush(w.od, { tytul: `${imie} odpowiedziała na pytanie`, tresc: tekst.slice(0, 140), url: './?wiadomosci=1', tag: 'odp-' + wRef.id }).catch(() => {});
+        }
+        return res.json({ ok: true });
+      }
       case 'wiadomosc_wyslij': {
         const tekst = String(body.tekst || '').trim().slice(0, 500);
         const zesp = await zespol();
         const zadanie = !!body.zadanie;
+        const pytanie = !zadanie && !!body.pytanie;
         const dzienW = zadanie ? (/^\d{4}-\d{2}-\d{2}$/.test(body.dzien || '') ? body.dzien : czas.dzien()) : null;
         if (body.do === '*') {
           if (!czyMenadzerka(email)) return res.status(403).json({ blad: 'Tylko menadżerka biura może pisać do wszystkich' });
           if (!tekst) return res.status(400).json({ blad: 'Wpisz treść' });
           const adresatki = zesp.filter(x => x.email !== email);
-          for (const x of adresatki) await wyslijDoAgentki(a, { do: x.email, tekst, zadanie, dzien: dzienW }).catch(e => logger.warn('do wszystkich', x.email, e.message));
+          for (const x of adresatki) await wyslijDoAgentki(a, { do: x.email, tekst, zadanie, pytanie, dzien: dzienW }).catch(e => logger.warn('do wszystkich', x.email, e.message));
           return res.json({ ok: true, ile: adresatki.length });
         }
         if (!tekst || !zesp.some(x => x.email === body.do)) return res.status(400).json({ blad: 'Wybierz adresatkę i wpisz treść' });
-        await wyslijDoAgentki(a, { do: body.do, tekst, zadanie, dzien: dzienW });
+        await wyslijDoAgentki(a, { do: body.do, tekst, zadanie, pytanie, dzien: dzienW });
         return res.json({ ok: true });
       }
       case 'zespol_podglad': {
