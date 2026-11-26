@@ -225,9 +225,18 @@
       <div id="wynikiArkuszy"></div>
       <p class="info">Możesz też powiedzieć: „dodaj arkusz leady do pilnowania”.</p>
     </div>
+    <div class="karta ukryty" id="kartaBazy">
+      <h3>Baza wiedzy KRAMM<small>tylko Ty</small></h3>
+      <p class="info">Z tej bazy Asystentka odpowiada dziewczynom na pytania, zanim trafią do Żanny. Baza jest tajna: zapisuje się tylko na serwerze, nikt nie może jej pobrać ani przeczytać w całości.</p>
+      <p id="bazaStan" style="font-size:15px"></p>
+      <p class="info">Żeby wgrać albo zaktualizować: otwórz dokument „Baza wiedzy KRAMM”, zaznacz wszystko (Ctrl+A), skopiuj (Ctrl+C) i wklej tutaj (Ctrl+V).</p>
+      <textarea id="bazaTekst" rows="4" placeholder="Wklej całą treść bazy wiedzy"></textarea>
+      <button class="glowny" id="btnBaza" style="margin-top:8px">Wgraj bazę</button>
+      <div id="bazaStatus" style="text-align:center;font-size:15px;margin-top:8px"></div>
+    </div>
     <div class="karta">
       <h3>Na telefonie</h3>
-      <p class="info" style="text-align:center">Wersja 26.11 (d)</p>
+      <p class="info" style="text-align:center">Wersja 26.11 (e)</p>
       <button class="glowny jasny" id="btnTour" style="margin-bottom:8px">Pokaż wprowadzenie do aplikacji</button>
       <button class="glowny" id="btnIkona">Dodaj ikonę Asystentki KRAMM na pulpit</button>
       <p class="info" id="ikonaInfo"></p>
@@ -665,10 +674,10 @@ $('#btnPytanie').onclick = async () => {
     // Asystentka sprawdza, czy Żanna odpowiadała już na takie pytanie
     const { podpowiedz: p } = await api('pytanie_szukaj', { tekst }).catch(() => ({}));
     if (p) {
-      $('#statusPytania').innerHTML = `<div class="wiad" style="text-align:left;border-left:3px solid #7a4fb0"><div style="font-size:14px;color:#7a4fb0;font-weight:600">Żanna odpowiadała już na podobne pytanie (${esc(new Date(p.kiedy).toLocaleDateString('pl-PL'))})</div>
-        <div style="font-size:14px;color:#6f6878;margin-top:4px">„${esc(p.pytanie)}”</div><div style="margin-top:6px">${esc(p.odpowiedz)}</div>
+      $('#statusPytania').innerHTML = `<div class="wiad" style="text-align:left;border-left:3px solid #7a4fb0">${p.zrodlo === 'baza' ? '<div style="font-size:14px;color:#7a4fb0;font-weight:600">Odpowiedź z Bazy wiedzy KRAMM</div>' : `<div style="font-size:14px;color:#7a4fb0;font-weight:600">Żanna odpowiadała już na podobne pytanie (${esc(new Date(p.kiedy).toLocaleDateString('pl-PL'))})</div>
+        <div style="font-size:14px;color:#6f6878;margin-top:4px">„${esc(p.pytanie)}”</div>`}<div style="margin-top:6px">${esc(p.odpowiedz)}</div>
         <div style="display:flex;gap:8px;margin-top:10px"><button class="glowny" id="btnPWystarczy" style="flex:1;padding:10px">To mi wystarczy</button><button class="jasny" id="btnPDoZanny" style="flex:1;padding:10px;border-radius:999px;border:0">Wyślij do Żanny</button></div></div>`;
-      $('#btnPWystarczy').onclick = () => { api('pytanie_rozwiazane', { id: p.id }).catch(() => {}); $('#trescPytania').value = ''; $('#statusPytania').innerHTML = '<span style="color:#3c9a5f">✓ Super, pytanie nie poszło do Żanny.</span>'; setTimeout(() => { $('#statusPytania').innerHTML = ''; }, 5000); };
+      $('#btnPWystarczy').onclick = () => { if (p.id) api('pytanie_rozwiazane', { id: p.id }).catch(() => {}); $('#trescPytania').value = ''; $('#statusPytania').innerHTML = '<span style="color:#3c9a5f">✓ Super, pytanie nie poszło do Żanny.</span>'; setTimeout(() => { $('#statusPytania').innerHTML = ''; }, 5000); };
       $('#btnPDoZanny').onclick = async () => { try { await wyslijPytanie(tekst); } catch (e) { $('#statusPytania').innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; } };
     } else await wyslijPytanie(tekst);
   } catch (e) { $('#statusPytania').innerHTML = `<span style="color:#b0544a">Nie wysłano: ${esc(e.message)}</span>`; }
@@ -703,7 +712,7 @@ async function ladujPytaniaZ() {
         b.disabled = true; st.innerHTML = '<span style="color:#7a7385">Szukam w bazie...</span>';
         const { podpowiedz: q } = await api('pytanie_szukaj', { tekst: p.tekst }).catch(() => ({}));
         b.disabled = false;
-        if (q) { document.querySelector(`[data-pzodp="${id}"]`).value = q.odpowiedz; st.innerHTML = `<span style="color:#7a4fb0">Wpisałam odpowiedź z ${esc(new Date(q.kiedy).toLocaleDateString('pl-PL'))} na pytanie „${esc(q.pytanie)}”. Popraw, jeśli trzeba.</span>`; }
+        if (q) { document.querySelector(`[data-pzodp="${id}"]`).value = q.odpowiedz; st.innerHTML = q.zrodlo === 'baza' ? '<span style="color:#7a4fb0">Wpisałam odpowiedź z Bazy wiedzy KRAMM. Popraw, jeśli trzeba.</span>' : `<span style="color:#7a4fb0">Wpisałam odpowiedź z ${esc(new Date(q.kiedy).toLocaleDateString('pl-PL'))} na pytanie „${esc(q.pytanie)}”. Popraw, jeśli trzeba.</span>`; }
         else st.innerHTML = '<span style="color:#7a7385">W bazie nie ma odpowiedzi na takie pytanie.</span>';
       });
     } else {
@@ -1049,7 +1058,20 @@ function wyzerujLicznik() {
   if (sesja) api('odczytane').catch(() => {});
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && sesja && profil) { ladujWiadomosci(); ladujZadania(); ladujPytaniaZ(); wyzerujLicznik(); } });
-$('#btnUst').onclick = () => { pokaz('#ekranUst'); $('#komunikat').textContent = ''; ladujZakladki(); };
+async function ladujBaze() {
+  if (!profil || !profil.adminka) return;
+  $('#kartaBazy').classList.remove('ukryty');
+  try { const { baza: b } = await api('baza_info'); $('#bazaStan').innerHTML = b ? `<span style="color:#3c9a5f">✓ Wgrana ${esc(new Date(b.kiedy).toLocaleString('pl-PL'))}, ${esc(Math.round(b.dlugosc / 1000))} tys. znaków</span>` : '<span style="color:#b0544a">Baza nie jest jeszcze wgrana.</span>'; } catch (e) {}
+}
+$('#btnBaza').onclick = async () => {
+  const tekst = $('#bazaTekst').value.trim(), b = $('#btnBaza');
+  if (tekst.length < 500) { $('#bazaStatus').innerHTML = '<span style="color:#b0544a">Wklej całą treść bazy.</span>'; return; }
+  b.disabled = true; b.textContent = 'Wgrywam...';
+  try { await api('baza_wgraj', { tekst }); $('#bazaTekst').value = ''; $('#bazaStatus').innerHTML = '<span style="color:#3c9a5f">✓ Baza wgrana. Asystentka już z niej korzysta.</span>'; ladujBaze(); }
+  catch (e) { $('#bazaStatus').innerHTML = `<span style="color:#b0544a">Nie udało się: ${esc(e.message)}</span>`; }
+  finally { b.disabled = false; b.textContent = 'Wgraj bazę'; }
+};
+$('#btnUst').onclick = () => { ladujBaze(); pokaz('#ekranUst'); $('#komunikat').textContent = ''; ladujZakladki(); };
 $('#btnWroc').onclick = () => pokaz('#ekranGlowny');
 $('#btnPush').onclick = wlaczPush;
 $('#btnSzukajArkusza').onclick = szukajArkusza;

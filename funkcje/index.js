@@ -176,12 +176,15 @@ async function kto(req) {
 }
 // menadżerka biura: widzi zadania i Tabelę KRAMM całego zespołu, może pisać do wszystkich naraz
 const MENADZERKI = ['zanna@kramm.pl'];
+// administratorka: wgrywa tajną Bazę wiedzy KRAMM
+const ADMINKI = ['magdalena.p@kramm.pl'];
+const czyAdminka = email => ADMINKI.includes(String(email || '').toLowerCase());
 const czyMenadzerka = email => MENADZERKI.includes(String(email || '').toLowerCase());
 function profil(a) {
   return { email: a.email, imie: a.imie, foto: a.foto, godzina: a.godzina, dniRobocze: a.dniRobocze !== false, punkty: a.punkty || [],
     powiadomienia: (a.push || []).filter(dobraSub).length, polaczenie: a.polaczenie || 'ok',
     arkusze: (a.arkusze || []).map(x => ({ id: x.id, nazwa: x.nazwa })), zakladkaTabeli: a.zakladkaTabeli || '', tourWidziany: !!a.tourWidziany, czujkaMaile: a.czujkaMaile !== false, czujkaLeady: a.czujkaLeady !== false,
-    menadzerka: czyMenadzerka(a.email),
+    menadzerka: czyMenadzerka(a.email), adminka: czyAdminka(a.email),
     brakZgod: g.ZAKRESY.filter(z => z.startsWith('https') && !String(a.zakres || '').includes(z)).length > 0 };
 }
 
@@ -266,6 +269,17 @@ exports.api = onRequest({ region: REGION, secrets: SEKRETY, cors: [/^https:\/\/m
         if (body.odpowiedz === 'nie' && !String(body.uzasadnienie || '').trim()) return res.status(400).json({ blad: 'Napisz krótko, dlaczego nie.' });
         await oznaczWiadomosc(a, body.id, ['ok', 'nie'].includes(body.odpowiedz) ? body.odpowiedz : null, body.uzasadnienie);
         return res.json({ ok: true });
+      }
+      case 'baza_info': {
+        if (!czyAdminka(email)) return res.status(403).json({ blad: 'Brak uprawnień' });
+        return res.json({ baza: await pytania.bazaInfo(db) });
+      }
+      case 'baza_wgraj': {
+        if (!czyAdminka(email)) return res.status(403).json({ blad: 'Brak uprawnień' });
+        const tekst = String(body.tekst || '').trim();
+        if (tekst.length < 500) return res.status(400).json({ blad: 'To za mało tekstu - wklej całą bazę' });
+        if (tekst.length > 900000) return res.status(400).json({ blad: 'Baza jest za duża (max ok. 900 tys. znaków)' });
+        return res.json({ baza: await pytania.wgrajBaze(db, tekst, email) });
       }
       case 'pytanie_szukaj': {
         const tekst = String(body.tekst || '').trim().slice(0, 500);
