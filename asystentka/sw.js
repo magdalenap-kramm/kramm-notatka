@@ -1,13 +1,15 @@
-// wersja 2026-11-24b
+// wersja 2026-11-26
 // Asystentka KRAMM - powiadomienia (poranny brief)
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 // obsługa żądań (wymagana, żeby telefon zainstalował Asystentkę jako aplikację z ikoną)
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || !e.request.url.startsWith(self.registration.scope)) return;
-  // strona zawsze świeża z serwera (bez pamięci podręcznej telefonu)
+  // strona zawsze świeża z serwera; żądania nawigacji nie można przerabiać, więc pobieramy po adresie
   const swieza = e.request.mode === 'navigate' || /\.(html|js|webmanifest)$/.test(new URL(e.request.url).pathname);
-  e.respondWith(fetch(e.request, swieza ? { cache: 'no-store' } : undefined).catch(() => caches.match(e.request)));
+  const pobierz = swieza ? fetch(e.request.url, { cache: 'no-store', credentials: 'same-origin' }) : fetch(e.request);
+  e.respondWith(pobierz.catch(() => fetch(e.request)).catch(async () =>
+    (await caches.match(e.request)) || new Response('<meta charset="utf-8"><p style="font:18px sans-serif;padding:40px;text-align:center">Brak internetu. Spróbuj za chwilę.</p>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } })));
 });
 
 self.addEventListener('push', e => {
