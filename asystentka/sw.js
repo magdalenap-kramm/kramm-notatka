@@ -1,4 +1,4 @@
-// wersja 2026-11-26
+// wersja 2026-11-26b
 // Asystentka KRAMM - powiadomienia (poranny brief)
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
@@ -17,7 +17,7 @@ self.addEventListener('push', e => {
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { tresc: e.data && e.data.text() }; }
   const ikona = d.licznik && self.navigator && self.navigator.setAppBadge ? self.navigator.setAppBadge(d.licznik).catch(() => {}) : Promise.resolve();
   e.waitUntil(ikona.then(() => self.registration.showNotification(d.tytul || 'Asystentka KRAMM', {
-    body: d.tresc || '', icon: 'ikona-192.png', badge: 'ikona-192.png', tag: d.tag || ('asystentka-' + Date.now()), renotify: true, data: { url: d.url || './' }
+    body: d.tresc || '', icon: 'ikona-192.png', badge: 'odznaka-96.png', tag: d.tag || ('asystentka-' + Date.now()), renotify: true, data: { url: d.url || './' }
   })));
 });
 
